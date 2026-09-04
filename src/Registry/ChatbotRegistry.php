@@ -9,6 +9,7 @@ use MB\FilamentChatbot\Bot\Conditions\ConditionField;
 use MB\FilamentChatbot\Bot\Slots\Slot;
 use MB\FilamentChatbot\Bot\Steps\StepType;
 use MB\FilamentChatbot\Bot\Variables\VariableSource;
+use MB\FilamentChatbot\Capabilities\CapabilityAction;
 
 /**
  * Everything a host application may add to the chatbot.
@@ -259,6 +260,94 @@ class ChatbotRegistry
         }
 
         return $fields;
+    }
+
+    /**
+     * Host capabilities by key.
+     *
+     * @var array<string, CapabilityAction>
+     */
+    protected array $capabilities = [];
+
+    /**
+     * Adds a host action, leaving a key that is already claimed alone.
+     *
+     * **Kept in this class rather than in a registry of its own.** A separate
+     * CapabilityRegistry would mean a second container singleton, a second
+     * facade for hosts to learn and a second place the editor has to ask about
+     * what a scenario may refer to — while being the same thing this class
+     * already is: the list of what the host added. The registrations also
+     * arrive together, in one provider, and splitting them would leave a host
+     * wiring two objects to describe one application.
+     *
+     * The taken key is not overwritten, which is the opposite of what
+     * registerStep() does above, and the difference is which way the damage
+     * runs. A step type is a screen and a behaviour, and replacing one is the
+     * documented way to reword a built-in node. An action changes the host's
+     * own records: two packages claiming 'billing.refund' is not a customised
+     * built-in, it is one of them quietly performing the other's refund, and
+     * the only trace of it is money moving while the journal still reads
+     * successful. Registration order is manifest order, so a silent overwrite
+     * would land one way on the developer's machine and the other way in
+     * production. Replacing an action stays possible and has to be said out
+     * loud: forgetCapability() first, then register.
+     */
+    public function registerCapability(CapabilityAction $action): static
+    {
+        if (isset($this->capabilities[$action->key])) {
+            return $this;
+        }
+
+        $this->capabilities[$action->key] = $action;
+
+        return $this;
+    }
+
+    /**
+     * @param  iterable<CapabilityAction>  $actions
+     */
+    public function registerCapabilities(iterable $actions): static
+    {
+        foreach ($actions as $action) {
+            $this->registerCapability($action);
+        }
+
+        return $this;
+    }
+
+    /**
+     * Null for an unknown key, for the same reason step() answers null: a saved
+     * node may name an action whose package has since been removed, and both
+     * the editor and a running conversation have to survive that — the first by
+     * drawing a defect on the node, the second by taking its "could not" exit.
+     */
+    public function capability(string $key): ?CapabilityAction
+    {
+        return $this->capabilities[$key] ?? null;
+    }
+
+    /**
+     * @return array<string, CapabilityAction>
+     */
+    public function capabilities(): array
+    {
+        return $this->capabilities;
+    }
+
+    public function hasCapability(string $key): bool
+    {
+        return isset($this->capabilities[$key]);
+    }
+
+    /**
+     * Drops an action, so that registering over one is a deliberate sentence
+     * rather than an accident of boot order.
+     */
+    public function forgetCapability(string $key): static
+    {
+        unset($this->capabilities[$key]);
+
+        return $this;
     }
 
     public function registerVariableSource(VariableSource $source): static

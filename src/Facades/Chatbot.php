@@ -27,6 +27,12 @@ use MB\FilamentChatbot\Registry\ChatbotRegistry;
  * @method static ChatbotRegistry registerSlots(iterable $slots)
  * @method static \MB\FilamentChatbot\Bot\Slots\Slot|null slot(string $key)
  * @method static array slots()
+ * @method static ChatbotRegistry registerCapability(\MB\FilamentChatbot\Capabilities\CapabilityAction $action)
+ * @method static ChatbotRegistry registerCapabilities(iterable $actions)
+ * @method static ChatbotRegistry forgetCapability(string $key)
+ * @method static \MB\FilamentChatbot\Capabilities\CapabilityAction|null capability(string $key)
+ * @method static array capabilities()
+ * @method static bool hasCapability(string $key)
  *
  * @see ChatbotRegistry
  */

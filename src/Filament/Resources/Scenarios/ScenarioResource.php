@@ -11,6 +11,7 @@ use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Table;
 use MB\FilamentChatbot\Filament\Concerns\HasChatbotNavigation;
 use MB\FilamentChatbot\Filament\Resources\Scenarios\Pages\EditScenario;
+use MB\FilamentChatbot\Filament\Resources\Scenarios\Pages\EditScenarioGraph;
 use MB\FilamentChatbot\Filament\Resources\Scenarios\Pages\ListScenarios;
 use MB\FilamentChatbot\Filament\Resources\Scenarios\Schemas\ScenarioForm;
 use MB\FilamentChatbot\Filament\Resources\Scenarios\Tables\ScenariosTable;
@@ -58,16 +59,16 @@ class ScenarioResource extends Resource
     }
 
     /**
-     * The graph editor belongs here as a third page, at 'graph' =>
-     * EditScenarioGraph::route('/{record}/graph').
+     * The form and the canvas are two pages of one record, deliberately.
      *
-     * It is absent rather than forgotten: the canvas is a Livewire page with
-     * its own front-end build, and shipping a route to a screen that cannot
-     * draw anything yet would put a dead link in the record actions of every
-     * row. Whoever adds it registers it here and nowhere else — the list and
-     * the run journal both link to a scenario's graph by
+     * A scenario has two kinds of property and they want different screens: what
+     * is true of it as a whole belongs in a form, and what it does is a shape
+     * that only reads as a drawing. Squeezing the graph into a form field would
+     * give a canvas the height of a text area.
+     *
+     * Everything that links to a scenario's graph does so through
      * `ScenarioResource::getUrl('graph', ...)`, so this array is the single
-     * place that decides whether that link resolves.
+     * place that decides whether those links resolve.
      *
      * @return array<string, class-string>
      */
@@ -76,6 +77,7 @@ class ScenarioResource extends Resource
         return [
             'index' => ListScenarios::route('/'),
             'edit' => EditScenario::route('/{record}/edit'),
+            'graph' => EditScenarioGraph::route('/{record}/graph'),
         ];
     }
 }

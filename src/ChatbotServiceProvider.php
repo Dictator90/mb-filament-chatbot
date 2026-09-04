@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace MB\FilamentChatbot;
 
+use Filament\Support\Assets\Css;
+use Filament\Support\Assets\Js;
+use Filament\Support\Facades\FilamentAsset;
 use Illuminate\Support\ServiceProvider;
 use MB\FilamentChatbot\Bot\Conditions\Fields\ChannelCondition;
 use MB\FilamentChatbot\Bot\Conditions\Fields\DateCondition;
@@ -19,7 +22,11 @@ use MB\FilamentChatbot\Bot\Conditions\Fields\TurnsCondition;
 use MB\FilamentChatbot\Bot\Conditions\Fields\VariableCondition;
 use MB\FilamentChatbot\Bot\Conditions\Fields\WeekdayCondition;
 use MB\FilamentChatbot\Bot\Conditions\Fields\WorkingHoursCondition;
+use MB\FilamentChatbot\Bot\Graph\GraphConfig;
+use MB\FilamentChatbot\Bot\Graph\ScenarioGraph;
+use MB\FilamentChatbot\Bot\Graph\ScenarioVersions;
 use MB\FilamentChatbot\Bot\Slots\BuiltInSlots;
+use MB\FilamentChatbot\Bot\Steps\Types\ActionStep;
 use MB\FilamentChatbot\Bot\Steps\Types\ApprovalStep;
 use MB\FilamentChatbot\Bot\Steps\Types\AskStep;
 use MB\FilamentChatbot\Bot\Steps\Types\CallStep;
@@ -28,8 +35,10 @@ use MB\FilamentChatbot\Bot\Steps\Types\CloseStep;
 use MB\FilamentChatbot\Bot\Steps\Types\CollectStep;
 use MB\FilamentChatbot\Bot\Steps\Types\ConditionStep;
 use MB\FilamentChatbot\Bot\Steps\Types\DelayStep;
+use MB\FilamentChatbot\Bot\Steps\Types\ForEachStep;
 use MB\FilamentChatbot\Bot\Steps\Types\FormStep;
 use MB\FilamentChatbot\Bot\Steps\Types\HandoffStep;
+use MB\FilamentChatbot\Bot\Steps\Types\HttpStep;
 use MB\FilamentChatbot\Bot\Steps\Types\JumpStep;
 use MB\FilamentChatbot\Bot\Steps\Types\KeywordStep;
 use MB\FilamentChatbot\Bot\Steps\Types\QueryStep;
@@ -37,6 +46,7 @@ use MB\FilamentChatbot\Bot\Steps\Types\ResultStep;
 use MB\FilamentChatbot\Bot\Steps\Types\SayStep;
 use MB\FilamentChatbot\Bot\Steps\Types\SetStep;
 use MB\FilamentChatbot\Bot\Steps\Types\StartStep;
+use MB\FilamentChatbot\Bot\Steps\Types\TransformStep;
 use MB\FilamentChatbot\Bot\Variables\TalkVariables;
 use MB\FilamentChatbot\Console\Commands\DemoConversationCommand;
 use MB\FilamentChatbot\Console\Commands\SeedDemoDataCommand;
@@ -63,6 +73,15 @@ class ChatbotServiceProvider extends ServiceProvider
          * instance per resolution would quietly drop every one of them.
          */
         $this->app->singleton(ChatbotRegistry::class);
+
+        /*
+         * Singletons because the canvas resolves all three on every render, and
+         * each of them walks the registry to describe every registered node kind
+         * — work that produces the same answer for the whole request.
+         */
+        $this->app->singleton(ScenarioGraph::class);
+        $this->app->singleton(GraphConfig::class);
+        $this->app->singleton(ScenarioVersions::class);
     }
 
     public function boot(): void
@@ -75,11 +94,31 @@ class ChatbotServiceProvider extends ServiceProvider
         $this->registerBuiltInSlots();
         $this->registerBuiltInConditions();
         $this->registerBuiltInVariableSources();
+        $this->registerAssets();
 
         if ($this->app->runningInConsole()) {
             $this->publishesTo();
             $this->registerCommands();
         }
+    }
+
+    /**
+     * The scenario canvas, registered but not loaded until a page asks for it.
+     *
+     * `loadedOnRequest()` is the whole point: the bundle is most of a megabyte —
+     * React and a graph library are not small — and it is useful on exactly one
+     * screen. Registered normally it would be downloaded by every person who
+     * opened any page of the panel, to draw nothing.
+     *
+     * The files come from `dist/`, which is committed. A package cannot ask the
+     * host to run a bundler, so the build happens here and the result ships.
+     */
+    protected function registerAssets(): void
+    {
+        FilamentAsset::register([
+            Js::make('chatbot-graph', __DIR__.'/../dist/chatbot-graph.js')->loadedOnRequest(),
+            Css::make('chatbot-graph', __DIR__.'/../dist/chatbot-graph.css')->loadedOnRequest(),
+        ], package: 'mb4it/filament-chatbot');
     }
 
     /**
@@ -139,6 +178,10 @@ class ChatbotServiceProvider extends ServiceProvider
             QueryStep::class,
             ChooseStep::class,
             ApprovalStep::class,
+            ActionStep::class,
+            HttpStep::class,
+            TransformStep::class,
+            ForEachStep::class,
             HandoffStep::class,
             CloseStep::class,
         ];

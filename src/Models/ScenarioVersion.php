@@ -18,10 +18,12 @@ use MB\FilamentChatbot\Models\Concerns\ResolvesOperatorModel;
  * Written once and not edited afterwards: editing a published version would be
  * rewriting the history of what the bot actually said to people.
  *
- * A rollback does not create a version, it makes an existing row live again.
- * Otherwise the numbers would climb from nothing but walking back and forth
- * through the history, and "roll back to three" would stop meaning anything by
- * the end of the day.
+ * A rollback publishes the old content again as a new row rather than moving
+ * the live pointer backwards over the rows that came after it. The numbers
+ * therefore only climb, and "version three" means the same thing tomorrow as it
+ * does today; the releases that were live in between stay readable, which is
+ * the only account anybody has afterwards of what customers were told while a
+ * bad one was answering them.
  *
  * @property int $id
  * @property int $scenario_id

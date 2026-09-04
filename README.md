@@ -81,9 +81,21 @@ Built-in nodes today:
 | `handoff` | Fetch a human; the bot falls silent |
 | `close` | Say goodbye; the next message reopens the conversation |
 
-Planned: `call`/`result` (a scenario you can call and return from), `query`,
-`choose` and `mutate` (data resources), `action` (capabilities), `http`,
-`transform`, `forEach`, `approval`, `answer` and `ai`.
+| `call` / `result` | Run another scenario and come back with what it returned |
+| `query` | Read a data resource into variables |
+| `choose` | Offer the visitor their own records and remember the one they pick |
+| `approval` | An explicit yes or no before anything irreversible |
+| `action` | Invoke a capability the host registered |
+| `http` | Call an allow-listed endpoint |
+| `transform` | A fixed set of deterministic string and date operations |
+| `for_each` | Loop over a list, with a required finite bound |
+
+`call` and `result` are the pair worth knowing about. Shared work — identifying
+the visitor, collecting a phone number — is written once as its own scenario and
+called from everywhere, instead of being copied into each one and drifting.
+
+Planned: `mutate` (writing to a data resource), `answer` (knowledge base) and
+`ai`.
 
 ## Writing your own node
 
@@ -187,6 +199,43 @@ public function resume(StepContext $context, string $answer): StepResult
 The engine sends the node's own message before `run()` when `speaks()` is true,
 so a waiting node does not have to send its own question.
 
+## Capabilities
+
+A data resource covers reading. Anything else your application should be able to
+do from a conversation — award points, open a ticket, cancel something — is a
+capability: a key, a schema for its input, and a handler.
+
+```php
+use MB\FilamentChatbot\Capabilities\CapabilityAction;
+use MB\FilamentChatbot\Enums\SideEffect;
+use MB\FilamentChatbot\Facades\Chatbot;
+
+Chatbot::registerCapability(new CapabilityAction(
+    key: 'shop.open_ticket',
+    version: '1',
+    label: 'Open a support ticket',
+    description: 'Creates a ticket and returns its reference.',
+    effect: SideEffect::Write,
+    input: [
+        Field::text('subject')->label('Subject')->required(),
+        Field::textarea('body')->label('What happened'),
+    ],
+    requiresApproval: true,
+    handler: fn (array $payload, StepContext $context): array => [
+        'reference' => Ticket::open($payload)->reference,
+    ],
+));
+```
+
+The input is described with the same `Field` descriptors a node uses, so the
+call is drawn by the same generic panel. A capability that writes is only
+reachable from behind an approval node — the scenario refuses to publish
+otherwise, which is the last moment that defect is still cheap.
+
+There is no hash of your handler's source in the contract. A well-known
+commercial package does that, and the result is that refactoring a method breaks
+a live scenario. You change the `version` when you change the meaning.
+
 ## Slots
 
 Slots are the things a bot can ask for. They exist so that "the visitor's phone
@@ -263,6 +312,21 @@ Drivers:
   package's Laravel floor for every installation, including ones that only ever
   talk to a single endpoint.
 - Your own, registered like anything else.
+
+## Try it
+
+```bash
+php artisan chatbot:demo-data
+php artisan chatbot:demo "my printer is broken" "Alex" "alex@example.test" "it will not switch on" "today"
+```
+
+The first seeds one bot, six scenarios covering every kind of node, ten
+knowledge topics and a few operator canned replies. The second holds that
+conversation and prints the transcript together with the run journal — which is
+the fastest way to see that the package is wired into *your* application, with
+your providers and your database, rather than into a test case.
+
+Then open the panel and look at a scenario on the canvas.
 
 ## Testing
 

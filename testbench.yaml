@@ -22,7 +22,11 @@ env:
   - APP_NAME="Filament Chatbot Workbench"
   - APP_ENV=local
   - APP_DEBUG=true
-  - APP_KEY="base64:V0FMS0lORyBBIFNDRU5BUklPIE9ORSBUVVJOIQ=="
+  # A real 32-byte key, not a readable one. The previous placeholder spelled out
+  # a sentence in base64 and was 28 bytes, which every command tolerated and the
+  # first HTTP request did not: "unsupported cipher or incorrect key length",
+  # thrown from the encrypter with nothing to connect it to this line.
+  - APP_KEY="base64:M76LD6quSUTfUfCFQcspHN0c23VkEO35Y92L3TkI7B8="
   - DB_CONNECTION=sqlite
   - DB_DATABASE=workbench/database/database.sqlite
   - CACHE_STORE=file
