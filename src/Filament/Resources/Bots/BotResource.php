@@ -1,0 +1,70 @@
+<?php
+
+declare(strict_types=1);
+
+namespace MB\FilamentChatbot\Filament\Resources\Bots;
+
+use BackedEnum;
+use Filament\Resources\Resource;
+use Filament\Schemas\Schema;
+use Filament\Support\Icons\Heroicon;
+use Filament\Tables\Table;
+use MB\FilamentChatbot\Filament\Concerns\HasChatbotNavigation;
+use MB\FilamentChatbot\Filament\Resources\Bots\Pages\EditBot;
+use MB\FilamentChatbot\Filament\Resources\Bots\Pages\ListBots;
+use MB\FilamentChatbot\Filament\Resources\Bots\Schemas\BotForm;
+use MB\FilamentChatbot\Filament\Resources\Bots\Tables\BotsTable;
+use MB\FilamentChatbot\Models\Bot;
+
+/**
+ * The assistants themselves: voice, working hours and budget.
+ *
+ * First in the block because everything else in it points at a bot — scenarios,
+ * knowledge topics, runs. Someone arriving at an empty installation has to find
+ * the screen that makes the others addressable, and an alphabetical menu would
+ * have hidden it in the middle.
+ */
+class BotResource extends Resource
+{
+    use HasChatbotNavigation;
+
+    protected static ?string $model = Bot::class;
+
+    protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedCpuChip;
+
+    protected static function chatbotNavigationOffset(): int
+    {
+        return 0;
+    }
+
+    public static function getModelLabel(): string
+    {
+        return 'bot';
+    }
+
+    public static function getPluralModelLabel(): string
+    {
+        return 'bots';
+    }
+
+    public static function form(Schema $schema): Schema
+    {
+        return BotForm::configure($schema);
+    }
+
+    public static function table(Table $table): Table
+    {
+        return BotsTable::configure($table);
+    }
+
+    /**
+     * @return array<string, class-string>
+     */
+    public static function getPages(): array
+    {
+        return [
+            'index' => ListBots::route('/'),
+            'edit' => EditBot::route('/{record}/edit'),
+        ];
+    }
+}

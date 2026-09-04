@@ -6,6 +6,12 @@ namespace MB\FilamentChatbot;
 
 use Filament\Contracts\Plugin;
 use Filament\Panel;
+use MB\FilamentChatbot\Filament\Resources\Bots\BotResource;
+use MB\FilamentChatbot\Filament\Resources\DataResources\DataResourceResource;
+use MB\FilamentChatbot\Filament\Resources\KnowledgeEntries\KnowledgeEntryResource;
+use MB\FilamentChatbot\Filament\Resources\QuickReplies\QuickReplyResource;
+use MB\FilamentChatbot\Filament\Resources\Runs\RunResource;
+use MB\FilamentChatbot\Filament\Resources\Scenarios\ScenarioResource;
 
 /**
  * Adds the chat screens to one panel.
@@ -41,11 +47,25 @@ class ChatbotPlugin implements Plugin
     }
 
     /**
+     * Public so that a suite can walk the same list the panel registers.
+     *
+     * A test naming the six screens by hand proves the six it names and nothing
+     * about the seventh: a resource written and never registered here would
+     * leave the suite green and the menu short. Reading the list from the plugin
+     * is what makes a forgotten registration fail.
+     *
      * @return array<class-string>
      */
-    protected function resources(): array
+    public function resources(): array
     {
-        return [];
+        return [
+            BotResource::class,
+            ScenarioResource::class,
+            KnowledgeEntryResource::class,
+            QuickReplyResource::class,
+            DataResourceResource::class,
+            RunResource::class,
+        ];
     }
 
     /**

@@ -40,20 +40,40 @@ abstract class TestCase extends Orchestra
      */
     protected function getPackageProviders($app): array
     {
+        /*
+         * Livewire is registered after Filament, and that order is load-bearing.
+         *
+         * Filament's support provider does `bind(DataStore::class,
+         * DataStoreOverride::class)` — a plain, non-shared binding. Laravel's
+         * bind() drops any existing instance of the same abstract, and Livewire
+         * registers its DataStore with instance(). Whoever runs last therefore
+         * decides whether Livewire's per-component store is a singleton at all.
+         *
+         * With Livewire first, Filament's bind wins and every resolution hands
+         * back a brand new store: everything a component writes to it is lost on
+         * the next read. The first page that renders then dies with a type error
+         * inside Livewire's validation support, blaming a null error bag — which
+         * names neither the binding, nor Filament, nor this file.
+         *
+         * A real application never sees this because composer's discovery order
+         * puts filament/* ahead of livewire/livewire. The suite has to say so.
+         */
         return [
-            ActionsServiceProvider::class,
             BladeCaptureDirectiveServiceProvider::class,
-            BladeHeroiconsServiceProvider::class,
             BladeIconsServiceProvider::class,
-            FilamentServiceProvider::class,
+            BladeHeroiconsServiceProvider::class,
+
+            SupportServiceProvider::class,
+            ActionsServiceProvider::class,
             FormsServiceProvider::class,
             InfolistsServiceProvider::class,
-            LivewireServiceProvider::class,
             NotificationsServiceProvider::class,
             SchemasServiceProvider::class,
-            SupportServiceProvider::class,
             TablesServiceProvider::class,
             WidgetsServiceProvider::class,
+            FilamentServiceProvider::class,
+
+            LivewireServiceProvider::class,
 
             ChatbotServiceProvider::class,
             WorkbenchPanelProvider::class,

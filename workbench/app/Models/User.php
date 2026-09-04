@@ -28,6 +28,19 @@ class User extends Authenticatable implements FilamentUser
 
     protected $hidden = ['password', 'remember_token'];
 
+    /**
+     * Named explicitly because Laravel's guess does not apply to a workbench.
+     *
+     * The default resolver turns `Workbench\App\Models\User` into
+     * `Database\Factories\Models\UserFactory`, which does not exist here — and
+     * the failure lands on whichever test happens to call the factory first,
+     * nowhere near the model that caused it.
+     */
+    protected static function newFactory(): UserFactory
+    {
+        return UserFactory::new();
+    }
+
     public function canAccessPanel(Panel $panel): bool
     {
         return true;

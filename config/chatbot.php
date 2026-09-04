@@ -101,14 +101,22 @@ return [
     | maximum fails the query instead of being trimmed to fit. Silent repair
     | is how a bot ends up answering with someone else's data.
     |
+    | max_limit is an installation-wide ceiling and wins against a resource that
+    | declares a higher one. The runtime takes the smaller of the two, so raising
+    | it here is the only way to let any resource go above it.
+    |
+    | There is deliberately no row budget or statement timeout key. Enforcing
+    | either honestly needs a row estimate before the query and a per-driver
+    | session timeout, and SQLite offers neither — a setting that looked like a
+    | guard and enforced nothing would be worse than not having one. The real
+    | cost guard is the hard limit in the generated SQL.
+    |
     */
 
     'data_resources' => [
         'enabled' => true,
         'max_limit' => 100,
         'default_limit' => 10,
-        'row_budget' => 5000,
-        'statement_timeout_ms' => 2000,
         'resources' => [],
     ],
 

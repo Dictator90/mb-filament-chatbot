@@ -20,8 +20,10 @@ use MB\FilamentChatbot\Bot\Conditions\Fields\VariableCondition;
 use MB\FilamentChatbot\Bot\Conditions\Fields\WeekdayCondition;
 use MB\FilamentChatbot\Bot\Conditions\Fields\WorkingHoursCondition;
 use MB\FilamentChatbot\Bot\Slots\BuiltInSlots;
+use MB\FilamentChatbot\Bot\Steps\Types\ApprovalStep;
 use MB\FilamentChatbot\Bot\Steps\Types\AskStep;
 use MB\FilamentChatbot\Bot\Steps\Types\CallStep;
+use MB\FilamentChatbot\Bot\Steps\Types\ChooseStep;
 use MB\FilamentChatbot\Bot\Steps\Types\CloseStep;
 use MB\FilamentChatbot\Bot\Steps\Types\CollectStep;
 use MB\FilamentChatbot\Bot\Steps\Types\ConditionStep;
@@ -30,11 +32,13 @@ use MB\FilamentChatbot\Bot\Steps\Types\FormStep;
 use MB\FilamentChatbot\Bot\Steps\Types\HandoffStep;
 use MB\FilamentChatbot\Bot\Steps\Types\JumpStep;
 use MB\FilamentChatbot\Bot\Steps\Types\KeywordStep;
+use MB\FilamentChatbot\Bot\Steps\Types\QueryStep;
 use MB\FilamentChatbot\Bot\Steps\Types\ResultStep;
 use MB\FilamentChatbot\Bot\Steps\Types\SayStep;
 use MB\FilamentChatbot\Bot\Steps\Types\SetStep;
 use MB\FilamentChatbot\Bot\Steps\Types\StartStep;
 use MB\FilamentChatbot\Bot\Variables\TalkVariables;
+use MB\FilamentChatbot\Console\Commands\SeedDemoDataCommand;
 use MB\FilamentChatbot\Registry\ChatbotRegistry;
 
 /**
@@ -73,7 +77,22 @@ class ChatbotServiceProvider extends ServiceProvider
 
         if ($this->app->runningInConsole()) {
             $this->publishesTo();
+            $this->registerCommands();
         }
+    }
+
+    /**
+     * Console commands, added only when there is a console to add them to.
+     *
+     * Registered unconditionally they would be resolved on every web request for
+     * nothing, and the demo seeder in particular has no business being reachable
+     * from anywhere but a terminal.
+     */
+    protected function registerCommands(): void
+    {
+        $this->commands([
+            SeedDemoDataCommand::class,
+        ]);
     }
 
     /**
@@ -115,6 +134,9 @@ class ChatbotServiceProvider extends ServiceProvider
             JumpStep::class,
             CallStep::class,
             ResultStep::class,
+            QueryStep::class,
+            ChooseStep::class,
+            ApprovalStep::class,
             HandoffStep::class,
             CloseStep::class,
         ];

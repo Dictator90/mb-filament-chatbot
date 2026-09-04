@@ -27,7 +27,7 @@ use MB\FilamentChatbot\Models\Run;
 class DemoConversationCommand extends Command
 {
     protected $signature = 'chatbot:demo
-                            {--bot=workbench : Slug of the bot to talk to}
+                            {--bot=demo : Slug of the bot to talk to}
                             {said?* : What the visitor says, in order}';
 
     protected $description = 'Walk a seeded scenario and print the transcript';
@@ -37,17 +37,22 @@ class DemoConversationCommand extends Command
         $bot = Bot::query()->where('slug', $this->option('bot'))->first();
 
         if ($bot === null) {
-            $this->error("No bot with slug [{$this->option('bot')}]. Run the workbench seeder first.");
+            $this->error("No bot with slug [{$this->option('bot')}]. Run chatbot:demo-data first.");
 
             return self::FAILURE;
         }
 
+        /*
+         * The default script walks the support scenario, which is the one that
+         * calls another scenario and comes back. A script that only said hello
+         * would print a transcript on a package whose call stack was broken.
+         */
         $lines = $this->argument('said') ?: [
-            'my order is broken',
-            'Something else',
+            'my printer is broken',
             'Alex',
             'alex@example.test',
-            'the widget stopped working',
+            'it will not switch on any more',
+            'today',
         ];
 
         $conversation = Conversation::create([

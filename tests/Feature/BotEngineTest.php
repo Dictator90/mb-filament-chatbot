@@ -6,13 +6,10 @@ use Illuminate\Support\Facades\Queue;
 use MB\FilamentChatbot\Bot\BotEngine;
 use MB\FilamentChatbot\Enums\BotState;
 use MB\FilamentChatbot\Enums\ConversationStatus;
-use MB\FilamentChatbot\Enums\MessageAuthor;
-use MB\FilamentChatbot\Enums\MessageDirection;
 use MB\FilamentChatbot\Enums\RunOutcome;
 use MB\FilamentChatbot\Jobs\ContinueScenario;
 use MB\FilamentChatbot\Models\Bot;
 use MB\FilamentChatbot\Models\Conversation;
-use MB\FilamentChatbot\Models\Message;
 use MB\FilamentChatbot\Models\Run;
 use MB\FilamentChatbot\Models\Scenario;
 use MB\FilamentChatbot\Models\Step;
@@ -34,33 +31,6 @@ function scenarioOf(array $steps, array $attributes = []): Scenario
     }
 
     return $scenario->load('steps');
-}
-
-/**
- * Sends a message from the visitor and lets the bot take its turn.
- */
-function visitorSays(Conversation $conversation, string $body): bool
-{
-    $message = Message::create([
-        'conversation_id' => $conversation->getKey(),
-        'direction' => MessageDirection::Incoming,
-        'author' => MessageAuthor::Visitor,
-        'body' => $body,
-    ]);
-
-    return app(BotEngine::class)->handle($conversation->refresh(), $message);
-}
-
-/**
- * @return list<string>
- */
-function botSaid(Conversation $conversation): array
-{
-    return $conversation->messages()
-        ->where('direction', MessageDirection::Outgoing)
-        ->orderBy('id')
-        ->pluck('body')
-        ->all();
 }
 
 beforeEach(function (): void {
