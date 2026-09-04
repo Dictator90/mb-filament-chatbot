@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Workbench\App\Console\Commands;
+namespace MB\FilamentChatbot\Console\Commands;
 
 use Illuminate\Console\Command;
 use MB\FilamentChatbot\Bot\BotEngine;
@@ -16,28 +16,45 @@ use MB\FilamentChatbot\Models\Run;
 /**
  * Holds a scripted conversation and prints the transcript.
  *
- * Here because a green test suite and a working package are not the same claim.
- * The suite drives the engine through a test case; this drives it through the
- * application, with the real provider, the real registry and a real database —
- * which is where a missing registration or a mis-ordered boot actually shows up.
+ * Shipped with the package rather than kept in the workbench, because the first
+ * thing anyone wants after installing a chatbot is to watch it answer, and the
+ * alternative is asking them to build a widget before they know whether the
+ * thing works at all.
  *
- * It is also the fastest way to see what a change did to the bot's manners,
- * which no assertion is good at.
+ * It also proves something a test suite cannot. The suite drives the engine
+ * through a test case; this drives it through the application, with the host's
+ * providers, the host's registry and the host's database — which is exactly
+ * where a missing registration or a mis-ordered boot shows up.
+ *
+ * It writes a real conversation, so it refuses to run in production without
+ * being told twice: the transcript would sit in the inbox looking like a
+ * customer nobody answered.
  */
 class DemoConversationCommand extends Command
 {
     protected $signature = 'chatbot:demo
+                            {said?* : What the visitor says, in order}
                             {--bot=demo : Slug of the bot to talk to}
-                            {said?* : What the visitor says, in order}';
+                            {--force : Allow this in production}';
 
-    protected $description = 'Walk a seeded scenario and print the transcript';
+    protected $description = 'Hold a scripted conversation with a bot and print the transcript';
 
     public function handle(BotEngine $engine): int
     {
+        if (app()->environment('production') && ! $this->option('force')) {
+            $this->components->error(
+                'This writes a real conversation into the inbox. Pass --force if that is what you want.',
+            );
+
+            return self::FAILURE;
+        }
+
         $bot = Bot::query()->where('slug', $this->option('bot'))->first();
 
         if ($bot === null) {
-            $this->error("No bot with slug [{$this->option('bot')}]. Run chatbot:demo-data first.");
+            $this->components->error(
+                "No bot with slug [{$this->option('bot')}]. Run chatbot:demo-data first.",
+            );
 
             return self::FAILURE;
         }
@@ -45,7 +62,8 @@ class DemoConversationCommand extends Command
         /*
          * The default script walks the support scenario, which is the one that
          * calls another scenario and comes back. A script that only said hello
-         * would print a transcript on a package whose call stack was broken.
+         * would print a perfectly good transcript on a package whose call stack
+         * was broken.
          */
         $lines = $this->argument('said') ?: [
             'my printer is broken',
@@ -65,7 +83,7 @@ class DemoConversationCommand extends Command
                 'conversation_id' => $conversation->getKey(),
                 'direction' => MessageDirection::Incoming,
                 'author' => MessageAuthor::Visitor,
-                'body' => $said,
+                'body' => (string) $said,
             ]);
 
             $engine->handle($conversation->refresh(), $message);
@@ -93,14 +111,24 @@ class DemoConversationCommand extends Command
         }
     }
 
+    /**
+     * The run journal, which is the half people actually need when the
+     * transcript surprises them.
+     */
     protected function state(Conversation $conversation): void
     {
         $this->newLine();
         $this->line('<options=bold>State</>');
         $this->line('  bot state: '.$conversation->bot_state->value);
-        $this->line('  collected: '.json_encode($conversation->bot_answers, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
+        $this->line('  collected: '.json_encode(
+            $conversation->bot_answers,
+            JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES,
+        ));
 
-        $run = Run::query()->where('conversation_id', $conversation->getKey())->latest('id')->first();
+        $run = Run::query()
+            ->where('conversation_id', $conversation->getKey())
+            ->latest('id')
+            ->first();
 
         if ($run === null) {
             $this->line('  no run recorded');
@@ -113,11 +141,13 @@ class DemoConversationCommand extends Command
 
         foreach ($run->steps()->orderBy('seq')->get() as $step) {
             $this->line(sprintf(
-                '  %2d. %-12s %-10s %s',
+                '  %2d. %-14s %-10s %s',
                 $step->seq,
                 (string) $step->step_key,
                 (string) $step->step_type,
-                $step->outcome.($step->payload ? ' '.json_encode($step->payload, JSON_UNESCAPED_UNICODE) : ''),
+                $step->outcome.($step->payload
+                    ? ' '.json_encode($step->payload, JSON_UNESCAPED_UNICODE)
+                    : ''),
             ));
         }
     }

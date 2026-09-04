@@ -38,6 +38,7 @@ use MB\FilamentChatbot\Bot\Steps\Types\SayStep;
 use MB\FilamentChatbot\Bot\Steps\Types\SetStep;
 use MB\FilamentChatbot\Bot\Steps\Types\StartStep;
 use MB\FilamentChatbot\Bot\Variables\TalkVariables;
+use MB\FilamentChatbot\Console\Commands\DemoConversationCommand;
 use MB\FilamentChatbot\Console\Commands\SeedDemoDataCommand;
 use MB\FilamentChatbot\Registry\ChatbotRegistry;
 
@@ -92,6 +93,7 @@ class ChatbotServiceProvider extends ServiceProvider
     {
         $this->commands([
             SeedDemoDataCommand::class,
+            DemoConversationCommand::class,
         ]);
     }
 
