@@ -18,6 +18,9 @@ use Filament\Widgets\WidgetsServiceProvider;
 use Illuminate\Contracts\Config\Repository;
 use Livewire\LivewireServiceProvider;
 use MB\FilamentChatbot\ChatbotServiceProvider;
+
+use function Orchestra\Testbench\default_migration_path;
+
 use Orchestra\Testbench\TestCase as Orchestra;
 use RyanChandler\BladeCaptureDirective\BladeCaptureDirectiveServiceProvider;
 use Workbench\App\Providers\WorkbenchPanelProvider;
@@ -77,15 +80,22 @@ abstract class TestCase extends Orchestra
     }
 
     /**
-     * The workbench carries its own schema, Testbench's skeleton is not used.
+     * The users table comes from Testbench's skeleton, by path rather than
+     * through loadLaravelMigrations().
      *
-     * A host application owns its users table, and so does the stand-in for one.
-     * Borrowing Testbench's would also hide the boundary this package has to
-     * respect: nothing in it may put a foreign key on that table, because a real
-     * host may name it differently or keep it on another connection entirely.
+     * The helper resolves the same directory but did not create the table under
+     * this version, and a missing users table shows up far from its cause —
+     * as one unrelated test failing on an insert. Naming the path says what is
+     * loaded and fails loudly if it ever moves.
+     *
+     * The workbench does not define a users table of its own. It would sort
+     * ahead of the skeleton's, create the table first, and leave the skeleton's
+     * migration to fail on every `testbench serve` — while the suite, which
+     * loads only these paths, stayed green.
      */
     protected function defineDatabaseMigrations(): void
     {
+        $this->loadMigrationsFrom(default_migration_path());
         $this->loadMigrationsFrom(__DIR__.'/../workbench/database/migrations');
         $this->loadMigrationsFrom(__DIR__.'/../database/migrations');
     }

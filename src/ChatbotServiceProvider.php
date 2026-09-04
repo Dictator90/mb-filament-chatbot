@@ -5,11 +5,26 @@ declare(strict_types=1);
 namespace MB\FilamentChatbot;
 
 use Illuminate\Support\ServiceProvider;
+use MB\FilamentChatbot\Bot\Conditions\Fields\ChannelCondition;
+use MB\FilamentChatbot\Bot\Conditions\Fields\DateCondition;
+use MB\FilamentChatbot\Bot\Conditions\Fields\DayCondition;
+use MB\FilamentChatbot\Bot\Conditions\Fields\HandedOffCondition;
+use MB\FilamentChatbot\Bot\Conditions\Fields\IdentifiedCondition;
+use MB\FilamentChatbot\Bot\Conditions\Fields\MonthCondition;
+use MB\FilamentChatbot\Bot\Conditions\Fields\OnlyGreetingCondition;
+use MB\FilamentChatbot\Bot\Conditions\Fields\PageCondition;
+use MB\FilamentChatbot\Bot\Conditions\Fields\ReturningCondition;
+use MB\FilamentChatbot\Bot\Conditions\Fields\TimeCondition;
+use MB\FilamentChatbot\Bot\Conditions\Fields\TurnsCondition;
+use MB\FilamentChatbot\Bot\Conditions\Fields\VariableCondition;
+use MB\FilamentChatbot\Bot\Conditions\Fields\WeekdayCondition;
+use MB\FilamentChatbot\Bot\Conditions\Fields\WorkingHoursCondition;
 use MB\FilamentChatbot\Bot\Slots\BuiltInSlots;
 use MB\FilamentChatbot\Bot\Steps\Types\AskStep;
 use MB\FilamentChatbot\Bot\Steps\Types\CallStep;
 use MB\FilamentChatbot\Bot\Steps\Types\CloseStep;
 use MB\FilamentChatbot\Bot\Steps\Types\CollectStep;
+use MB\FilamentChatbot\Bot\Steps\Types\ConditionStep;
 use MB\FilamentChatbot\Bot\Steps\Types\DelayStep;
 use MB\FilamentChatbot\Bot\Steps\Types\FormStep;
 use MB\FilamentChatbot\Bot\Steps\Types\HandoffStep;
@@ -19,6 +34,7 @@ use MB\FilamentChatbot\Bot\Steps\Types\ResultStep;
 use MB\FilamentChatbot\Bot\Steps\Types\SayStep;
 use MB\FilamentChatbot\Bot\Steps\Types\SetStep;
 use MB\FilamentChatbot\Bot\Steps\Types\StartStep;
+use MB\FilamentChatbot\Bot\Variables\TalkVariables;
 use MB\FilamentChatbot\Registry\ChatbotRegistry;
 
 /**
@@ -52,6 +68,8 @@ class ChatbotServiceProvider extends ServiceProvider
 
         $this->registerBuiltInSteps();
         $this->registerBuiltInSlots();
+        $this->registerBuiltInConditions();
+        $this->registerBuiltInVariableSources();
 
         if ($this->app->runningInConsole()) {
             $this->publishesTo();
@@ -91,6 +109,7 @@ class ChatbotServiceProvider extends ServiceProvider
             CollectStep::class,
             FormStep::class,
             KeywordStep::class,
+            ConditionStep::class,
             SetStep::class,
             DelayStep::class,
             JumpStep::class,
@@ -134,6 +153,55 @@ class ChatbotServiceProvider extends ServiceProvider
             }
 
             $registry->registerSlot($slot);
+        }
+    }
+
+    /**
+     * Adds the package's own condition fields, leaving claimed keys alone.
+     *
+     * Same rule as the nodes and the slots above, and for the same reason: which
+     * provider boots first depends on the manifest, so registering
+     * unconditionally would honour a host's override on some installations and
+     * revert it on others.
+     */
+    protected function registerBuiltInConditions(): void
+    {
+        $registry = $this->app->make(ChatbotRegistry::class);
+
+        $conditions = [
+            VariableCondition::class,
+            ChannelCondition::class,
+            IdentifiedCondition::class,
+            ReturningCondition::class,
+            WorkingHoursCondition::class,
+            TimeCondition::class,
+            WeekdayCondition::class,
+            MonthCondition::class,
+            DayCondition::class,
+            DateCondition::class,
+            TurnsCondition::class,
+            OnlyGreetingCondition::class,
+            PageCondition::class,
+            HandedOffCondition::class,
+        ];
+
+        foreach ($conditions as $condition) {
+            if ($registry->condition($condition::key()) !== null) {
+                continue;
+            }
+
+            $registry->registerCondition($condition);
+        }
+    }
+
+    protected function registerBuiltInVariableSources(): void
+    {
+        $registry = $this->app->make(ChatbotRegistry::class);
+
+        $talk = $this->app->make(TalkVariables::class);
+
+        if ($registry->variableSource($talk->key()) === null) {
+            $registry->registerVariableSource($talk);
         }
     }
 

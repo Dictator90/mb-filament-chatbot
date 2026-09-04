@@ -1,0 +1,49 @@
+# Configuration for the workbench application — the bare Filament install the
+# package is developed against.
+#
+# Tests register these providers themselves, through the base TestCase, so this
+# file exists for everything that is not a test: `testbench serve`, artisan
+# commands, and anything else that has to boot the application the way a host
+# would. Without it the panel has no routes at all outside the suite, and the
+# first person to try the workbench finds a blank application.
+
+providers:
+  - MB\FilamentChatbot\ChatbotServiceProvider
+  - Workbench\App\Providers\WorkbenchServiceProvider
+  - Workbench\App\Providers\WorkbenchPanelProvider
+
+migrations:
+  - workbench/database/migrations
+
+seeders:
+  - Workbench\Database\Seeders\DatabaseSeeder
+
+env:
+  - APP_NAME="Filament Chatbot Workbench"
+  - APP_ENV=local
+  - APP_DEBUG=true
+  - APP_KEY="base64:V0FMS0lORyBBIFNDRU5BUklPIE9ORSBUVVJOIQ=="
+  - DB_CONNECTION=sqlite
+  - DB_DATABASE=workbench/database/database.sqlite
+  - CACHE_STORE=file
+  - QUEUE_CONNECTION=sync
+  - SESSION_DRIVER=file
+  - MAIL_MAILER=log
+
+workbench:
+  start: '/admin'
+  install: true
+  health: false
+  discovers:
+    web: true
+    api: false
+    commands: false
+    components: true
+    views: true
+  build:
+    - create-sqlite-db
+    - db-wipe
+    - migrate-refresh
+  assets:
+    - laravel-assets
+  sync: []
