@@ -6,7 +6,6 @@ namespace MB\FilamentChatbot\Bot;
 
 use MB\FilamentChatbot\Bot\Steps\StepContext;
 use MB\FilamentChatbot\Bot\Steps\StepFlow;
-use MB\FilamentChatbot\Bot\Steps\StepResult;
 use MB\FilamentChatbot\Bot\Variables\Variables;
 use MB\FilamentChatbot\Enums\BotState;
 use MB\FilamentChatbot\Enums\ConversationStatus;

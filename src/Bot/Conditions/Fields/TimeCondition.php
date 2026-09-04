@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace MB\FilamentChatbot\Bot\Conditions\Fields;
 
+use MB\FilamentChatbot\Bot\Conditions\Concerns\ComparesValues;
 use MB\FilamentChatbot\Bot\Conditions\ConditionField;
 use MB\FilamentChatbot\Bot\Conditions\ConditionKind;
-use MB\FilamentChatbot\Bot\Conditions\Concerns\ComparesValues;
 use MB\FilamentChatbot\Bot\Runtime;
 use MB\FilamentChatbot\Models\Conversation;
 

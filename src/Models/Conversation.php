@@ -95,6 +95,51 @@ class Conversation extends Model
     }
 
     /**
+     * The scenario the bot is currently in the middle of.
+     *
+     * @return BelongsTo<Scenario, $this>
+     */
+    public function botScenario(): BelongsTo
+    {
+        return $this->belongsTo(Scenario::class, 'bot_scenario_id');
+    }
+
+    /**
+     * The published version the conversation entered on.
+     *
+     * Pinned at entry rather than read live, so that editing a scenario does not
+     * change the shape of a conversation already halfway through it. A visitor
+     * answering a question that no longer exists is the failure this prevents.
+     *
+     * @return BelongsTo<ScenarioVersion, $this>
+     */
+    public function botVersion(): BelongsTo
+    {
+        return $this->belongsTo(ScenarioVersion::class, 'bot_version_id');
+    }
+
+    /**
+     * The open run, if the bot is mid-scenario.
+     *
+     * A plain column with no foreign key: the runs table is created after this
+     * one, and SQLite cannot add a constraint to a table that already exists.
+     *
+     * @return BelongsTo<Run, $this>
+     */
+    public function botRun(): BelongsTo
+    {
+        return $this->belongsTo(Run::class, 'bot_run_id');
+    }
+
+    /**
+     * @return HasMany<Run, $this>
+     */
+    public function botRuns(): HasMany
+    {
+        return $this->hasMany(Run::class, 'conversation_id');
+    }
+
+    /**
      * Whoever the host says this person is. Resolved only when the host asks
      * for it — the package itself must never touch the result.
      */

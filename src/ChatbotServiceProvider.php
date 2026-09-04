@@ -7,11 +7,15 @@ namespace MB\FilamentChatbot;
 use Illuminate\Support\ServiceProvider;
 use MB\FilamentChatbot\Bot\Slots\BuiltInSlots;
 use MB\FilamentChatbot\Bot\Steps\Types\AskStep;
+use MB\FilamentChatbot\Bot\Steps\Types\CallStep;
 use MB\FilamentChatbot\Bot\Steps\Types\CloseStep;
+use MB\FilamentChatbot\Bot\Steps\Types\CollectStep;
 use MB\FilamentChatbot\Bot\Steps\Types\DelayStep;
+use MB\FilamentChatbot\Bot\Steps\Types\FormStep;
 use MB\FilamentChatbot\Bot\Steps\Types\HandoffStep;
 use MB\FilamentChatbot\Bot\Steps\Types\JumpStep;
 use MB\FilamentChatbot\Bot\Steps\Types\KeywordStep;
+use MB\FilamentChatbot\Bot\Steps\Types\ResultStep;
 use MB\FilamentChatbot\Bot\Steps\Types\SayStep;
 use MB\FilamentChatbot\Bot\Steps\Types\SetStep;
 use MB\FilamentChatbot\Bot\Steps\Types\StartStep;
@@ -81,12 +85,17 @@ class ChatbotServiceProvider extends ServiceProvider
         $registry = $this->app->make(ChatbotRegistry::class);
 
         $steps = [
+            StartStep::class,
             SayStep::class,
             AskStep::class,
+            CollectStep::class,
+            FormStep::class,
             KeywordStep::class,
             SetStep::class,
             DelayStep::class,
             JumpStep::class,
+            CallStep::class,
+            ResultStep::class,
             HandoffStep::class,
             CloseStep::class,
         ];
