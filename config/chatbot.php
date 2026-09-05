@@ -350,10 +350,18 @@ return [
         'enabled' => true,
         'origins' => [],
         'identity_secret' => env('CHATBOT_WIDGET_SECRET'),
-        'class_prefix' => 'chatbot',
-        'storage_prefix' => 'chatbot',
         'token_ttl' => 600,
         'max_attachment_kb' => 10240,
+
+        /*
+         * The widget's CSS class and storage prefixes are deliberately absent.
+         * They are set with `data-prefix` on the embed instead, because the
+         * clash they exist to resolve — a site that already uses `.chatbot__`
+         * for something of its own — belongs to that site, and one setting in
+         * this application cannot be right for every site that embeds the
+         * widget. A key here would have looked authoritative and been read by
+         * nothing.
+         */
 
         'rate_limits' => [
             'chatbot-site-history' => 120,

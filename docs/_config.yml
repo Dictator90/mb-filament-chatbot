@@ -1,0 +1,40 @@
+# GitHub Pages configuration.
+#
+# Serving from `docs/` on the default branch rather than from a `gh-pages`
+# branch: the documentation and the code it documents then move in the same
+# commit, and a pull request that changes behaviour without changing the page
+# describing it is visible as such in review.
+#
+# `remote_theme` rather than a vendored theme, so the site has navigation and
+# search without adding a Ruby toolchain to a PHP package. GitHub Pages resolves
+# it at build time; nothing here has to be installed to work on the docs.
+
+title: Filament Chatbot
+description: Customer chat and a visual chatbot builder for any Filament panel
+remote_theme: just-the-docs/just-the-docs
+
+url: https://dictator90.github.io
+baseurl: /mb-filament-chatbot
+
+search_enabled: true
+search:
+  heading_level: 3
+
+color_scheme: light
+heading_anchors: true
+
+aux_links:
+  Packagist: https://packagist.org/packages/mb4it/filament-chatbot
+  GitHub: https://github.com/Dictator90/mb-filament-chatbot
+
+nav_external_links:
+  - title: Source on GitHub
+    url: https://github.com/Dictator90/mb-filament-chatbot
+
+footer_content: >-
+  mb4it/filament-chatbot — MIT licensed.
+
+exclude:
+  - Gemfile
+  - Gemfile.lock
+  - vendor

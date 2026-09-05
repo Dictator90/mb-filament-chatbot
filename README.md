@@ -9,6 +9,12 @@ all of it usable without the package knowing anything about your business.
 > Status: in development. The API below is what exists today; sections marked
 > *planned* are on the roadmap and not shipped yet.
 
+**[Full documentation](https://dictator90.github.io/mb-filament-chatbot/)** —
+installation, every node, data resources, capabilities, extending, operations.
+It is built from `docs/` on the default branch, so a change in behaviour and the
+page describing it arrive in the same commit. To publish it, point GitHub Pages
+at *Deploy from a branch* → `main` → `/docs`; no workflow is needed.
+
 ## Requirements
 
 - PHP 8.3+
@@ -50,8 +56,8 @@ in increasing order of effort:
 
 1. **Data resources** — declare a model, its approved fields and a ceiling, and
    the bot can read your records. No code.
-2. **Capabilities** *(planned)* — register an action with an input and output
-   schema, and a scenario can invoke it.
+2. **Capabilities** — register an action with an input schema and a handler, and
+   a scenario can invoke it.
 3. **Step types** — write a node class when the first two do not fit.
 
 Nothing in the package references your models. A conversation points at your
@@ -89,13 +95,20 @@ Built-in nodes today:
 | `http` | Call an allow-listed endpoint |
 | `transform` | A fixed set of deterministic string and date operations |
 | `for_each` | Loop over a list, with a required finite bound |
+| `answer` | Answer from the knowledge base, or take the "do not know" branch |
+| `ai` | Answer with a model, accepted only when it cites what it was given |
+| `ai_task` | Extract values from text into variables |
 
 `call` and `result` are the pair worth knowing about. Shared work — identifying
 the visitor, collecting a phone number — is written once as its own scenario and
 called from everywhere, instead of being copied into each one and drifting.
 
-Planned: `mutate` (writing to a data resource), `answer` (knowledge base) and
-`ai`.
+Twenty-four kinds in all. The only one still planned is `mutate` — writing to a
+data resource. The columns are there (`is_writable`, `write_fields`,
+`lock_column`) and nothing uses them yet.
+
+The full reference, with every setting of every node, is in
+[the documentation](https://dictator90.github.io/mb-filament-chatbot/nodes).
 
 ## Writing your own node
 

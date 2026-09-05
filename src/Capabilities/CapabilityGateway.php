@@ -44,13 +44,19 @@ class CapabilityGateway
      * read, and treating it as an empty success would make the node write
      * nothing while its "done" branch carried on describing a result.
      *
-     * Whether an approval node stands above a writing action is not asked here.
-     * A gateway is handed one call and one conversation; it cannot see the
-     * graph, and answering from what it can see would mean answering wrongly.
-     * That check belongs to the node's issues() and to the release of a
-     * version, where the graph is in hand and the fix is still cheap. What is
-     * enforced here is the action's own requiresApproval flag, which is the
-     * part a scenario cannot argue with.
+     * **No approval rule is enforced here, including the action's own
+     * requiresApproval flag.** A gateway is handed one call and one
+     * conversation; it cannot see the graph, and it cannot tell an approval that
+     * happened this turn from one that happened last week or from none at all.
+     * Answering from what it can see would mean answering wrongly, and a guard
+     * that is wrong is worse than a guard that is absent, because people stop
+     * looking for the real one.
+     *
+     * The real one is the release: `ScenarioGraph::writes()` walks the published
+     * graph, treats an action declaring `requiresApproval` or a write side
+     * effect as a write, and refuses to publish a scenario where one of them is
+     * reachable without an approval node above it. That is the moment the graph
+     * is in hand and the fix is still cheap — see `docs/capabilities.md`.
      *
      * @param  array<string, mixed>  $payload
      */

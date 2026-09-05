@@ -36,7 +36,6 @@
         "pestphp/pest-plugin-laravel": "^4.0"
     },
     "suggest": {
-        "defstudio/telegraph": "Required by the Telegram channel driver (^1.72)",
         "laravel/ai": "Enables the laravel-ai gateway driver for Anthropic, Gemini, Bedrock and tool calling (^0.11)"
     },
     "autoload": {
