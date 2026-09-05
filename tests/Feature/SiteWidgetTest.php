@@ -170,9 +170,11 @@ it('refuses everything while the widget is switched off', function (): void {
 });
 
 /**
- * Served rather than published, so that installing the package is enough. The
- * cache is immutable because the URL carries the version — an upgrade changes
- * the URL and the stale copy is simply never asked for again.
+ * Served rather than published, so that installing the package is enough.
+ *
+ * Held for an hour with an ETag rather than marked immutable: the URL carries
+ * no version, so an immutable copy would outlive the upgrade that changed the
+ * file and a visitor would keep the old widget until they cleared their cache.
  */
 it('serves the widget script and stylesheet to anybody', function (): void {
     $this->get('/chatbot/widget.js')
@@ -180,4 +182,44 @@ it('serves the widget script and stylesheet to anybody', function (): void {
         ->assertHeader('content-type', 'application/javascript; charset=utf-8');
 
     $this->get('/chatbot/widget.css')->assertOk();
+});
+
+/**
+ * Which sites may embed the widget is the one setting that differs between
+ * every environment a host has, and it can be given without publishing the
+ * config file.
+ *
+ * The config is read here rather than exercised through a request, because what
+ * is being checked is the parsing: a host that writes the variable and gets a
+ * list of one string containing commas has a widget that admits nobody, and the
+ * only symptom is a widget that never opens on a site that is plainly listed.
+ *
+ * Blank entries are dropped rather than kept. A trailing comma is the most
+ * ordinary thing to leave in an env file, and an empty string in this list is
+ * not harmless — it is an origin that matches nothing, sitting in a list whose
+ * emptiness is the very thing `chatbot:doctor` reports on.
+ */
+it('takes the sites that may embed it from one environment variable', function (): void {
+    $read = static function (?string $value): array {
+        $previous = getenv('CHATBOT_WIDGET_ORIGINS');
+
+        $value === null
+            ? putenv('CHATBOT_WIDGET_ORIGINS')
+            : putenv('CHATBOT_WIDGET_ORIGINS='.$value);
+
+        try {
+            return (array) (require dirname(__DIR__, 2).'/config/chatbot.php')['widget']['origins'];
+        } finally {
+            $previous === false
+                ? putenv('CHATBOT_WIDGET_ORIGINS')
+                : putenv('CHATBOT_WIDGET_ORIGINS='.$previous);
+        }
+    };
+
+    expect($read('https://shop.example.com'))->toBe(['https://shop.example.com'])
+        ->and($read('https://shop.example.com, https://www.example.com'))
+        ->toBe(['https://shop.example.com', 'https://www.example.com'])
+        ->and($read('https://shop.example.com,,'))->toBe(['https://shop.example.com'])
+        ->and($read(''))->toBe([])
+        ->and($read(null))->toBe([]);
 });

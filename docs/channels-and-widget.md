@@ -298,21 +298,34 @@ below, and for the same reason.
 ```php
 'widget' => [
     'enabled' => true,
-    'origins' => ['https://shop.example.com'],
+    'origins' => [ /* from CHATBOT_WIDGET_ORIGINS */ ],
     'identity_secret' => env('CHATBOT_WIDGET_SECRET'),
-    'class_prefix' => 'chatbot',
-    'storage_prefix' => 'chatbot',
     'token_ttl' => 600,
     'max_attachment_kb' => 10240,
     'rate_limits' => [ /* ... */ ],
 ],
 ```
 
+Usually you never touch this file. The allow-list is read from one environment
+variable, comma-separated, because it is the setting that genuinely differs
+between every environment you have:
+
+```
+CHATBOT_WIDGET_ORIGINS=https://shop.example.com,https://www.example.com
+```
+
+Blank entries are dropped, so a trailing comma is harmless. Publishing the
+config and writing the array by hand works too, and wins.
+
 `enabled` is checked before anything else on every widget endpoint, so switching
 it off refuses them all with a stated reason rather than leaving a launcher that
-opens onto errors. `class_prefix` and `storage_prefix` mirror what the embed's
-`data-prefix` sets; the running widget reads the attribute, since it is the
-embedding page that knows whether it has a name collision.
+opens onto errors.
+
+There is no `class_prefix` or `storage_prefix` setting. The embed's
+`data-prefix` attribute does that job, because the clash it exists to resolve —
+a site already using `.chatbot__` for something of its own — belongs to the
+embedding site, and one value here could not be right for every site that embeds
+the widget.
 
 **An empty list blocks everything.** The opposite default would make a forgotten
 setting into an open endpoint: anyone could embed the widget on their own site,

@@ -61,6 +61,11 @@ final class WidgetCheck extends DoctorCheck
             )];
         }
 
-        return [DoctorFinding::pass(count($origins).' origins may embed the widget.', $origins)];
+        $count = count($origins);
+
+        return [DoctorFinding::pass(
+            $count.($count === 1 ? ' origin may' : ' origins may').' embed the widget.',
+            $origins,
+        )];
     }
 }

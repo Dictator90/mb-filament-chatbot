@@ -19,6 +19,10 @@ contain.
 - Contact and subject are nullable morphs the package writes, indexes and hands
   back, and never looks inside. That is what lets the same package serve a shop
   whose contacts are customers and a helpdesk whose contacts are assets.
+- An operator desk: every conversation on every channel in one list, with search,
+  filters, stock phrases and an unread badge counted per person. Answering takes
+  the conversation over and silences the bot; "give back to the bot" undoes both
+  halves. Quality-check rehearsals never reach it.
 
 ### Scenarios
 
@@ -86,3 +90,22 @@ contain.
 - `chatbot:demo-data` and `chatbot:demo` seed a working bot and hold a
   conversation with it, so the second thing you do after installing is watch it
   answer.
+
+### Found by installing it somewhere real
+
+The package was installed into an unrelated Laravel 13 application and driven
+through a browser. Four things only that could show, and each is now covered by
+a test that fails without the fix:
+
+- Panel screens ask `Filament::auth()`, never `auth()`. A panel may sign people
+  in on a guard of its own, and against such a host `auth()` answers `null` while
+  an operator is looking at the page — with no error, just a screen missing from
+  the menu and replies filed with no author.
+- Dates are typed `CarbonInterface`. An application that has called
+  `Date::use(CarbonImmutable::class)` was met with a `TypeError` where the desk
+  should have been.
+- The canvas takes its theme from Filament's `dark` class alone. It also read
+  `prefers-color-scheme`, which overruled Filament for anybody who had chosen
+  light on a machine set to dark.
+- `CHATBOT_WIDGET_ORIGINS` sets the widget's allow-list, so the one setting that
+  differs between every environment no longer needs the config file published.

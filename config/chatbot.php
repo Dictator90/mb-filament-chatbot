@@ -344,11 +344,26 @@ return [
     | message opens conversations and spends the model budget, which is why they
     | are separate numbers rather than one ceiling high enough for the first.
     |
+    | origins can also come from CHATBOT_WIDGET_ORIGINS as a comma-separated
+    | list. It reads oddly for a config file to parse a string, and it is worth
+    | the oddity: which sites may embed the widget is the one setting that
+    | genuinely differs between every environment a host has — staging is not
+    | production — and it was the only such setting here that could not be given
+    | without publishing this file and editing it per deployment. Everything
+    | else a host must vary already reads an env var.
+    |
+    | An empty list stays an empty list, and the widget then admits nobody.
+    | Silence is not taken as permission: `chatbot:doctor` fails on exactly this
+    | and says which setting to fill in.
+    |
     */
 
     'widget' => [
         'enabled' => true,
-        'origins' => [],
+        'origins' => array_values(array_filter(array_map(
+            'trim',
+            explode(',', (string) env('CHATBOT_WIDGET_ORIGINS', '')),
+        ), static fn (string $origin): bool => $origin !== '')),
         'identity_secret' => env('CHATBOT_WIDGET_SECRET'),
         'token_ttl' => 600,
         'max_attachment_kb' => 10240,

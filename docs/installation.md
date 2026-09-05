@@ -127,10 +127,15 @@ php artisan vendor:publish --tag=chatbot-config
 ```
 
 The config file is merged from the package, so the application runs without
-publishing it. Publish it when you need to change a default — and you will need
-to change at least two of them before the widget answers anybody:
-`chatbot.widget.origins` and, if you sign in your visitors,
-`chatbot.widget.identity_secret`.
+publishing it, and the two settings the widget cannot answer anybody without are
+both environment variables — no publishing needed:
+
+```
+CHATBOT_WIDGET_ORIGINS=https://shop.example.com
+CHATBOT_WIDGET_SECRET=…   # only if you sign your visitors in
+```
+
+Publish the file when you need to change something else.
 
 Other publish tags:
 
@@ -292,9 +297,10 @@ The defaults are chosen so that a forgotten setting fails closed. That means
 several of them do nothing useful until you fill them in, which is intentional
 and is the opposite of a bug:
 
-- **`chatbot.widget.origins`** is empty, and an empty list blocks every site
-  rather than allowing all of them. The reverse default would turn one forgotten
-  setting into an endpoint any site can embed and bill to your model budget.
+- **`chatbot.widget.origins`** (from `CHATBOT_WIDGET_ORIGINS`) is empty, and an
+  empty list blocks every site rather than allowing all of them. The reverse
+  default would turn one forgotten setting into an endpoint any site can embed
+  and bill to your model budget.
   Origins are matched whole and exactly — scheme, host and port together — so
   `https://shop.example.com` does not admit the plaintext version of the same
   site, and a request arriving with no `Origin` header at all is refused.
