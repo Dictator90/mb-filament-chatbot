@@ -192,31 +192,130 @@ return [
                 'max_tokens' => 600,
             ],
         ],
+
+        /*
+         * Letting a model choose which scenario answers a message, and only
+         * once routing by words has found nothing.
+         *
+         * Off by default, and the default is the point rather than caution
+         * about the bill. Keyword routing is free, instant, works with the
+         * provider down, and — the part that matters to whoever draws the
+         * scenarios — can be read off the canvas, because the words are written
+         * on the start node. With a model choosing, "why did it go there" is
+         * answered by somebody else's service. Only scenarios whose author
+         * wrote an invocation contract are ever offered, and every failure falls
+         * back to the deterministic behaviour, so switching this on can add a
+         * match but never take one away.
+         */
+        'routing' => [
+            'enabled' => false,
+            'instruction' => 'You route a customer message to one of the listed conversation scenarios. Choose the single best fit, or none at all when nothing fits well. Never name anything that is not in the list.',
+            'candidates' => 12,
+        ],
+
+        /*
+         * Defaults for the node that answers with a model.
+         *
+         * The wording lives here as well as on the node so that an installation
+         * can set its tone once instead of on every node, and so that the two
+         * rules that keep the node honest — answer only from the material given,
+         * say so when it does not cover the question — are what an author starts
+         * from rather than something they have to think of.
+         */
+        'answer' => [
+            'instruction' => 'You answer customers on behalf of this company. Use only the material you are given, keep the reply short and in the language the customer wrote in, and say plainly that you do not know when the material does not answer the question.',
+            'candidates' => 5,
+        ],
     ],
 
     /*
     |--------------------------------------------------------------------------
     | Knowledge base
     |--------------------------------------------------------------------------
+    |
+    | min_score is how much of a question has to land on a topic before it is
+    | treated as being about that topic, and min_gap is how far ahead of the
+    | runner-up the winner has to be. The second one is the important one: two
+    | topics that fit equally well mean the question did not contain the words
+    | that tell them apart, and a confident answer about the wrong one is worse
+    | than none at all. Lower it and the bot starts guessing.
+    |
+    | stop_words is the only language-specific part of matching, which is why it
+    | is a setting rather than code. English ships here because that is the only
+    | language the package can claim to speak; a host writing its knowledge base
+    | in another language replaces the whole list.
+    |
     */
 
     'knowledge' => [
         'enabled' => true,
         'candidates' => 5,
+        'min_score' => 0.2,
+        'min_gap' => 0.25,
+        'stop_words' => [
+            'about', 'after', 'all', 'also', 'and', 'any', 'are', 'ask', 'been',
+            'before', 'being', 'but', 'can', 'could', 'did', 'does', 'doing',
+            'done', 'for', 'from', 'get', 'gets', 'got', 'had', 'has',
+            'have', 'hello', 'her', 'here', 'hers', 'him', 'his', 'how',
+            'into', 'its', 'just', 'know', 'let', 'like', 'may', 'might',
+            'much', 'must', 'need', 'not', 'now', 'onto', 'our', 'ours', 'out',
+            'over', 'please', 'said', 'say', 'she', 'should', 'some', 'such',
+            'tell', 'than', 'thanks', 'thank', 'that', 'the', 'their', 'them',
+            'then', 'there', 'these', 'they', 'this', 'those', 'through',
+            'under', 'until', 'very', 'was', 'were', 'what', 'when', 'where',
+            'which', 'while', 'who', 'whom', 'why', 'will', 'with', 'would',
+            'you', 'your', 'yours',
+        ],
     ],
 
     /*
     |--------------------------------------------------------------------------
     | Channels
     |--------------------------------------------------------------------------
+    |
+    | Delivery is queued and retried, never done in the request that produced
+    | the message: a provider answers in about a second when it is healthy and
+    | not at all when it is not, and the request waiting on that belongs to a
+    | visitor watching their own message fail to appear.
+    |
+    | tries is a ceiling on retries of failures that might not repeat. A message
+    | whose channel has no driver, or whose credentials are missing, is not
+    | retried at all — waiting cannot make a driver appear, and the retries would
+    | only delay the reason reaching the operator.
+    |
+    | The Telegram secret_token is what actually authenticates the webhook: the
+    | URL is public and its only protection is that nobody has guessed it yet.
+    | An empty secret refuses every update rather than accepting every update,
+    | because the reverse would make a forgotten setting into an open door into
+    | the customer desk that works perfectly in testing.
+    |
     */
 
     'channels' => [
+        'delivery' => [
+            'tries' => 3,
+        ],
+
         'site' => [
             'enabled' => true,
         ],
+
         'telegram' => [
             'enabled' => false,
+            'token' => env('CHATBOT_TELEGRAM_TOKEN'),
+            'secret_token' => env('CHATBOT_TELEGRAM_SECRET'),
+            'api_url' => 'https://api.telegram.org',
+            'timeout' => 10,
+
+            /*
+             * Empty on purpose. Telegram rejects the whole message when its
+             * markup does not parse, and a scenario's text carries whatever the
+             * conversation collected — a name with an underscore in it, a
+             * reference number in brackets — so a parse mode turns somebody
+             * else's data into a delivery failure. A host that formats its
+             * messages deliberately sets this and escapes accordingly.
+             */
+            'parse_mode' => '',
         ],
     ],
 
@@ -229,15 +328,40 @@ return [
     | The reverse default would turn a forgotten setting into an open endpoint
     | that any site can embed and bill to this application's AI budget.
     |
+    | Origins are matched whole and exactly — scheme, host and port together —
+    | so 'https://shop.example.com' does not admit the plaintext version of the
+    | same site. A request arriving with no Origin header at all is refused too:
+    | the widget is cross-origin by definition and always sends one.
+    |
+    | identity_secret is what the host signs a logged-in visitor's id with, on
+    | its own server, before printing it into the embed. Without it the identity
+    | block is ignored entirely — everything in it comes from a script the
+    | visitor can edit, so an unsigned "this is customer 4711" is a claim, not a
+    | fact, and treating it as one would let anybody read anybody's thread.
+    |
+    | rate_limits are per minute, keyed by visitor token where there is one and
+    | by IP otherwise. Polling for history is frequent and harmless; sending a
+    | message opens conversations and spends the model budget, which is why they
+    | are separate numbers rather than one ceiling high enough for the first.
+    |
     */
 
     'widget' => [
         'enabled' => true,
         'origins' => [],
+        'identity_secret' => env('CHATBOT_WIDGET_SECRET'),
         'class_prefix' => 'chatbot',
         'storage_prefix' => 'chatbot',
         'token_ttl' => 600,
         'max_attachment_kb' => 10240,
+
+        'rate_limits' => [
+            'chatbot-site-history' => 120,
+            'chatbot-site-send' => 20,
+            'chatbot-site-read' => 60,
+            'chatbot-site-typing' => 60,
+            'chatbot-webhook' => 300,
+        ],
     ],
 
     /*

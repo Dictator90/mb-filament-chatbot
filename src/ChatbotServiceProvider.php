@@ -7,7 +7,11 @@ namespace MB\FilamentChatbot;
 use Filament\Support\Assets\Css;
 use Filament\Support\Assets\Js;
 use Filament\Support\Facades\FilamentAsset;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\ServiceProvider;
+use MB\FilamentChatbot\Ai\AiGateway;
+use MB\FilamentChatbot\Ai\AiGatewayFactory;
+use MB\FilamentChatbot\Ai\KnowledgeSource;
 use MB\FilamentChatbot\Bot\Conditions\Fields\ChannelCondition;
 use MB\FilamentChatbot\Bot\Conditions\Fields\DateCondition;
 use MB\FilamentChatbot\Bot\Conditions\Fields\DayCondition;
@@ -27,6 +31,9 @@ use MB\FilamentChatbot\Bot\Graph\ScenarioGraph;
 use MB\FilamentChatbot\Bot\Graph\ScenarioVersions;
 use MB\FilamentChatbot\Bot\Slots\BuiltInSlots;
 use MB\FilamentChatbot\Bot\Steps\Types\ActionStep;
+use MB\FilamentChatbot\Bot\Steps\Types\AiStep;
+use MB\FilamentChatbot\Bot\Steps\Types\AiTaskStep;
+use MB\FilamentChatbot\Bot\Steps\Types\AnswerStep;
 use MB\FilamentChatbot\Bot\Steps\Types\ApprovalStep;
 use MB\FilamentChatbot\Bot\Steps\Types\AskStep;
 use MB\FilamentChatbot\Bot\Steps\Types\CallStep;
@@ -49,7 +56,10 @@ use MB\FilamentChatbot\Bot\Steps\Types\StartStep;
 use MB\FilamentChatbot\Bot\Steps\Types\TransformStep;
 use MB\FilamentChatbot\Bot\Variables\TalkVariables;
 use MB\FilamentChatbot\Console\Commands\DemoConversationCommand;
+use MB\FilamentChatbot\Console\Commands\DoctorCommand;
 use MB\FilamentChatbot\Console\Commands\SeedDemoDataCommand;
+use MB\FilamentChatbot\Knowledge\KnowledgeBaseSource;
+use MB\FilamentChatbot\Policies\Policies;
 use MB\FilamentChatbot\Registry\ChatbotRegistry;
 
 /**
@@ -82,6 +92,18 @@ class ChatbotServiceProvider extends ServiceProvider
         $this->app->singleton(ScenarioGraph::class);
         $this->app->singleton(GraphConfig::class);
         $this->app->singleton(ScenarioVersions::class);
+
+        $this->app->singleton(AiGatewayFactory::class);
+        $this->app->bind(AiGateway::class, fn ($app): AiGateway => $app->make(AiGatewayFactory::class)->make());
+
+        /*
+         * Without this binding the `ai` node has nothing to quote and always
+         * takes its "could not" exit — technically correct and useless. The
+         * binding is here rather than in the AI layer because the direction
+         * matters: the model reads from the knowledge base, the knowledge base
+         * knows nothing about a model.
+         */
+        $this->app->bind(KnowledgeSource::class, KnowledgeBaseSource::class);
     }
 
     public function boot(): void
@@ -94,11 +116,28 @@ class ChatbotServiceProvider extends ServiceProvider
         $this->registerBuiltInSlots();
         $this->registerBuiltInConditions();
         $this->registerBuiltInVariableSources();
+        $this->registerPolicies();
         $this->registerAssets();
 
         if ($this->app->runningInConsole()) {
             $this->publishesTo();
             $this->registerCommands();
+        }
+    }
+
+    /**
+     * Points each model at its policy.
+     *
+     * Registered here rather than left to Laravel's convention, because the
+     * convention looks for `App\Policies\ScenarioPolicy` in the host — which
+     * does not exist, so the model would be authorised by nothing at all. That
+     * failure is invisible: Laravel reads a model with no policy as having no
+     * opinion, and the screen simply opens for everybody.
+     */
+    protected function registerPolicies(): void
+    {
+        foreach (Policies::map() as $model => $policy) {
+            Gate::policy($model, $policy);
         }
     }
 
@@ -133,6 +172,7 @@ class ChatbotServiceProvider extends ServiceProvider
         $this->commands([
             SeedDemoDataCommand::class,
             DemoConversationCommand::class,
+            DoctorCommand::class,
         ]);
     }
 
@@ -175,6 +215,9 @@ class ChatbotServiceProvider extends ServiceProvider
             JumpStep::class,
             CallStep::class,
             ResultStep::class,
+            AnswerStep::class,
+            AiStep::class,
+            AiTaskStep::class,
             QueryStep::class,
             ChooseStep::class,
             ApprovalStep::class,

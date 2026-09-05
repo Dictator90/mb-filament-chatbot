@@ -295,6 +295,27 @@ final class HasUnpaidInvoice extends ConditionField
 }
 ```
 
+## The site widget
+
+One script tag on any page:
+
+```html
+<script src="https://app.example.com/chatbot/widget.js" async
+        data-bot="support"
+        data-title="Support"
+        data-color="#4f46e5"></script>
+```
+
+Vanilla, unbundled, no dependencies — it runs next to whatever the site already
+loads, and it can be read by whoever has to approve putting it there.
+
+Two things it does not do, both on purpose. It never trusts the page it runs on:
+who the visitor is comes from a signature your application issued, and
+everything else is decoration. And it will not answer a page whose origin is not
+in `chatbot.widget.origins` — an empty list blocks every site rather than
+allowing all of them, because the reverse default turns one forgotten setting
+into an endpoint anyone can embed and bill to your model budget.
+
 ## AI
 
 AI is optional and off by default, and every scenario has to work without it: an

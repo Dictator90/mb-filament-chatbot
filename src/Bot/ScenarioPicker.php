@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace MB\FilamentChatbot\Bot;
 
 use Illuminate\Support\Collection;
+use MB\FilamentChatbot\Bot\Routing\ScenarioRouter;
 use MB\FilamentChatbot\Models\Conversation;
 use MB\FilamentChatbot\Models\Scenario;
 use MB\FilamentChatbot\Models\Step;
@@ -12,11 +13,12 @@ use MB\FilamentChatbot\Models\Step;
 /**
  * Decides which scenario answers an incoming message.
  *
- * Deterministic, and that is deliberate: routing by keyword works with the AI
- * switched off, with no key configured, and with the provider down. The model
- * gets to improve this later — a scenario carries an invocation contract for
- * exactly that — but it never becomes the only way in. A bot whose routing
- * needs a working provider is a bot that goes silent when the bill is not paid.
+ * Deterministic first, and that is deliberate: routing by keyword works with
+ * the AI switched off, with no key configured, and with the provider down. A
+ * model may be asked afterwards — a scenario carries an invocation contract for
+ * exactly that — but it never becomes the only way in, and it is never asked
+ * about a message the words already claimed. A bot whose routing needs a
+ * working provider is a bot that goes silent when the bill is not paid.
  *
  * Everything the picker needs is on the scenario's start node, not on the
  * scenario row. Two places describing how a conversation begins would disagree
@@ -24,7 +26,18 @@ use MB\FilamentChatbot\Models\Step;
  */
 class ScenarioPicker
 {
-    public function __construct(private readonly Greeting $greeting) {}
+    /**
+     * The router is optional, and the package binds none by default.
+     *
+     * That is what keeps this class's behaviour identical on an installation
+     * with no model: nothing is resolved, nothing is asked, and the order below
+     * is the order it always was. A host that wants a model to help binds
+     * {@see ScenarioRouter}, and even then it is asked last.
+     */
+    public function __construct(
+        private readonly Greeting $greeting,
+        private readonly ?ScenarioRouter $router = null,
+    ) {}
 
     /**
      * The best scenario for this message, or null when nothing claims it.
@@ -33,22 +46,79 @@ class ScenarioPicker
      * keyword beats a greeting, and a greeting beats the catch-all. Ordering by
      * priority alone would let a high-priority fallback swallow every keyword
      * in the installation, and the author would have no way to see why.
+     *
+     * A model, when one is bound, is asked between the greeting and the
+     * fallback and nowhere else. Before the keywords it would spend a request
+     * on every message the words already answer, and lose the one property an
+     * author can rely on — that what is written on the start node is what
+     * routes. After the fallback it would never be asked at all, because a
+     * catch-all matches everything by definition.
      */
     public function pick(Conversation $conversation, ?string $said, bool $isFirstMessage): ?Scenario
     {
         $candidates = $this->candidates($conversation);
 
-        foreach (['keyword', 'greeting', 'fallback'] as $trigger) {
-            $match = $candidates
-                ->filter(fn (Scenario $scenario): bool => $this->triggerOf($scenario) === $trigger)
-                ->first(fn (Scenario $scenario): bool => $this->matches($scenario, $conversation, $said, $isFirstMessage, $trigger));
+        foreach (['keyword', 'greeting'] as $trigger) {
+            $match = $this->firstMatching($candidates, $conversation, $said, $isFirstMessage, $trigger);
 
             if ($match !== null) {
                 return $match;
             }
         }
 
-        return null;
+        return $this->routed($conversation, $said, $candidates)
+            ?? $this->firstMatching($candidates, $conversation, $said, $isFirstMessage, 'fallback');
+    }
+
+    /**
+     * @param  Collection<int, Scenario>  $candidates
+     */
+    protected function firstMatching(
+        Collection $candidates,
+        Conversation $conversation,
+        ?string $said,
+        bool $isFirstMessage,
+        string $trigger,
+    ): ?Scenario {
+        return $candidates
+            ->filter(fn (Scenario $scenario): bool => $this->triggerOf($scenario) === $trigger)
+            ->first(fn (Scenario $scenario): bool => $this->matches($scenario, $conversation, $said, $isFirstMessage, $trigger));
+    }
+
+    /**
+     * What a bound router makes of the message, if anything.
+     *
+     * The list handed over is already narrowed to scenarios this conversation
+     * could legitimately be sent to — the channel and the audience of the start
+     * node still decide that, not the router. A model has no way to know that a
+     * scenario is for signed-in customers on the site only, and a router allowed
+     * to return one anyway would walk a Telegram visitor into it.
+     *
+     * @param  Collection<int, Scenario>  $candidates
+     */
+    protected function routed(Conversation $conversation, ?string $said, Collection $candidates): ?Scenario
+    {
+        if ($this->router === null) {
+            return null;
+        }
+
+        $eligible = $candidates
+            ->filter(fn (Scenario $scenario): bool => $this->isReachable($scenario, $conversation))
+            ->values();
+
+        return $eligible->isEmpty() ? null : $this->router->route($conversation, $said, $eligible);
+    }
+
+    /**
+     * Whether this conversation is allowed to reach the scenario at all.
+     */
+    protected function isReachable(Scenario $scenario, Conversation $conversation): bool
+    {
+        $start = $scenario->startStep();
+
+        return $start !== null
+            && $this->coversChannel($start, $conversation)
+            && $this->coversAudience($start, $conversation);
     }
 
     /**

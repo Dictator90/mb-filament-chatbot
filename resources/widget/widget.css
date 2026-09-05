@@ -1,0 +1,246 @@
+/*
+ * Styles for the embedded chat widget.
+ *
+ * Every rule is scoped under one class and every property is spelled out. This
+ * stylesheet lands on somebody else's page next to their own CSS, and the two
+ * failure modes are symmetric: a loose selector here breaks their site, and an
+ * inherited property there breaks the widget. So nothing is left to inherit —
+ * font, colour, line height and box sizing are all stated.
+ *
+ * The class prefix is configurable on the server for the same reason. A site
+ * that already uses `.chatbot__panel` for something of its own can rename ours
+ * without forking the file.
+ */
+
+.chatbot__root {
+    --chatbot-accent: #4f46e5;
+    --chatbot-surface: #ffffff;
+    --chatbot-ink: #0f172a;
+    --chatbot-muted: #64748b;
+    --chatbot-line: #e2e8f0;
+    --chatbot-agent: #f1f5f9;
+
+    position: fixed;
+    bottom: 20px;
+    z-index: 2147483000;
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+    font-size: 15px;
+    line-height: 1.45;
+    color: var(--chatbot-ink);
+    box-sizing: border-box;
+}
+
+.chatbot__root *,
+.chatbot__root *::before,
+.chatbot__root *::after {
+    box-sizing: border-box;
+}
+
+.chatbot__root[data-position="right"] {
+    right: 20px;
+    align-items: flex-end;
+}
+
+.chatbot__root[data-position="left"] {
+    left: 20px;
+    align-items: flex-start;
+}
+
+.chatbot__launcher {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 18px;
+    border: 0;
+    border-radius: 999px;
+    background: var(--chatbot-accent);
+    color: #ffffff;
+    font: inherit;
+    font-weight: 600;
+    cursor: pointer;
+    box-shadow: 0 10px 25px rgba(15, 23, 42, 0.18);
+}
+
+.chatbot__launcher:hover {
+    filter: brightness(1.06);
+}
+
+/*
+ * The unread dot is an attribute rather than a class so the script can set and
+ * clear it with one call and never accumulate stale classes on the element.
+ */
+.chatbot__launcher[data-unread="yes"]::after {
+    content: "";
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    background: #ef4444;
+}
+
+.chatbot__panel {
+    display: flex;
+    flex-direction: column;
+    width: 360px;
+    max-width: calc(100vw - 32px);
+    height: 520px;
+    max-height: calc(100vh - 120px);
+    margin-bottom: 12px;
+    border: 1px solid var(--chatbot-line);
+    border-radius: 16px;
+    background: var(--chatbot-surface);
+    overflow: hidden;
+    box-shadow: 0 24px 60px rgba(15, 23, 42, 0.22);
+}
+
+.chatbot__panel[hidden] {
+    display: none;
+}
+
+.chatbot__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 16px;
+    background: var(--chatbot-accent);
+    color: #ffffff;
+}
+
+.chatbot__title {
+    font-weight: 600;
+}
+
+.chatbot__close {
+    border: 0;
+    background: transparent;
+    color: inherit;
+    font-size: 22px;
+    line-height: 1;
+    cursor: pointer;
+    padding: 0 4px;
+}
+
+.chatbot__log {
+    flex: 1 1 auto;
+    overflow-y: auto;
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.chatbot__message {
+    display: flex;
+}
+
+.chatbot__message[data-from="visitor"] {
+    justify-content: flex-end;
+}
+
+.chatbot__bubble {
+    max-width: 80%;
+    padding: 9px 13px;
+    border-radius: 14px;
+    background: var(--chatbot-agent);
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+}
+
+.chatbot__message[data-from="visitor"] .chatbot__bubble {
+    background: var(--chatbot-accent);
+    color: #ffffff;
+}
+
+.chatbot__message[data-from="system"] .chatbot__bubble {
+    background: transparent;
+    color: var(--chatbot-muted);
+    font-size: 13px;
+}
+
+.chatbot__choices {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    padding: 0 16px 8px;
+}
+
+.chatbot__choices:empty {
+    display: none;
+}
+
+.chatbot__choice {
+    padding: 7px 12px;
+    border: 1px solid var(--chatbot-accent);
+    border-radius: 999px;
+    background: transparent;
+    color: var(--chatbot-accent);
+    font: inherit;
+    font-size: 14px;
+    cursor: pointer;
+}
+
+.chatbot__choice:hover {
+    background: var(--chatbot-accent);
+    color: #ffffff;
+}
+
+.chatbot__composer {
+    display: flex;
+    gap: 8px;
+    padding: 12px;
+    border-top: 1px solid var(--chatbot-line);
+}
+
+.chatbot__input {
+    flex: 1 1 auto;
+    min-width: 0;
+    padding: 10px 12px;
+    border: 1px solid var(--chatbot-line);
+    border-radius: 10px;
+    font: inherit;
+    color: inherit;
+    background: var(--chatbot-surface);
+}
+
+.chatbot__input:focus {
+    outline: 2px solid var(--chatbot-accent);
+    outline-offset: -1px;
+}
+
+.chatbot__send {
+    padding: 10px 16px;
+    border: 0;
+    border-radius: 10px;
+    background: var(--chatbot-accent);
+    color: #ffffff;
+    font: inherit;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+/*
+ * A phone gets the whole screen. A 360-pixel panel floating over a page that is
+ * already 360 pixels wide is a panel with no page behind it, and the close
+ * button ends up under the browser's own chrome.
+ */
+@media (max-width: 480px) {
+    .chatbot__root {
+        left: 12px;
+        right: 12px;
+        bottom: 12px;
+    }
+
+    .chatbot__panel {
+        width: auto;
+        height: min(70vh, 520px);
+    }
+}
+
+@media (prefers-color-scheme: dark) {
+    .chatbot__root {
+        --chatbot-surface: #0f172a;
+        --chatbot-ink: #e2e8f0;
+        --chatbot-muted: #94a3b8;
+        --chatbot-line: #1e293b;
+        --chatbot-agent: #1e293b;
+    }
+}

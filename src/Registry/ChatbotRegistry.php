@@ -10,6 +10,8 @@ use MB\FilamentChatbot\Bot\Slots\Slot;
 use MB\FilamentChatbot\Bot\Steps\StepType;
 use MB\FilamentChatbot\Bot\Variables\VariableSource;
 use MB\FilamentChatbot\Capabilities\CapabilityAction;
+use MB\FilamentChatbot\Channels\ChannelDriver;
+use MB\FilamentChatbot\Console\Doctor\DoctorCheck;
 
 /**
  * Everything a host application may add to the chatbot.
@@ -350,6 +352,92 @@ class ChatbotRegistry
         return $this;
     }
 
+    /**
+     * Channel drivers by their key.
+     *
+     * @var array<string, ChannelDriver>
+     */
+    protected array $channels = [];
+
+    /**
+     * Adds a channel, replacing any earlier one with the same key.
+     *
+     * **A section here rather than a ChannelRegistry of its own**, for the same
+     * reason capabilities above are: a host wires its whole chatbot in one
+     * provider, and a second singleton with a second facade would only split
+     * "what this application added" across two objects that always travel
+     * together. The panel already asks this class what an installation is made
+     * of; the list of channels a conversation can arrive on is the same kind of
+     * answer.
+     *
+     * Replacement is allowed, unlike a capability. A driver is a transport, not
+     * an action on the host's records: swapping the Telegram driver for one that
+     * routes through a company gateway is an ordinary deployment decision, and
+     * the worst a wrong one can do is fail visibly on the message row. Boot
+     * order still decides the winner, so the package's own drivers skip keys
+     * that are already claimed.
+     */
+    public function registerChannel(ChannelDriver $driver): static
+    {
+        $key = $driver->key();
+
+        if ($key === '') {
+            throw new InvalidArgumentException(
+                '['.$driver::class.'] must return a non-empty key() to be registered as a channel.',
+            );
+        }
+
+        $this->channels[$key] = $driver;
+
+        return $this;
+    }
+
+    /**
+     * @param  iterable<ChannelDriver>  $drivers
+     */
+    public function registerChannels(iterable $drivers): static
+    {
+        foreach ($drivers as $driver) {
+            $this->registerChannel($driver);
+        }
+
+        return $this;
+    }
+
+    /**
+     * The driver behind a key, or null when nothing claims it.
+     *
+     * Null for the same reason step() answers null, but the consequence differs
+     * and matters more: conversations survive the removal of the package that
+     * brought their channel, and they still have to open and read. What must not
+     * happen is a reply to such a thread disappearing without trace, which is
+     * why the outbox turns this null into a failed message carrying the reason.
+     */
+    public function channel(string $key): ?ChannelDriver
+    {
+        return $this->channels[$key] ?? null;
+    }
+
+    /**
+     * @return array<string, ChannelDriver>
+     */
+    public function channels(): array
+    {
+        return $this->channels;
+    }
+
+    public function hasChannel(string $key): bool
+    {
+        return isset($this->channels[$key]);
+    }
+
+    public function forgetChannel(string $key): static
+    {
+        unset($this->channels[$key]);
+
+        return $this;
+    }
+
     public function registerVariableSource(VariableSource $source): static
     {
         $this->variableSources[$source->key()] = $source;
@@ -368,5 +456,48 @@ class ChatbotRegistry
     public function variableSources(): array
     {
         return $this->variableSources;
+    }
+
+    /**
+     * Installation checks the host has added, by key.
+     *
+     * @var array<string, class-string<DoctorCheck>>
+     */
+    protected array $doctorChecks = [];
+
+    /**
+     * Adds a check to `chatbot:doctor`.
+     *
+     * Worth having because half of what breaks a chat installation is outside
+     * the package: a credential the host stores its own way, a queue worker on
+     * a machine nobody restarted, an endpoint the host's own driver talks to.
+     * A host that can add its check to the same command gets one answer to
+     * "is this deployment healthy" instead of two.
+     *
+     * A check claiming a built-in key replaces it, matching how step types
+     * behave: overriding one check of a package you cannot fork is a real need,
+     * and the alternative is copying the whole command.
+     *
+     * @param  class-string<DoctorCheck>  $check
+     */
+    public function registerDoctorCheck(string $check): static
+    {
+        if (! is_subclass_of($check, DoctorCheck::class)) {
+            throw new InvalidArgumentException(
+                "[{$check}] must extend ".DoctorCheck::class.' to be registered as a doctor check.',
+            );
+        }
+
+        $this->doctorChecks[$check::key()] = $check;
+
+        return $this;
+    }
+
+    /**
+     * @return array<string, class-string<DoctorCheck>>
+     */
+    public function doctorChecks(): array
+    {
+        return $this->doctorChecks;
     }
 }

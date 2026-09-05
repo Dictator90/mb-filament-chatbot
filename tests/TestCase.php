@@ -17,6 +17,7 @@ use Filament\Tables\TablesServiceProvider;
 use Filament\Widgets\WidgetsServiceProvider;
 use Illuminate\Contracts\Config\Repository;
 use Livewire\LivewireServiceProvider;
+use MB\FilamentChatbot\ChannelsServiceProvider;
 use MB\FilamentChatbot\ChatbotServiceProvider;
 
 use function Orchestra\Testbench\default_migration_path;
@@ -76,6 +77,7 @@ abstract class TestCase extends Orchestra
             LivewireServiceProvider::class,
 
             ChatbotServiceProvider::class,
+            ChannelsServiceProvider::class,
             WorkbenchPanelProvider::class,
         ];
     }
