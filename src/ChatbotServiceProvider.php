@@ -57,6 +57,7 @@ use MB\FilamentChatbot\Bot\Steps\Types\TransformStep;
 use MB\FilamentChatbot\Bot\Variables\TalkVariables;
 use MB\FilamentChatbot\Console\Commands\DemoConversationCommand;
 use MB\FilamentChatbot\Console\Commands\DoctorCommand;
+use MB\FilamentChatbot\Console\Commands\RunQualityChecksCommand;
 use MB\FilamentChatbot\Console\Commands\SeedDemoDataCommand;
 use MB\FilamentChatbot\Knowledge\KnowledgeBaseSource;
 use MB\FilamentChatbot\Policies\Policies;
@@ -76,6 +77,18 @@ class ChatbotServiceProvider extends ServiceProvider
     public function register(): void
     {
         $this->mergeConfigFrom(__DIR__.'/../config/chatbot.php', 'chatbot');
+
+        /*
+         * Channels are a second provider registered by this one rather than a
+         * second entry in composer's discovery list.
+         *
+         * Two discovered providers is two things that can be half-installed. A
+         * host that has one and not the other gets a package whose screens work
+         * and whose messages never leave the building — and nothing anywhere
+         * says which half is missing. Registering it here makes the pair
+         * indivisible while keeping the channel wiring in its own file.
+         */
+        $this->app->register(ChannelsServiceProvider::class);
 
         /*
          * The registry is a singleton because host packages register their steps,
@@ -173,6 +186,7 @@ class ChatbotServiceProvider extends ServiceProvider
             SeedDemoDataCommand::class,
             DemoConversationCommand::class,
             DoctorCommand::class,
+            RunQualityChecksCommand::class,
         ]);
     }
 

@@ -38,9 +38,44 @@ class Conversation extends Model
 
     use ResolvesOperatorModel;
 
+    /**
+     * The key under `meta` that marks a thread as a rehearsal rather than a
+     * person. Written by the quality runner and read by the global scope below.
+     */
+    public const string QUALITY_META_KEY = 'quality_check';
+
+    /**
+     * The name of the global scope, so that lifting it reads as a decision.
+     */
+    public const string REAL_SCOPE = 'real';
+
     protected $table = 'chatbot_conversations';
 
     protected $guarded = [];
+
+    /**
+     * A rehearsal thread is hidden from every query in the package.
+     *
+     * A global scope rather than a `real()` scope each screen remembers to call,
+     * because "each screen" is not a list anybody holds: the inbox, the unread
+     * badge, the returning-visitor condition and the widget's own lookup all ask
+     * this table, and every one of them was written before quality checks
+     * existed. A scope that has to be added is the scope that will be missing
+     * from the next caller — and the symptom is an operator opening a thread
+     * with a customer who never wrote, answering it, and finding nobody there.
+     *
+     * The second thing it buys is silence: `Message::conversation` is scoped
+     * too, so the outbox finds no thread behind a rehearsal's reply and cannot
+     * deliver it to a real chat.
+     *
+     * The runner lifts it by name, which is the only place that may.
+     */
+    protected static function booted(): void
+    {
+        static::addGlobalScope(self::REAL_SCOPE, static function (Builder $query): void {
+            $query->whereNull($query->getModel()->qualifyColumn('meta').'->'.self::QUALITY_META_KEY);
+        });
+    }
 
     protected function casts(): array
     {

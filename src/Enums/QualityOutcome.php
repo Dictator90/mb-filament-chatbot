@@ -38,4 +38,21 @@ enum QualityOutcome: string implements HasLabel
             self::Broken => 'Could not run',
         };
     }
+
+    /**
+     * The console colour, as a Symfony tag name.
+     *
+     * Broken is yellow rather than red, and the difference is the whole reason
+     * the case exists: a wall of red teaches the reader that the suite is red,
+     * and the one line saying the scenario was deleted scrolls past with the
+     * rest.
+     */
+    public function color(): string
+    {
+        return match ($this) {
+            self::Passed => 'green',
+            self::Failed => 'red',
+            self::Broken => 'yellow',
+        };
+    }
 }

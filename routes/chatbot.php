@@ -6,6 +6,7 @@ use Illuminate\Routing\Middleware\ThrottleRequests;
 use Illuminate\Support\Facades\Route;
 use MB\FilamentChatbot\Http\Controllers\SiteWidgetController;
 use MB\FilamentChatbot\Http\Controllers\TelegramWebhookController;
+use MB\FilamentChatbot\Http\Controllers\WidgetScriptController;
 use MB\FilamentChatbot\Http\Middleware\WidgetOrigin;
 
 /**
@@ -22,6 +23,21 @@ use MB\FilamentChatbot\Http\Middleware\WidgetOrigin;
  * one is there breaks on the first application that renamed it.
  */
 Route::prefix('chatbot')->name('chatbot.')->group(function (): void {
+    /*
+     * The widget's own files, served rather than published into `public/`.
+     *
+     * Publishing would put one more step between installing the package and a
+     * working chat — and, worse, a step nobody repeats after an upgrade, leaving
+     * a stale widget talking to a newer endpoint.
+     *
+     * Outside the origin allow-list on purpose: this is a public script tag,
+     * identical for every site, and checking the origin of a `<script src>`
+     * would only break the browsers that do not send one. What the allow-list
+     * guards is below — the endpoints that carry a conversation.
+     */
+    Route::get('widget.js', [WidgetScriptController::class, 'script'])->name('widget.script');
+    Route::get('widget.css', [WidgetScriptController::class, 'styles'])->name('widget.styles');
+
     /*
      * The widget's own endpoints. Guarded by the origin allow-list and by the
      * visitor token, in place of the CSRF token they cannot carry.

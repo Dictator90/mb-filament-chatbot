@@ -223,6 +223,10 @@
                     writeToken(payload.token);
                 }
 
+                if ((payload.messages || []).length) {
+                    dropEchoes();
+                }
+
                 (payload.messages || []).forEach(append);
 
                 state.choices = payload.choices || [];
@@ -243,19 +247,54 @@
             .then(schedule);
     }
 
+    /**
+     * Adds a message to the log.
+     *
+     * Only a message that came from the server moves the high-water mark. The
+     * greeting and the echo of what the visitor just typed are drawn locally so
+     * the widget feels immediate, and giving them ids would put a made-up number
+     * in the next poll's `after=` — which then asks the server for everything
+     * newer than a message it has never heard of.
+     */
     function append(message) {
-        if (message.id <= state.lastId) {
-            return;
-        }
+        var tracked = typeof message.id === 'number' && message.id > 0;
 
-        state.lastId = message.id;
+        if (tracked) {
+            if (message.id <= state.lastId) {
+                return;
+            }
+
+            state.lastId = message.id;
+        }
 
         var row = element('div', 'message');
         row.setAttribute('data-from', message.incoming ? 'visitor' : 'agent');
         row.appendChild(element('div', 'bubble', message.body));
 
+        if (!tracked) {
+            row.setAttribute('data-local', 'yes');
+        }
+
         el.log.appendChild(row);
         el.log.scrollTop = el.log.scrollHeight;
+    }
+
+    /**
+     * Removes the bubbles the widget drew before the server had them.
+     *
+     * The echo of what the visitor typed exists so the message appears the
+     * instant they press send; the server then returns the same message in the
+     * transcript, and without this the visitor sees themselves say it twice.
+     *
+     * Dropping the echo rather than trying to match it to the returned message
+     * is deliberate: matching by text is wrong the moment somebody sends the
+     * same word twice in a row, which people do constantly ("hello", "hello?").
+     */
+    function dropEchoes() {
+        el.log.querySelectorAll('[data-local="yes"][data-from="visitor"]')
+            .forEach(function (node) {
+                node.remove();
+            });
     }
 
     /*
@@ -288,7 +327,7 @@
         state.choices = [];
         renderChoices();
 
-        append({ id: state.lastId + 0.5, body: body, incoming: true });
+        append({ id: null, body: body, incoming: true });
 
         api('messages', {
             method: 'POST',
@@ -329,7 +368,7 @@
         build();
 
         if (settings.greeting) {
-            append({ id: 0.1, body: settings.greeting, incoming: false });
+            append({ id: null, body: settings.greeting, incoming: false });
         }
 
         poll();

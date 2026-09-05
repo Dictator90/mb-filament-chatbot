@@ -42,4 +42,23 @@ class WorkbenchServiceProvider extends ServiceProvider
             'foreign_key_constraints' => true,
         ]);
     }
+
+    /**
+     * Lets the demo page embed the widget.
+     *
+     * In `boot` rather than `register`, because the package merges its own
+     * defaults during `register` and whichever ran second would win — a race
+     * decided by the order of a manifest.
+     *
+     * A host writes this same line, and gets it wrong the same way: the origin
+     * is scheme and host, not a bare domain, and it is the site the widget sits
+     * on rather than the application serving it. Here they happen to be the same
+     * application, which is what makes the demo page a fair test of the setting.
+     */
+    public function boot(): void
+    {
+        $this->app['config']->set('chatbot.widget.origins', [
+            rtrim((string) $this->app['config']->get('app.url'), '/'),
+        ]);
+    }
 }

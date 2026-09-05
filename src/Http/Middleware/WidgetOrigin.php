@@ -25,11 +25,16 @@ use Symfony\Component\HttpFoundation\Response;
  * budget having them answered, and it would look exactly like ordinary traffic
  * from the panel.
  *
- * **A request with no Origin header is refused too.** The widget is by
- * definition cross-origin and every request it makes carries a custom header,
- * which forces a preflight and puts an Origin on the real request as well. What
- * arrives without one is therefore not the widget — it is a server, a script or
- * a crawler, none of which the allow-list can vouch for.
+ * **A request with no Origin header is allowed only from this application's own
+ * pages.** Browsers omit Origin on a same-origin GET, so a widget embedded on
+ * the application that serves it — a marketing page of the same Laravel app —
+ * would otherwise be refused outright: a 403 in the console and a launcher that
+ * opens onto nothing. Allowing it is safe because the reverse never happens. A
+ * cross-site `fetch` always carries an Origin, and a cross-site GET that omits
+ * one — an `<img>`, a `<script>` — cannot read the reply.
+ *
+ * Anything else arriving without an Origin is refused: a server, a script or a
+ * crawler, none of which the allow-list can vouch for.
  */
 class WidgetOrigin
 {
@@ -41,7 +46,11 @@ class WidgetOrigin
 
         $origin = trim((string) $request->headers->get('Origin', ''));
 
-        if (! $this->allows($origin)) {
+        if ($origin === '' && ! $this->isSameOrigin($request)) {
+            return $this->refuse('This request did not say where it came from.');
+        }
+
+        if ($origin !== '' && ! $this->allows($origin)) {
             return $this->refuse('This origin may not use the chat widget.');
         }
 
@@ -87,6 +96,31 @@ class WidgetOrigin
     private function normalise(string $origin): string
     {
         return rtrim(mb_strtolower(trim($origin)), '/');
+    }
+
+    /**
+     * Whether the request came from a page this application itself served.
+     *
+     * Compared against the request's own host rather than `app.url`, because
+     * the two disagree on every installation that is reached by more than one
+     * name — a staging alias, an internal hostname, a domain being migrated —
+     * and disagreeing here would break the widget on the second name only,
+     * which is the hardest kind of fault to be told about.
+     *
+     * The Referer is the honest source: for the same-origin GET this exists to
+     * allow, the browser sends one, and its host is the page the widget is on.
+     */
+    private function isSameOrigin(Request $request): bool
+    {
+        $referer = (string) $request->headers->get('Referer', '');
+
+        if ($referer === '') {
+            return false;
+        }
+
+        $host = parse_url($referer, PHP_URL_HOST);
+
+        return is_string($host) && mb_strtolower($host) === mb_strtolower($request->getHost());
     }
 
     /**

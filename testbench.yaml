@@ -21,6 +21,9 @@ seeders:
 env:
   - APP_NAME="Filament Chatbot Workbench"
   - APP_ENV=local
+  # The widget's origin allow-list is built from this, so the demo page can
+  # embed the widget. Change the port here if you serve the workbench elsewhere.
+  - APP_URL=http://127.0.0.1:8321
   - APP_DEBUG=true
   # A real 32-byte key, not a readable one. The previous placeholder spelled out
   # a sentence in base64 and was 28 bytes, which every command tolerated and the

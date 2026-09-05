@@ -71,8 +71,7 @@
     "extra": {
         "laravel": {
             "providers": [
-                "MB\\FilamentChatbot\\ChatbotServiceProvider",
-                "MB\\FilamentChatbot\\ChannelsServiceProvider"
+                "MB\\FilamentChatbot\\ChatbotServiceProvider"
             ]
         }
     },
