@@ -10,10 +10,9 @@ use MB\FilamentChatbot\Filament\Resources\KnowledgeEntries\Pages\CreateKnowledge
 use MB\FilamentChatbot\Filament\Resources\KnowledgeEntries\Pages\ListKnowledgeEntries;
 use MB\FilamentChatbot\Filament\Resources\Runs\RunResource;
 use MB\FilamentChatbot\Models\KnowledgeEntry;
-use Workbench\App\Models\User;
 
 beforeEach(function (): void {
-    $this->actingAs(User::factory()->create());
+    signIn();
 });
 
 /**
@@ -67,6 +66,64 @@ it('does not let anybody create or edit a run', function (): void {
     expect(RunResource::canCreate())->toBeFalse()
         ->and(RunResource::getPages())->not->toHaveKey('create')
         ->and(RunResource::getPages())->not->toHaveKey('edit');
+});
+
+/**
+ * No screen asks the *application* who is signed in.
+ *
+ * `auth()` resolves the application's default guard. A panel may sign people in
+ * on a guard of its own — hosts commonly do, staff against one table and
+ * customers against another — and against such a host every `auth()` call in
+ * this package answers `null` while an operator is plainly looking at the page.
+ * `Filament::auth()` asks the current panel instead, which is right in both
+ * shapes.
+ *
+ * Read from the source rather than exercised, because the failure has no
+ * symptom to catch: a screen simply disappears from the menu, a badge counts a
+ * guest, an author is stored as null. The suite covers the behaviour on the
+ * desk, where it was found; this stops the next screen reintroducing it, which
+ * a behavioural test could only do by growing a case per screen forever.
+ */
+it('never asks the default guard who is signed in', function (): void {
+    $offenders = [];
+
+    $files = new RecursiveIteratorIterator(
+        new RecursiveDirectoryIterator(dirname(__DIR__, 2).'/src/Filament'),
+    );
+
+    foreach ($files as $file) {
+        if ($file->getExtension() !== 'php') {
+            continue;
+        }
+
+        /*
+         * Tokenised rather than searched as text. The docblock explaining this
+         * very rule has to quote the call it forbids, and a plain search reads
+         * that sentence as a violation — a rule that cannot be documented
+         * without breaking itself.
+         */
+        $code = '';
+
+        foreach (token_get_all((string) file_get_contents($file->getPathname())) as $token) {
+            if (is_array($token) && in_array($token[0], [T_COMMENT, T_DOC_COMMENT], true)) {
+                continue;
+            }
+
+            $code .= is_array($token) ? $token[1] : $token;
+        }
+
+        if (preg_match('/(?<!::)\bauth\s*\(\s*\)/', $code) === 1) {
+            $offenders[] = $file->getFilename();
+        }
+    }
+
+    $this->assertSame(
+        [],
+        $offenders,
+        'These panel classes ask the application default guard who is signed in, '
+        .'which answers null on a panel with its own guard. Use Filament::auth(): '
+        .implode(', ', $offenders),
+    );
 });
 
 /**

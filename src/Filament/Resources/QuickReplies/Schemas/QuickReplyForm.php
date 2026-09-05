@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace MB\FilamentChatbot\Filament\Resources\QuickReplies\Schemas;
 
+use Filament\Facades\Filament;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
@@ -56,10 +57,10 @@ class QuickReplyForm
                 Select::make('user_id')
                     ->label('Whose')
                     ->options(fn (): array => [
-                        (string) auth()->id() => 'Mine — only I see it',
+                        (string) Filament::auth()->id() => 'Mine — only I see it',
                         self::SHARED => 'Shared with everyone',
                     ])
-                    ->default(fn (): string => (string) auth()->id())
+                    ->default(fn (): string => (string) Filament::auth()->id())
                     ->selectablePlaceholder(false)
                     ->required()
                     ->formatStateUsing(fn (mixed $state): string => $state === null

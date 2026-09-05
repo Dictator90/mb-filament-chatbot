@@ -134,6 +134,18 @@ from the host's own policy — see [Extending]({{ site.baseurl }}/extending) for
 how the package defers authorization. A panel where nobody may see
 conversations simply has no Chat item in its menu.
 
+**A panel with its own guard works.** If your panel declares
+`->authGuard('staff')`, the desk asks *that* guard who is signed in, not the
+application default — every screen in the package uses `Filament::auth()` rather
+than `auth()`, and a test enforces it. This matters more than it sounds: on a
+host with a separate staff guard, a package that reads the default guard sees
+nobody while an operator is plainly looking at the page, and every symptom is
+silent — the menu item is missing, the badge counts a guest, "mine" matches
+nothing, replies are filed with no author.
+
+The same goes for `Date::use(CarbonImmutable::class)`: the desk is typed against
+`CarbonInterface`, so an application on immutable dates renders normally.
+
 ---
 
 ## Styling

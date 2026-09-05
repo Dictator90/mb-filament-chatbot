@@ -29,12 +29,45 @@ use MB\FilamentChatbot\ChatbotPlugin;
  */
 class WorkbenchPanelProvider extends PanelProvider
 {
+    /**
+     * Declares the guard the panel signs people in on.
+     *
+     * Here rather than in the other workbench provider because the suite loads
+     * this one and not that one, and a guard the panel names but the suite never
+     * defines fails as "guard [workbench] is not defined" — far from anything
+     * that explains it. The declaration and the `->authGuard()` call below now
+     * cannot drift apart.
+     *
+     * A panel on its own guard is the ordinary shape, not an exotic one: staff
+     * sign in against one table and customers against another, and that is what
+     * `->authGuard()` is for. It matters here because `auth()->user()` resolves
+     * the *application default* guard, never the panel's. Against a host shaped
+     * this way that call answers `null` while somebody is plainly signed in, and
+     * every consequence is silent — the desk vanishes from the menu, the unread
+     * badge counts a guest, "mine" matches nothing, an operator's reply is filed
+     * with no author. Nothing throws.
+     *
+     * It was found by installing the package into a real application whose panel
+     * does exactly this, and it could not have been found here while the
+     * workbench signed people in on the default guard like everything else.
+     */
+    public function register(): void
+    {
+        $this->app['config']->set('auth.guards.workbench', [
+            'driver' => 'session',
+            'provider' => 'users',
+        ]);
+
+        parent::register();
+    }
+
     public function panel(Panel $panel): Panel
     {
         return $panel
             ->default()
             ->id('workbench')
             ->path('admin')
+            ->authGuard('workbench')
             ->login()
             ->colors(['primary' => Color::Indigo])
             ->middleware([

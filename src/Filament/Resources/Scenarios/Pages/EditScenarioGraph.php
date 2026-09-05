@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace MB\FilamentChatbot\Filament\Resources\Scenarios\Pages;
 
 use Filament\Actions\Action;
+use Filament\Facades\Filament;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\Page;
 use Illuminate\Contracts\Support\Htmlable;
@@ -156,7 +157,7 @@ class EditScenarioGraph extends Page
                 try {
                     $version = app(ScenarioVersions::class)->publish(
                         $this->scenario(),
-                        auth()->id(),
+                        Filament::auth()->id(),
                     );
                 } catch (ScenarioNotPublishable $exception) {
                     /*

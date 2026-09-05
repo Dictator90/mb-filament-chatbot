@@ -7,6 +7,7 @@ namespace MB\FilamentChatbot\Filament\Resources\QuickReplies\Tables;
 use Filament\Actions\ActionGroup;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\EditAction;
+use Filament\Facades\Filament;
 use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\TernaryFilter;
@@ -24,7 +25,7 @@ class QuickRepliesTable
              * personal reply must not reach even this list: seen here and
              * missing from the chat, it reads as a broken picker.
              */
-            ->modifyQueryUsing(fn (Builder $query): Builder => $query->availableTo(auth()->id()))
+            ->modifyQueryUsing(fn (Builder $query): Builder => $query->availableTo(Filament::auth()->id()))
             ->columns([
                 TextColumn::make('title')
                     ->description(fn (QuickReply $record): string => str($record->body)->limit(90)->value())

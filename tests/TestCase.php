@@ -6,6 +6,7 @@ namespace MB\FilamentChatbot\Tests;
 
 use BladeUI\Heroicons\BladeHeroiconsServiceProvider;
 use BladeUI\Icons\BladeIconsServiceProvider;
+use Carbon\CarbonImmutable;
 use Filament\Actions\ActionsServiceProvider;
 use Filament\FilamentServiceProvider;
 use Filament\Forms\FormsServiceProvider;
@@ -16,6 +17,7 @@ use Filament\Support\SupportServiceProvider;
 use Filament\Tables\TablesServiceProvider;
 use Filament\Widgets\WidgetsServiceProvider;
 use Illuminate\Contracts\Config\Repository;
+use Illuminate\Support\Facades\Date;
 use Livewire\LivewireServiceProvider;
 use MB\FilamentChatbot\ChannelsServiceProvider;
 use MB\FilamentChatbot\ChatbotServiceProvider;
@@ -82,8 +84,26 @@ abstract class TestCase extends Orchestra
         ];
     }
 
+    /**
+     * Runs the whole suite on immutable dates, as a good many hosts do.
+     *
+     * `Date::use(CarbonImmutable::class)` is an ordinary line in an application's
+     * service provider, and it changes what every model's date cast hands back:
+     * `Carbon\CarbonImmutable`, which is **not** an instance of
+     * `Illuminate\Support\Carbon`. Anything in this package typed against the
+     * latter then fails with a `TypeError` on a host that has made that choice,
+     * and passes here forever if the suite runs on mutable dates.
+     *
+     * Set for the suite rather than for the workbench application because it is
+     * the package that has to tolerate both, and the suite is the only place
+     * that can hold it to it. Found by installing into a real application that
+     * does this; the page died with a `TypeError` where the desk should have
+     * been.
+     */
     public function defineEnvironment($app): void
     {
+        Date::use(CarbonImmutable::class);
+
         tap($app['config'], function (Repository $config): void {
             $config->set('database.default', 'testing');
             $config->set('database.connections.testing', [

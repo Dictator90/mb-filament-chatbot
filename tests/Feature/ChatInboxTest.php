@@ -112,7 +112,7 @@ it('leaves a conversation with the colleague who already owns it', function (): 
  * menu short, so the list is read from the plugin rather than named here.
  */
 it('registers the desk with the panel and opens it', function (): void {
-    $this->actingAs(User::factory()->create());
+    signIn();
 
     expect((new ChatbotPlugin)->pages())->toContain(ChatInbox::class);
 
@@ -125,7 +125,7 @@ it('registers the desk with the panel and opens it', function (): void {
  * global scope is what keeps them out; this proves the desk has not lifted it.
  */
 it('keeps quality-check rehearsals off the desk', function (): void {
-    $this->actingAs(User::factory()->create());
+    signIn();
 
     $real = Conversation::factory()->create(['last_message_at' => now()]);
     $rehearsal = Conversation::factory()->create([
@@ -146,7 +146,7 @@ it('keeps quality-check rehearsals off the desk', function (): void {
  * hidden by the very filter meant to find them.
  */
 it('shows only conversations whose last word came from the other side', function (): void {
-    $this->actingAs(User::factory()->create());
+    signIn();
 
     $waiting = Conversation::factory()->create([
         'last_message_at' => now(),
@@ -176,7 +176,7 @@ it('shows only conversations whose last word came from the other side', function
  * back to conversations they have already answered.
  */
 it('marks a conversation read as soon as it is opened', function (): void {
-    $this->actingAs(User::factory()->create());
+    signIn();
 
     $conversation = Conversation::factory()->unread()->create();
 
@@ -193,7 +193,7 @@ it('marks a conversation read as soon as it is opened', function (): void {
  */
 it('gives a conversation back to the bot, owner and all', function (): void {
     $user = User::factory()->create();
-    $this->actingAs($user);
+    signIn($user);
 
     $bot = Bot::factory()->create();
     $conversation = Conversation::factory()->handedOff()->create([
@@ -228,10 +228,10 @@ it('counts the unread badge for the person looking at it', function (): void {
         'last_message_at' => now(),
     ]);
 
-    $this->actingAs($mine);
+    signIn($mine);
     expect(ChatInbox::getNavigationBadge())->toBe('1');
 
-    $this->actingAs($colleague);
+    signIn($colleague);
     expect(ChatInbox::getNavigationBadge())->toBeNull();
 });
 
@@ -244,7 +244,7 @@ it('counts the unread badge for the person looking at it', function (): void {
  * preview, and nothing on screen looks any different.
  */
 it('draws twenty conversations for the price of two', function (): void {
-    $this->actingAs(User::factory()->create());
+    signIn();
 
     $few = inboxListQueries(2);
     $many = inboxListQueries(20);

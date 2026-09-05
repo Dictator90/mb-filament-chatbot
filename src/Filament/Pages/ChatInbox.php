@@ -5,14 +5,15 @@ declare(strict_types=1);
 namespace MB\FilamentChatbot\Filament\Pages;
 
 use BackedEnum;
+use Carbon\CarbonInterface;
 use Filament\Actions\Action;
+use Filament\Facades\Filament;
 use Filament\Pages\Page;
 use Filament\Support\Enums\Width;
 use Filament\Support\Icons\Heroicon;
 use Illuminate\Contracts\Support\Htmlable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
-use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Cache;
 use InvalidArgumentException;
 use Livewire\Attributes\Computed;
@@ -152,9 +153,26 @@ class ChatInbox extends Page
         return Width::Full;
     }
 
+    /**
+     * Who is looking, asked of the panel rather than of the application.
+     *
+     * `Filament::auth()` and not `auth()` — here and everywhere else on this
+     * screen. A panel may sign people in on a guard of its own, and hosts
+     * commonly do: staff against one table, customers against another. Against
+     * such a host `auth()` resolves the *application default* guard, which
+     * nobody signed into, and answers `null` while an operator is plainly
+     * looking at the page.
+     *
+     * Every consequence of getting this wrong is silent. This method answers
+     * false and the desk simply is not in the menu; the unread badge counts a
+     * guest; "mine" matches nothing; a reply is filed with no author. Nothing
+     * throws, and a suite that signs in with `actingAs($user, $guard)` cannot
+     * see it either, because that helper also makes the panel's guard the
+     * default — see `signIn()` in `tests/Pest.php`.
+     */
     public static function canAccess(): bool
     {
-        return auth()->user()?->can('viewAny', Conversation::class) === true;
+        return Filament::auth()->user()?->can('viewAny', Conversation::class) === true;
     }
 
     /**
@@ -173,7 +191,7 @@ class ChatInbox extends Page
      */
     public static function getNavigationBadge(): ?string
     {
-        $userId = auth()->id();
+        $userId = Filament::auth()->id();
 
         $unread = Cache::remember(
             'chatbot.inbox.badge.'.($userId ?? 'guest'),
@@ -229,7 +247,7 @@ class ChatInbox extends Page
             ->when($this->onlyUnread, fn (Builder $query): Builder => $query->unread())
             ->when(
                 $this->ownerFilter === 'mine',
-                fn (Builder $query): Builder => $query->where('assigned_to_id', auth()->id()),
+                fn (Builder $query): Builder => $query->where('assigned_to_id', Filament::auth()->id()),
             )
             ->when(
                 $this->ownerFilter === 'unassigned',
@@ -329,7 +347,7 @@ class ChatInbox extends Page
     {
         return QuickReply::query()
             ->active()
-            ->availableTo(auth()->id())
+            ->availableTo(Filament::auth()->id())
             ->orderBy('sort')
             ->get();
     }
@@ -438,7 +456,7 @@ class ChatInbox extends Page
         }
 
         try {
-            app(OperatorReply::class)->send($conversation, $body, auth()->user());
+            app(OperatorReply::class)->send($conversation, $body, Filament::auth()->user());
         } catch (InvalidArgumentException) {
             $this->addError('composerBody', 'Write something before sending.');
 
@@ -498,7 +516,7 @@ class ChatInbox extends Page
                 }
 
                 $conversation->forceFill([
-                    'assigned_to_id' => $this->isMine() ? null : auth()->id(),
+                    'assigned_to_id' => $this->isMine() ? null : Filament::auth()->id(),
                 ])->save();
 
                 $this->forgetThread();
@@ -578,7 +596,7 @@ class ChatInbox extends Page
 
     public function isMine(): bool
     {
-        return $this->activeConversation?->assigned_to_id === auth()->id()
+        return $this->activeConversation?->assigned_to_id === Filament::auth()->id()
             && $this->activeConversation?->assigned_to_id !== null;
     }
 
@@ -616,7 +634,7 @@ class ChatInbox extends Page
     {
         return match (true) {
             $conversation->assigned_to_id === null => 'free',
-            $conversation->assigned_to_id === auth()->id() => 'yours',
+            $conversation->assigned_to_id === Filament::auth()->id() => 'yours',
             default => 'taken',
         };
     }
@@ -668,8 +686,15 @@ class ChatInbox extends Page
      * Today by the clock, yesterday by name, older by date. A full date on a
      * conversation from this morning takes the width of the row and answers a
      * question nobody asked.
+     *
+     * `CarbonInterface`, never `Illuminate\Support\Carbon`. An application that
+     * has called `Date::use(CarbonImmutable::class)` — an ordinary line, and one
+     * this package has no say in — gets `Carbon\CarbonImmutable` out of every
+     * date cast, which is not an instance of Laravel's Carbon. Typed against the
+     * concrete class this method throws a `TypeError` and takes the whole desk
+     * down with it, on a host where nothing is wrong.
      */
-    public function listTimestamp(?Carbon $at): string
+    public function listTimestamp(?CarbonInterface $at): string
     {
         if ($at === null) {
             return '';
@@ -725,7 +750,7 @@ class ChatInbox extends Page
         $conversation = $this->activeConversation;
 
         return $conversation instanceof Conversation
-            && auth()->user()?->can('update', $conversation) === true;
+            && Filament::auth()->user()?->can('update', $conversation) === true;
     }
 
     private function normaliseFilters(): void
