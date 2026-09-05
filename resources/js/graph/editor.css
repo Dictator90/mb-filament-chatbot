@@ -1,11 +1,21 @@
 /*
  * The canvas, in both of Filament's themes.
  *
- * Every colour is a variable defined twice: once for light, once for dark. The
- * theme is not a media query alone — Filament lets a person choose light while
- * their system is dark, and it says so by putting `dark` on <html>. Styling by
- * the media query only would give that person a white panel with white text on
- * it, which is the sort of bug nobody reports because nobody can read it.
+ * **The theme is the `dark` class on <html>, and nothing else.** Filament
+ * decides light or dark itself — including in its "system" setting, where it
+ * reads the media query and resolves it — and says so in exactly one way: it
+ * puts `dark` on <html> for dark and leaves the class off for light. There is
+ * no `light` class. Ever.
+ *
+ * So light is the plain default here and `:root.dark` is the only override.
+ *
+ * This file used to carry a `prefers-color-scheme: dark` block as well, and a
+ * `:root.light` block to overrule it. Neither worked: `:root.light` matched
+ * nothing, so for the very person the arrangement was written to protect — one
+ * who chooses light on a machine set to dark, which is an ordinary thing to do —
+ * the media query won and the canvas came out dark inside a light panel. Found
+ * in a real application, where it looked like a dark slab dropped into a white
+ * page with a white settings pane beside it.
  *
  * Nothing here touches a Filament class. Every selector is prefixed, so a
  * Filament upgrade cannot silently restyle the editor and the editor cannot
@@ -22,32 +32,6 @@
     --chatbot-accent: #f59e0b;
     --chatbot-blocking: #dc2626;
     --chatbot-notice: #d97706;
-    --chatbot-note: #fef3c7;
-    --chatbot-note-border: #fcd34d;
-    --chatbot-shadow: 0 1px 2px rgb(15 23 42 / 8%);
-}
-
-@media (prefers-color-scheme: dark) {
-    .chatbot-graph {
-        --chatbot-surface: #1e293b;
-        --chatbot-raised: #273449;
-        --chatbot-sunken: #0f172a;
-        --chatbot-border: #334155;
-        --chatbot-text: #e2e8f0;
-        --chatbot-muted: #94a3b8;
-        --chatbot-note: #422006;
-        --chatbot-note-border: #a16207;
-        --chatbot-shadow: 0 1px 2px rgb(0 0 0 / 40%);
-    }
-}
-
-:root.light .chatbot-graph {
-    --chatbot-surface: #ffffff;
-    --chatbot-raised: #f8fafc;
-    --chatbot-sunken: #f1f5f9;
-    --chatbot-border: #e2e8f0;
-    --chatbot-text: #0f172a;
-    --chatbot-muted: #64748b;
     --chatbot-note: #fef3c7;
     --chatbot-note-border: #fcd34d;
     --chatbot-shadow: 0 1px 2px rgb(15 23 42 / 8%);
@@ -574,4 +558,44 @@
     color: var(--chatbot-muted);
     cursor: pointer;
     font: inherit;
+}
+
+/*
+ * The two panels React Flow draws for itself: the overview map and the zoom
+ * buttons.
+ *
+ * They ship with white hardcoded into their own stylesheet, which is invisible
+ * against a light canvas and a bright white slab against a dark one — the
+ * overview map is a couple of hundred pixels of it in the corner. Everything
+ * else on this canvas is drawn by the package and themed by the variables
+ * above; these two were the only things left following nobody.
+ *
+ * Scoped under `.chatbot-graph` so the rules cannot reach a React Flow canvas
+ * that a host renders for its own reasons.
+ */
+.chatbot-graph .react-flow__minimap {
+    background: var(--chatbot-surface);
+    border: 1px solid var(--chatbot-border);
+    border-radius: 0.375rem;
+}
+
+.chatbot-graph .react-flow__minimap-mask {
+    fill: var(--chatbot-sunken);
+    fill-opacity: 0.6;
+}
+
+.chatbot-graph .react-flow__controls-button {
+    background: var(--chatbot-surface);
+    border-bottom: 1px solid var(--chatbot-border);
+    color: var(--chatbot-text);
+    fill: currentcolor;
+}
+
+.chatbot-graph .react-flow__controls-button:hover {
+    background: var(--chatbot-sunken);
+}
+
+.chatbot-graph .react-flow__attribution {
+    background: transparent;
+    color: var(--chatbot-muted);
 }

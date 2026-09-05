@@ -127,6 +127,51 @@ it('never asks the default guard who is signed in', function (): void {
 });
 
 /**
+ * The canvas follows Filament's theme, and takes it from the `dark` class alone.
+ *
+ * Filament decides light or dark itself — in its "system" setting too, where it
+ * reads the media query and resolves it — and says so in one way only: `dark` on
+ * `<html>` for dark, no class at all for light. There is no `light` class to
+ * match on.
+ *
+ * So a `prefers-color-scheme` rule in this stylesheet does not add a fallback,
+ * it overrides Filament. The file used to carry one, with a `:root.light` block
+ * meant to overrule it; `:root.light` matched nothing, and the person the pair
+ * was written to protect — somebody who chooses light on a machine set to dark,
+ * an ordinary thing to do — got a dark canvas inside a light panel.
+ *
+ * Checked against the built bundle rather than the source, because the bundle is
+ * what ships: `dist/` is committed and a host never runs the build, so a fixed
+ * source with a stale bundle is exactly as broken and looks fixed in review.
+ */
+it('themes the canvas by Filament class, never by the system colour scheme', function (): void {
+    $bundle = dirname(__DIR__, 2).'/dist/chatbot-graph.css';
+
+    $this->assertFileExists($bundle, 'The canvas stylesheet is committed, not built on install.');
+
+    $css = (string) file_get_contents($bundle);
+
+    $this->assertStringNotContainsString(
+        'prefers-color-scheme',
+        $css,
+        'The canvas must not read the system colour scheme: it overrides the theme '
+        .'Filament resolved, and gives a dark canvas to anybody who chose light on a dark machine.',
+    );
+
+    $this->assertStringNotContainsString(
+        ':root.light',
+        $css,
+        'Filament sets no `light` class, so this selector matches nothing and whatever it was overruling wins.',
+    );
+
+    $this->assertStringContainsString(
+        ':root.dark .chatbot-graph',
+        $css,
+        'Dark is the one thing Filament marks, and the canvas has to answer to it.',
+    );
+});
+
+/**
  * The host decides where this block of screens sits in its own menu, in one
  * setting. Six literals in six classes would mean six overrides to move the
  * menu, and the one somebody missed would split it across two groups named
