@@ -48,6 +48,7 @@ use MB\FilamentChatbot\Bot\Steps\Types\HandoffStep;
 use MB\FilamentChatbot\Bot\Steps\Types\HttpStep;
 use MB\FilamentChatbot\Bot\Steps\Types\JumpStep;
 use MB\FilamentChatbot\Bot\Steps\Types\KeywordStep;
+use MB\FilamentChatbot\Bot\Steps\Types\MutateStep;
 use MB\FilamentChatbot\Bot\Steps\Types\QueryStep;
 use MB\FilamentChatbot\Bot\Steps\Types\ResultStep;
 use MB\FilamentChatbot\Bot\Steps\Types\SayStep;
@@ -234,6 +235,7 @@ class ChatbotServiceProvider extends ServiceProvider
             AiTaskStep::class,
             QueryStep::class,
             ChooseStep::class,
+            MutateStep::class,
             ApprovalStep::class,
             ActionStep::class,
             HttpStep::class,

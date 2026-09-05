@@ -626,6 +626,54 @@ back to the conversation's variables for an unknown name looks harmless and is
 not: a mistyped field name would quietly print the visitor's own answer next to
 every record in the list, and each line would read as a fact about that record.
 
+## `mutate`
+
+Writes one row of a declared data resource.
+
+| | |
+| --- | --- |
+| Class | `MutateStep` |
+| Outputs | `Pair` — `written` / `could not` |
+| Speaks | no |
+| Trace | `passed`, `failed` |
+| Pins | `data_resources` |
+| Side effect | `Write` |
+
+| Setting | |
+| --- | --- |
+| `resource` | The declared data resource. Required, and it must be declared writable |
+| `operation` | `insert` or `update`. Default `insert` |
+| `key` | The variable holding the record to change. Update only |
+| `values` | Field/value pairs. `{{variables}}` are substituted |
+| `into` | Receives the key of the row that was written |
+
+The only node that changes the host's records without a line of host code, and
+the narrowest one in the package as a result. It can add a row or change a row
+it can name, and nothing else: no delete, because a conversation is a bad place
+to decide something is gone forever, and no bulk update, because a filter that
+matches more rows than the author pictured is the usual way to lose a table —
+and here the author is not necessarily a programmer.
+
+**An update needs the resource to declare a lock column, and refuses without
+one.** Two conversations about the same record are ordinary: somebody writes
+from the site and from Telegram within a minute of each other. A blind update
+makes the second one silently undo the first, and neither person is told.
+
+If the row changed between the read and the write, the node takes its second
+exit rather than retrying. The scenario decided what to write from what it read,
+and that reading is now stale — repeating the write would apply a decision made
+about a record that no longer exists in that form.
+
+**Only the key of the written row comes back, never the row.** A scenario that
+wants to read the record says so with [`query`](#query), where every rule about
+approved and sensitive fields applies. Returning the row from here would be a
+second way out of the same table with none of those rules on it.
+
+Publishing refuses a scenario where this node is reachable without an
+[`approval`](#approval) above it. That is not a runtime check and cannot be: the
+engine is handed one node and cannot see the graph. The defence is a node
+somebody had to draw and a release that fails while it is missing.
+
 ## `action`
 
 Does one of the things the host application registered as a capability.

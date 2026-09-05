@@ -1,0 +1,761 @@
+<?php
+
+declare(strict_types=1);
+
+namespace MB\FilamentChatbot\Filament\Pages;
+
+use BackedEnum;
+use Filament\Actions\Action;
+use Filament\Pages\Page;
+use Filament\Support\Enums\Width;
+use Filament\Support\Icons\Heroicon;
+use Illuminate\Contracts\Support\Htmlable;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Cache;
+use InvalidArgumentException;
+use Livewire\Attributes\Computed;
+use Livewire\Attributes\Url;
+use MB\FilamentChatbot\Chat\OperatorReply;
+use MB\FilamentChatbot\Enums\BotState;
+use MB\FilamentChatbot\Enums\ConversationStatus;
+use MB\FilamentChatbot\Enums\MessageAuthor;
+use MB\FilamentChatbot\Filament\Concerns\HasChatbotNavigation;
+use MB\FilamentChatbot\Models\Conversation;
+use MB\FilamentChatbot\Models\Message;
+use MB\FilamentChatbot\Models\QuickReply;
+use UnitEnum;
+
+/**
+ * The desk: conversations on the left, the transcript and a reply box on the
+ * right.
+ *
+ * This is the only screen in the package where a person talks to a person; the
+ * other six configure the machinery. That difference decides almost everything
+ * about it — one screen across every channel rather than a tab per channel,
+ * because an operator's question is never "what came in from Telegram" but
+ * "who is still waiting for me", and unread work split by channel gets walked
+ * round in a circle with the quiet channel always waiting longest.
+ *
+ * New messages arrive by polling rather than by broadcasting. A package cannot
+ * assume the host runs a websocket server, and one that required it would be
+ * uninstallable on the shared hosting most small installations sit on. The poll
+ * runs only while the tab is on screen, so a desk left open all day costs
+ * nothing when nobody is looking at it.
+ *
+ * The reply box is plain markup with `wire:model` rather than a Filament field.
+ * It has to read as a messenger's composer, and a form field brings its own
+ * chrome — the wrapper needed to undo that would be larger than the markup.
+ */
+class ChatInbox extends Page
+{
+    use HasChatbotNavigation;
+
+    /** @var view-string */
+    protected string $view = 'chatbot::chat-inbox';
+
+    protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedChatBubbleLeftRight;
+
+    /**
+     * How many conversations the list may hold.
+     *
+     * A ceiling rather than a pager, because the list is read from the top and
+     * scrolled, never paged through: whatever is below the eightieth row is
+     * found by searching, not by clicking "next".
+     */
+    private const LIST_LIMIT = 80;
+
+    /**
+     * Everything that shapes the list lives in the address bar.
+     *
+     * Not for the sake of shareable links — for coming back. An operator opens
+     * a linked record, a report, another tab, and returns; state kept only in
+     * the component is rebuilt from defaults on that return, so the filter they
+     * set two minutes ago is silently gone and the conversation they were
+     * reading is not on screen. They do not read that as "the page reset", they
+     * read it as "my conversation disappeared".
+     */
+    #[Url(as: 'conversation', except: null)]
+    public ?int $conversationId = null;
+
+    #[Url(as: 'q', except: '')]
+    public string $search = '';
+
+    #[Url(as: 'status', except: 'open')]
+    public string $statusFilter = 'open';
+
+    #[Url(as: 'channel', except: null)]
+    public ?string $channelFilter = null;
+
+    /** Whose conversations to show: `mine`, `unassigned` or `all`. */
+    #[Url(as: 'who', except: 'all')]
+    public string $ownerFilter = 'all';
+
+    #[Url(as: 'unread', except: false)]
+    public bool $onlyUnread = false;
+
+    public string $composerBody = '';
+
+    public static function getNavigationLabel(): string
+    {
+        return 'Chat';
+    }
+
+    /**
+     * Top level in the menu, unlike the six screens that configure the bot.
+     *
+     * Those are visited on purpose; this one is run to. A conversation inside a
+     * collapsed group announces itself only through a count on the group header
+     * and takes two clicks to reach — and the whole value of an unread badge is
+     * that the answer is one click away.
+     */
+    public static function getNavigationGroup(): string|UnitEnum|null
+    {
+        return null;
+    }
+
+    /**
+     * Ahead of the configured block, so the desk sits above the machinery even
+     * where a host has pushed the chatbot screens far down its own menu.
+     */
+    protected static function chatbotNavigationOffset(): int
+    {
+        return -1;
+    }
+
+    public function getTitle(): string|Htmlable
+    {
+        return 'Chat';
+    }
+
+    /**
+     * No heading and no breadcrumbs on purpose: the screen fills the window, and
+     * a title bar would take a centimetre of height off the transcript to repeat
+     * the word already highlighted in the menu.
+     */
+    public function getHeading(): string|Htmlable|null
+    {
+        return null;
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    public function getBreadcrumbs(): array
+    {
+        return [];
+    }
+
+    public function getMaxContentWidth(): Width|string|null
+    {
+        return Width::Full;
+    }
+
+    public static function canAccess(): bool
+    {
+        return auth()->user()?->can('viewAny', Conversation::class) === true;
+    }
+
+    /**
+     * How much is waiting for this operator.
+     *
+     * Counted as "unanswered and not somebody else's": a conversation a
+     * colleague has taken is not this person's work, and a badge that counted
+     * the whole desk would show every operator the same number and mean nothing
+     * to any of them.
+     *
+     * The sidebar renders this on every page of the panel, so the count is held
+     * for a few seconds. The key carries the viewer's id, and that is not
+     * tidiness: with a shared key the first person to open the panel would hand
+     * their own number to everyone else for the life of the entry — including
+     * the count of conversations they had personally been assigned.
+     */
+    public static function getNavigationBadge(): ?string
+    {
+        $userId = auth()->id();
+
+        $unread = Cache::remember(
+            'chatbot.inbox.badge.'.($userId ?? 'guest'),
+            now()->addSeconds(15),
+            fn (): int => Conversation::query()
+                ->open()
+                ->unread()
+                ->where(fn (Builder $query): Builder => $query
+                    ->whereNull('assigned_to_id')
+                    ->orWhere('assigned_to_id', $userId))
+                ->count(),
+        );
+
+        return $unread > 0 ? (string) $unread : null;
+    }
+
+    public static function getNavigationBadgeColor(): ?string
+    {
+        return 'warning';
+    }
+
+    public static function getNavigationBadgeTooltip(): ?string
+    {
+        return 'Conversations waiting for an answer';
+    }
+
+    public function mount(): void
+    {
+        $this->normaliseFilters();
+
+        $this->activeConversation?->markReadByAgent();
+    }
+
+    /**
+     * The list: unanswered first, then whatever spoke last.
+     *
+     * `lastMessage` and `bot` are eager-loaded by name because every row shows
+     * an excerpt and a bot tag. Fetched per row instead, eighty conversations
+     * would cost a hundred and sixty extra queries to draw one column of text.
+     *
+     * @return Collection<int, Conversation>
+     */
+    #[Computed]
+    public function conversations(): Collection
+    {
+        return Conversation::query()
+            ->with(['lastMessage', 'bot'])
+            ->when($this->statusFilter === 'open', fn (Builder $query): Builder => $query->open())
+            ->when(
+                $this->statusFilter === 'closed',
+                fn (Builder $query): Builder => $query->where('status', ConversationStatus::Closed),
+            )
+            ->when($this->onlyUnread, fn (Builder $query): Builder => $query->unread())
+            ->when(
+                $this->ownerFilter === 'mine',
+                fn (Builder $query): Builder => $query->where('assigned_to_id', auth()->id()),
+            )
+            ->when(
+                $this->ownerFilter === 'unassigned',
+                fn (Builder $query): Builder => $query->whereNull('assigned_to_id'),
+            )
+            ->when(
+                $this->channelFilter !== null,
+                fn (Builder $query): Builder => $query->forChannel((string) $this->channelFilter),
+            )
+            ->when($this->search !== '', fn (Builder $query): Builder => $query->where(
+                fn (Builder $scoped): Builder => $scoped
+                    ->where('display_name', 'like', '%'.$this->search.'%')
+                    ->orWhere('username', 'like', '%'.$this->search.'%')
+                    ->orWhere('contact_phone', 'like', '%'.$this->search.'%')
+                    ->orWhere('contact_email', 'like', '%'.$this->search.'%'),
+            ))
+            /*
+             * A conversation nobody has said anything in is not work. One is
+             * created the moment a widget opens, and it stays empty when the
+             * visitor closes the tab without typing.
+             */
+            ->whereNotNull('last_message_at')
+            /*
+             * Unanswered to the top, and only within those the freshest first.
+             *
+             * Sorting by time alone is fine until there are more conversations
+             * than fit on screen: from then on the question asked this morning
+             * and never answered sits below a column of "thanks!", and that
+             * question is the entire job. The condition repeats `hasUnread()`
+             * word for word, because the order and the unread dot have to agree
+             * — disagreeing, neither can be trusted.
+             */
+            ->orderByRaw(
+                'CASE WHEN last_incoming_at IS NOT NULL '
+                .'AND (agent_read_at IS NULL OR agent_read_at < last_incoming_at) THEN 0 ELSE 1 END',
+            )
+            ->orderByDesc('last_message_at')
+            ->limit(self::LIST_LIMIT)
+            ->get();
+    }
+
+    public function listIsCapped(): bool
+    {
+        return $this->conversations->count() === self::LIST_LIMIT;
+    }
+
+    /**
+     * The open conversation, fetched through the model rather than picked out of
+     * the list: a conversation reached by a link may be filtered out of the list
+     * it was opened from, and closing the filter must not close the transcript.
+     */
+    #[Computed]
+    public function activeConversation(): ?Conversation
+    {
+        if ($this->conversationId === null) {
+            return null;
+        }
+
+        return Conversation::query()->with('bot')->find($this->conversationId);
+    }
+
+    /**
+     * The transcript, latest lines first and then turned back the right way up.
+     *
+     * The limit has to bite at the recent end. Taken from the top, a
+     * conversation older than the limit would show its first fifty lines
+     * forever — the operator would open it and read a greeting from March while
+     * the question they are answering was never on screen.
+     *
+     * @return Collection<int, Message>
+     */
+    #[Computed]
+    public function thread(): Collection
+    {
+        $conversation = $this->activeConversation;
+
+        if (! $conversation instanceof Conversation) {
+            return new Collection;
+        }
+
+        return $conversation->messages()
+            ->reorder()
+            ->latest('id')
+            ->limit((int) config('chatbot.chat.history_limit', 50))
+            ->get()
+            ->reverse()
+            ->values();
+    }
+
+    /**
+     * The phrases this operator may drop in: the shared ones plus their own.
+     *
+     * @return Collection<int, QuickReply>
+     */
+    #[Computed]
+    public function quickReplies(): Collection
+    {
+        return QuickReply::query()
+            ->active()
+            ->availableTo(auth()->id())
+            ->orderBy('sort')
+            ->get();
+    }
+
+    /**
+     * Opens a conversation and marks it read.
+     *
+     * Reading is what marking read means. Left to a button, the unread count
+     * would measure who remembered to press it rather than what is unanswered,
+     * and an operator would see their own dealt-with conversations at the top of
+     * the list all day.
+     */
+    public function selectConversation(int $conversationId): void
+    {
+        $this->conversationId = $conversationId;
+        $this->composerBody = '';
+        $this->resetValidation();
+
+        $this->forgetThread();
+
+        $this->activeConversation?->markReadByAgent();
+    }
+
+    public function clearSelection(): void
+    {
+        $this->conversationId = null;
+        $this->composerBody = '';
+        $this->resetValidation();
+
+        $this->forgetThread();
+    }
+
+    public function updatedStatusFilter(): void
+    {
+        $this->normaliseFilters();
+        $this->forgetThread();
+    }
+
+    public function updatedOwnerFilter(): void
+    {
+        $this->normaliseFilters();
+        $this->forgetThread();
+    }
+
+    public function updatedSearch(): void
+    {
+        $this->forgetThread();
+    }
+
+    public function updatedChannelFilter(): void
+    {
+        $this->forgetThread();
+    }
+
+    public function updatedOnlyUnread(): void
+    {
+        $this->forgetThread();
+    }
+
+    /**
+     * Re-reads the list and the transcript. Called by the poll in the view.
+     *
+     * The read mark is refreshed here too: a message that arrives while the
+     * operator is looking straight at the conversation has been read, and
+     * counting it as unread would pile up a badge in front of somebody who is
+     * reading every word of it.
+     */
+    public function poll(): void
+    {
+        $this->forgetThread();
+
+        $this->activeConversation?->markReadByAgent();
+    }
+
+    /**
+     * Sends what is in the box.
+     *
+     * The refusal to send an empty message is repeated from `OperatorReply`
+     * rather than caught from it, because the two refusals are different things:
+     * the service throws to stop a caller doing something senseless, and this
+     * one has to put a sentence under the box while leaving the draft alone.
+     */
+    public function sendReply(): void
+    {
+        $conversation = $this->activeConversation;
+
+        if (! $conversation instanceof Conversation) {
+            return;
+        }
+
+        $this->authorize('update', $conversation);
+
+        $body = trim($this->composerBody);
+        $limit = (int) config('chatbot.chat.max_message_length', 4000);
+
+        if ($body === '') {
+            $this->addError('composerBody', 'Write something before sending.');
+
+            return;
+        }
+
+        if (mb_strlen($body) > $limit) {
+            $this->addError('composerBody', "The channel will not accept more than {$limit} characters.");
+
+            return;
+        }
+
+        try {
+            app(OperatorReply::class)->send($conversation, $body, auth()->user());
+        } catch (InvalidArgumentException) {
+            $this->addError('composerBody', 'Write something before sending.');
+
+            return;
+        }
+
+        $this->composerBody = '';
+        $this->resetValidation();
+        $this->forgetThread();
+    }
+
+    /**
+     * Drops a stock phrase into the box.
+     *
+     * Appended rather than substituted: operators greet people in their own
+     * words and reach for the stock phrase after, and replacing the draft would
+     * cost them that sentence every time.
+     */
+    public function applyQuickReply(int $replyId): void
+    {
+        $reply = $this->quickReplies->firstWhere('id', $replyId);
+
+        if ($reply === null) {
+            return;
+        }
+
+        $current = rtrim($this->composerBody);
+
+        $this->composerBody = $current === ''
+            ? (string) $reply->body
+            : $current."\n".$reply->body;
+
+        /*
+         * The draft changed on the server, so the character counter in the
+         * browser is now wrong. It is announced rather than bound live: a live
+         * binding would re-render the whole desk on every pause in typing to
+         * move one number.
+         */
+        $this->dispatch('chatbot-draft-changed');
+    }
+
+    /**
+     * Take the conversation, or put it back on the desk.
+     *
+     * One action with two labels rather than two buttons: they are the same
+     * decision from opposite sides, and a pair of them would ask the operator to
+     * work out which one is currently live.
+     *
+     * `authorize()` is spelled out because Filament actions do not consult a
+     * policy on their own. A header or row action with no authorisation is
+     * visible to everybody who reached the page, whatever the policy says.
+     */
+    public function assignmentAction(): Action
+    {
+        return Action::make('assignment')
+            ->label(fn (): string => $this->isMine() ? 'Release' : 'Take it')
+            ->icon(fn (): Heroicon => $this->isMine() ? Heroicon::OutlinedArrowUturnLeft : Heroicon::OutlinedHandRaised)
+            ->color('gray')
+            ->authorize(fn (): bool => $this->canUpdateActive())
+            ->action(function (): void {
+                $conversation = $this->activeConversation;
+
+                if (! $conversation instanceof Conversation) {
+                    return;
+                }
+
+                $conversation->forceFill([
+                    'assigned_to_id' => $this->isMine() ? null : auth()->id(),
+                ])->save();
+
+                $this->forgetThread();
+            });
+    }
+
+    /**
+     * Close the conversation, or open it again.
+     *
+     * Closing is housekeeping — the row keeps its history and the next incoming
+     * message brings it back — so it asks for no confirmation.
+     */
+    public function statusAction(): Action
+    {
+        return Action::make('status')
+            ->label(fn (): string => $this->isOpen() ? 'Close' : 'Reopen')
+            ->icon(fn (): Heroicon => $this->isOpen() ? Heroicon::OutlinedArchiveBox : Heroicon::OutlinedArchiveBoxArrowDown)
+            ->color('gray')
+            ->authorize(fn (): bool => $this->canUpdateActive())
+            ->action(function (): void {
+                $conversation = $this->activeConversation;
+
+                if (! $conversation instanceof Conversation) {
+                    return;
+                }
+
+                $conversation->forceFill([
+                    'status' => $this->isOpen() ? ConversationStatus::Closed : ConversationStatus::Open,
+                ])->save();
+
+                $this->forgetThread();
+            });
+    }
+
+    /**
+     * Hands the conversation back to the bot.
+     *
+     * Both halves are needed and neither is enough alone: the engine stays
+     * silent while a conversation has an owner *or* is marked handed off, so
+     * releasing it without resuming the bot, or resuming the bot while still
+     * holding the conversation, leaves the visitor talking to nobody — and the
+     * screen would say the bot was answering.
+     *
+     * Confirmed, because it is the one action here that puts a customer back in
+     * front of a machine.
+     */
+    public function returnToBotAction(): Action
+    {
+        return Action::make('returnToBot')
+            ->label('Give back to the bot')
+            ->icon(Heroicon::OutlinedCpuChip)
+            ->color('gray')
+            ->requiresConfirmation()
+            ->modalDescription('The bot will answer this person again from its scenarios.')
+            ->authorize(fn (): bool => $this->canUpdateActive())
+            ->action(function (): void {
+                $conversation = $this->activeConversation;
+
+                if (! $conversation instanceof Conversation) {
+                    return;
+                }
+
+                $conversation->forceFill([
+                    'assigned_to_id' => null,
+                    'bot_state' => BotState::Active,
+                    'bot_handed_off_at' => null,
+                ])->save();
+
+                $this->forgetThread();
+            });
+    }
+
+    public function isOpen(): bool
+    {
+        return $this->activeConversation?->status === ConversationStatus::Open;
+    }
+
+    public function isMine(): bool
+    {
+        return $this->activeConversation?->assigned_to_id === auth()->id()
+            && $this->activeConversation?->assigned_to_id !== null;
+    }
+
+    public function botIsAnswering(): bool
+    {
+        return $this->activeConversation?->bot_state === BotState::Active;
+    }
+
+    /**
+     * Whether the bot could be handed this conversation back.
+     *
+     * A conversation with no bot behind it has nothing to hand back to, and
+     * offering the action there promises an answer that will never come.
+     */
+    public function canReturnToBot(): bool
+    {
+        return $this->activeConversation?->bot_id !== null
+            && ! $this->botIsAnswering();
+    }
+
+    public function maxLength(): int
+    {
+        return (int) config('chatbot.chat.max_message_length', 4000);
+    }
+
+    /**
+     * Who owns a row, said without loading the host's user record.
+     *
+     * The package has no idea whether the host's users have a name, an e-mail or
+     * anything else worth printing, and asking each row for its assignee would
+     * be a query per row on top of that. What the operator needs from the list
+     * is only whether this one is theirs, somebody's or nobody's.
+     */
+    public function ownerLabel(Conversation $conversation): ?string
+    {
+        return match (true) {
+            $conversation->assigned_to_id === null => 'free',
+            $conversation->assigned_to_id === auth()->id() => 'yours',
+            default => 'taken',
+        };
+    }
+
+    /**
+     * The preview line, prefixed with who said it.
+     *
+     * The prefix is not politeness. Without it an operator reads the bot's last
+     * sentence as their own reply, decides the conversation has been dealt with,
+     * and it stays unanswered.
+     */
+    public function listPreview(Conversation $conversation): string
+    {
+        $message = $conversation->lastMessage;
+
+        if ($message === null) {
+            return '—';
+        }
+
+        $excerpt = str((string) $message->body)->squish()->limit(70)->value();
+
+        return match ($message->author) {
+            MessageAuthor::Operator => 'You: '.$excerpt,
+            MessageAuthor::Bot => 'Bot: '.$excerpt,
+            MessageAuthor::System => 'System: '.$excerpt,
+            default => $excerpt,
+        };
+    }
+
+    /**
+     * Who is speaking in the transcript.
+     *
+     * The bot and an operator both write outgoing messages, and telling them
+     * apart is the whole reason the author is stored separately from the
+     * direction: an operator reading a bot's promise as a colleague's would
+     * repeat it or contradict it.
+     */
+    public function authorLabel(Message $message, Conversation $conversation): string
+    {
+        return match ($message->author) {
+            MessageAuthor::Visitor => $conversation->title(),
+            MessageAuthor::Bot => $conversation->bot?->name ?? 'Bot',
+            MessageAuthor::Operator => 'Operator',
+            default => 'System',
+        };
+    }
+
+    /**
+     * Today by the clock, yesterday by name, older by date. A full date on a
+     * conversation from this morning takes the width of the row and answers a
+     * question nobody asked.
+     */
+    public function listTimestamp(?Carbon $at): string
+    {
+        if ($at === null) {
+            return '';
+        }
+
+        return match (true) {
+            $at->isToday() => $at->format('H:i'),
+            $at->isYesterday() => 'yesterday',
+            $at->isCurrentYear() => $at->format('d M'),
+            default => $at->format('d M Y'),
+        };
+    }
+
+    /**
+     * Channels worth offering: the ones conversations actually arrived on.
+     *
+     * Read from the table rather than from the registry of drivers, because a
+     * channel that is configured and has never been used only ever gives an
+     * empty list, and one that was switched off yesterday still has yesterday's
+     * conversations in it.
+     *
+     * @return array<string, string>
+     */
+    public function channelOptions(): array
+    {
+        return Conversation::query()
+            ->distinct()
+            ->orderBy('channel')
+            ->pluck('channel')
+            ->mapWithKeys(fn (string $channel): array => [$channel => str($channel)->headline()->value()])
+            ->all();
+    }
+
+    /**
+     * How many are on screen and how many of those are unanswered.
+     */
+    public function listSummary(): string
+    {
+        $total = $this->conversations->count();
+        $unread = $this->conversations
+            ->filter(fn (Conversation $conversation): bool => $conversation->hasUnread())
+            ->count();
+
+        $line = trans_choice('{0}no conversations|{1}:count conversation|[2,*]:count conversations', $total, [
+            'count' => $total,
+        ]);
+
+        return $unread === 0 ? $line : $line.' · '.$unread.' waiting';
+    }
+
+    private function canUpdateActive(): bool
+    {
+        $conversation = $this->activeConversation;
+
+        return $conversation instanceof Conversation
+            && auth()->user()?->can('update', $conversation) === true;
+    }
+
+    private function normaliseFilters(): void
+    {
+        if (! in_array($this->statusFilter, ['open', 'closed', 'all'], true)) {
+            $this->statusFilter = 'open';
+        }
+
+        if (! in_array($this->ownerFilter, ['mine', 'unassigned', 'all'], true)) {
+            $this->ownerFilter = 'all';
+        }
+    }
+
+    /**
+     * Drops the memoised properties together.
+     *
+     * One method rather than an `unset` at each call site: forgetting one of the
+     * four shows a list where the conversation has already jumped to the top
+     * beside a transcript that does not yet contain the message that moved it.
+     */
+    private function forgetThread(): void
+    {
+        unset($this->conversations, $this->activeConversation, $this->thread, $this->quickReplies);
+    }
+}

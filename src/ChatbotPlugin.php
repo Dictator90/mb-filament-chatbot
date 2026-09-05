@@ -6,6 +6,7 @@ namespace MB\FilamentChatbot;
 
 use Filament\Contracts\Plugin;
 use Filament\Panel;
+use MB\FilamentChatbot\Filament\Pages\ChatInbox;
 use MB\FilamentChatbot\Filament\Resources\Bots\BotResource;
 use MB\FilamentChatbot\Filament\Resources\DataResources\DataResourceResource;
 use MB\FilamentChatbot\Filament\Resources\KnowledgeEntries\KnowledgeEntryResource;
@@ -69,10 +70,15 @@ class ChatbotPlugin implements Plugin
     }
 
     /**
+     * Public for the same reason as `resources()`: a suite that names the page
+     * itself proves nothing about a page written and never registered here.
+     *
      * @return array<class-string>
      */
-    protected function pages(): array
+    public function pages(): array
     {
-        return [];
+        return [
+            ChatInbox::class,
+        ];
     }
 }
