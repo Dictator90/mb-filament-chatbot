@@ -80,4 +80,5 @@ in every environment, including testing.
 - [AI]({{ site.baseurl }}/ai) — drivers, the knowledge base, and why none of it is required.
 - [Channels and the widget]({{ site.baseurl }}/channels-and-widget) — the site widget, Telegram, and writing your own.
 - [Extending]({{ site.baseurl }}/extending) — your own nodes, conditions, slots, channels and AI drivers.
+- [The operator desk]({{ site.baseurl }}/operator-desk) — where a person answers, and how replying silences the bot.
 - [Operations]({{ site.baseurl }}/operations) — `chatbot:doctor`, quality checks, budgets, authorisation.

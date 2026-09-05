@@ -470,14 +470,6 @@ class ChatInbox extends Page
         $this->composerBody = $current === ''
             ? (string) $reply->body
             : $current."\n".$reply->body;
-
-        /*
-         * The draft changed on the server, so the character counter in the
-         * browser is now wrong. It is announced rather than bound live: a live
-         * binding would re-render the whole desk on every pause in typing to
-         * move one number.
-         */
-        $this->dispatch('chatbot-draft-changed');
     }
 
     /**

@@ -25,8 +25,19 @@
             display: grid;
             grid-template-columns: minmax(0, 20rem) minmax(0, 1fr);
             gap: 1rem;
-            height: 100%;
-            min-height: 32rem;
+            /*
+                The desk is given the window rather than its content, because a
+                transcript is as tall as the conversation is long. Left to grow,
+                it pushes the reply box below the fold — and the operator's
+                answer to a long conversation is the one they cannot reach
+                without scrolling past everything they have just read.
+
+                `dvh` rather than `vh`: on a phone the browser's own bars are
+                part of the viewport under `vh`, and the box would sit behind
+                them. The subtraction is the panel's topbar and page padding.
+            */
+            height: calc(100dvh - 7rem);
+            min-height: 26rem;
         }
 
         .dark .chatbot-inbox {
@@ -47,6 +58,25 @@
             .chatbot-inbox.is-open .chatbot-inbox__rail {
                 display: none;
             }
+        }
+
+        /*
+            Carried here rather than borrowed from the panel. The host's
+            compiled CSS contains only the utilities Filament itself uses, and
+            `sr-only` is not among them — without this rule every label meant for
+            a screen reader is printed above its field, and the rail reads as a
+            column of stray words.
+        */
+        .chatbot-inbox .sr-only {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            padding: 0;
+            margin: -1px;
+            overflow: hidden;
+            clip: rect(0, 0, 0, 0);
+            white-space: nowrap;
+            border-width: 0;
         }
 
         .chatbot-inbox__rail,
@@ -535,27 +565,32 @@
                 <div class="chatbot-inbox__composer">
                     @if ($record->status === \MB\FilamentChatbot\Enums\ConversationStatus::Open)
                         {{--
-                            The counter is kept in the browser and only resynced
-                            when the server changes the draft — inserting a stock
-                            phrase does that. Bound live to the server instead, it
-                            would cost a round trip and a re-render of the whole
-                            desk on every pause in typing, to move one number.
+                            The counter reads the draft instead of keeping its own
+                            copy of how long it is. `wire:model` without `.live`
+                            still updates `$wire` on every keystroke — the value is
+                            held in the browser and merely not sent to the server —
+                            so this costs no round trip, and there is no second
+                            number that can fall out of step with the first.
+
+                            It did fall out of step. A mirrored length has to be
+                            resynced from every place the server clears the draft,
+                            and there are three: sending, opening another
+                            conversation, and closing the one that was open. Each is
+                            a separate line somebody has to remember to write, the
+                            miss is invisible on screen, and near the limit a stale
+                            number reads as "no room left" over an empty box.
                         --}}
                         <form
                             wire:submit="sendReply"
-                            x-data="{ length: 0 }"
-                            x-on:chatbot-draft-changed.window="$nextTick(() => length = ($refs.body?.value ?? '').length)"
+                            x-data="{ get length() { return ($wire.composerBody ?? '').length } }"
                         >
                             <label class="sr-only" for="chatbot-inbox-body">Your reply</label>
                             <textarea
                                 id="chatbot-inbox-body"
-                                x-ref="body"
                                 wire:model="composerBody"
                                 rows="3"
                                 maxlength="{{ $this->maxLength() }}"
                                 placeholder="Write a reply…"
-                                x-init="length = ($el.value ?? '').length"
-                                x-on:input="length = $event.target.value.length"
                                 x-on:keydown.enter="if (! $event.shiftKey) { $event.preventDefault(); $wire.sendReply() }"
                             ></textarea>
 
