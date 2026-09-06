@@ -44,6 +44,28 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Sandbox
+    |--------------------------------------------------------------------------
+    |
+    | Trying the bot out from the panel writes a real conversation held by the
+    | real engine: it is hidden from the desk and from reports rather than
+    | simulated. Each person keeps one such thread per screen, and threads
+    | nobody has touched for this many hours are swept the next time any
+    | sandbox is opened.
+    |
+    | Swept on open rather than on a schedule, because a package cannot assume
+    | the host runs one and a cleanup that needs configuring is a cleanup that
+    | does not happen. Zero keeps every thread forever, and the table then grows
+    | with conversations nobody can see.
+    |
+    */
+
+    'sandbox' => [
+        'keep_hours' => 24,
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | Bot
     |--------------------------------------------------------------------------
     |

@@ -7,6 +7,7 @@ namespace MB\FilamentChatbot\Quality;
 use Illuminate\Contracts\Container\Container;
 use MB\FilamentChatbot\Bot\BotEngine;
 use MB\FilamentChatbot\Bot\Graph\ScenarioVersions;
+use MB\FilamentChatbot\Channels\WithoutDelivery;
 use MB\FilamentChatbot\Enums\BotState;
 use MB\FilamentChatbot\Enums\ConversationStatus;
 use MB\FilamentChatbot\Enums\MessageAuthor;
@@ -56,6 +57,7 @@ final class QualityRunner
         private readonly Container $container,
         private readonly ScenarioVersions $versions,
         private readonly ChatbotRegistry $registry,
+        private readonly WithoutDelivery $undelivered,
     ) {}
 
     /**
@@ -248,7 +250,7 @@ final class QualityRunner
      */
     private function talk(QualityTest $check, Conversation $conversation): void
     {
-        $this->withoutDelivery(function () use ($check, $conversation): void {
+        $this->undelivered->run(function () use ($check, $conversation): void {
             foreach ((array) $check->said as $line) {
                 $line = trim((string) $line);
 
@@ -266,40 +268,6 @@ final class QualityRunner
                 $this->container->make(BotEngine::class)->handle($conversation->refresh(), $message);
             }
         });
-    }
-
-    /**
-     * Runs the rehearsal with nothing queued behind it.
-     *
-     * A check must not be able to send anybody anything. Every reply the bot
-     * writes queues a delivery job, and a rehearsal on a live installation would
-     * otherwise put its scripted answers in front of whoever the channel thinks
-     * the thread belongs to. The same switch keeps a `delay` node from
-     * scheduling a continuation nobody will ever run.
-     *
-     * A discarding connection rather than a fake, because this runs in
-     * production as well as in a suite, and production has no test doubles in
-     * it.
-     *
-     * @template TReturn
-     *
-     * @param  callable(): TReturn  $work
-     * @return TReturn
-     */
-    private function withoutDelivery(callable $work): mixed
-    {
-        $previous = config('queue.default');
-
-        config([
-            'queue.connections.chatbot_quality' => ['driver' => 'null'],
-            'queue.default' => 'chatbot_quality',
-        ]);
-
-        try {
-            return $work();
-        } finally {
-            config(['queue.default' => $previous]);
-        }
     }
 
     /**

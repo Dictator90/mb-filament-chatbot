@@ -4,15 +4,18 @@ declare(strict_types=1);
 
 namespace MB\FilamentChatbot\Filament\Resources\Scenarios\Tables;
 
+use Filament\Actions\Action;
 use Filament\Actions\ActionGroup;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\EditAction;
+use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Filters\TernaryFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
+use MB\FilamentChatbot\Filament\Resources\Scenarios\ScenarioResource;
 use MB\FilamentChatbot\Models\Bot;
 use MB\FilamentChatbot\Models\Scenario;
 
@@ -78,10 +81,27 @@ class ScenariosTable
                     ->options(fn (): array => Bot::query()->orderBy('name')->pluck('name', 'id')->all()),
                 TernaryFilter::make('is_active')->label('Active'),
             ])
-            ->recordActions(ActionGroup::make([
-                EditAction::make(),
-                DeleteAction::make(),
-            ]))
+            /*
+             * The canvas is a button of its own, outside the group, and that is
+             * the whole point of it being here.
+             *
+             * Drawing the graph is what a scenario is for; the form behind
+             * "Edit" holds its name and its priority. Filed inside the three-dot
+             * group the canvas sat one level below deleting the record and was
+             * never seen: the page existed, answered on its own URL, and the
+             * only way anybody reached it was by typing that URL. A row action
+             * nobody finds is a page nobody has.
+             */
+            ->recordActions([
+                Action::make('graph')
+                    ->label('Graph')
+                    ->icon(Heroicon::OutlinedShare)
+                    ->url(fn (Scenario $record): string => ScenarioResource::getUrl('graph', ['record' => $record])),
+                ActionGroup::make([
+                    EditAction::make(),
+                    DeleteAction::make(),
+                ]),
+            ])
             ->emptyStateHeading('No scenarios yet')
             ->emptyStateDescription('A scenario is one conversation the bot knows how to have, from its opening line to a handover or a close.');
     }

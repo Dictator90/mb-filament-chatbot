@@ -193,16 +193,17 @@ class ChatInbox extends Page
     {
         $userId = Filament::auth()->id();
 
+        /*
+         * "Waiting for me" is defined once, on the model. It is asked here and
+         * again by the dashboard tile, and two copies of a definition made of
+         * three clauses drift the moment one of them is refined — leaving a
+         * badge and a tile that disagree about the same desk, with nothing on
+         * either screen to say which is right.
+         */
         $unread = Cache::remember(
             'chatbot.inbox.badge.'.($userId ?? 'guest'),
             now()->addSeconds(15),
-            fn (): int => Conversation::query()
-                ->open()
-                ->unread()
-                ->where(fn (Builder $query): Builder => $query
-                    ->whereNull('assigned_to_id')
-                    ->orWhere('assigned_to_id', $userId))
-                ->count(),
+            fn (): int => Conversation::query()->waitingFor($userId)->count(),
         );
 
         return $unread > 0 ? (string) $unread : null;

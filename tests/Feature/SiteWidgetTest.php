@@ -15,7 +15,15 @@ beforeEach(function (): void {
         'chatbot.widget.origins' => ['https://shop.example.com'],
     ]);
 
-    $this->bot = Bot::factory()->create(['slug' => 'demo']);
+    /*
+     * Published to the site on purpose, and said out loud here.
+     *
+     * The column defaults to false — a bot is not on anybody's pages until
+     * somebody puts it there — and until the runtime started reading the flag
+     * these tests passed without it, which is precisely how the flag came to
+     * mean nothing.
+     */
+    $this->bot = Bot::factory()->publicWidget()->create(['slug' => 'demo']);
 });
 
 /**
@@ -181,6 +189,67 @@ it('fetches its own stylesheet, because the embed is one tag', function (): void
 
     expect($demo)->toContain('/chatbot/widget.js')
         ->and($demo)->not->toContain('widget.css');
+});
+
+/**
+ * Unticking "answers on the site" actually takes the bot off the site.
+ *
+ * The column, the cast, the form field and the demo seed all existed; nothing
+ * read it. A setting that saves and does nothing is worse than one that is
+ * missing — the person who unticked it has been told the bot is off their pages
+ * and has no reason to check, and it answers every visitor exactly as before.
+ */
+it('will not answer for a bot that is not published to the site', function (): void {
+    $this->bot->update(['is_public_widget' => false]);
+
+    $this->withHeaders(['Origin' => 'https://shop.example.com'])
+        ->postJson('/chatbot/site/messages', ['bot' => 'demo', 'body' => 'hello there'])
+        ->assertOk();
+
+    expect(Conversation::query()->whereNotNull('bot_id')->count())->toBe(0);
+});
+
+/**
+ * A bot may name the sites it belongs on, and then it belongs on those only.
+ *
+ * This narrows the installation-wide allow-list rather than replacing it: that
+ * list is the guard that fails closed, and this one says which of those sites
+ * carry this particular bot. One application serving a shop and a helpdesk from
+ * one panel is the ordinary case, and without this the shop's bot answers on the
+ * helpdesk's pages to anybody who copies the script tag across.
+ */
+it('keeps a bot to the sites it names, when it names any', function (): void {
+    config(['chatbot.widget.origins' => ['https://shop.example.com', 'https://help.example.com']]);
+    $this->bot->update(['allowed_origins' => ['https://shop.example.com']]);
+
+    $this->withHeaders(['Origin' => 'https://help.example.com'])
+        ->postJson('/chatbot/site/messages', ['bot' => 'demo', 'body' => 'hello there'])
+        ->assertOk();
+
+    expect(Conversation::query()->whereNotNull('bot_id')->count())->toBe(0);
+
+    $this->withHeaders(['Origin' => 'https://shop.example.com'])
+        ->postJson('/chatbot/site/messages', ['bot' => 'demo', 'body' => 'hello there'])
+        ->assertOk();
+
+    expect(Conversation::query()->whereNotNull('bot_id')->count())->toBe(1);
+});
+
+/**
+ * An empty list means "no narrowing", never "nobody".
+ *
+ * Every bot has an empty list until somebody fills one in, so reading it the
+ * other way would silence every widget in every installation on the upgrade
+ * that introduced the check.
+ */
+it('treats a bot that names no sites as belonging on all the allowed ones', function (): void {
+    $this->bot->update(['allowed_origins' => []]);
+
+    $this->withHeaders(['Origin' => 'https://shop.example.com'])
+        ->postJson('/chatbot/site/messages', ['bot' => 'demo', 'body' => 'hello there'])
+        ->assertOk();
+
+    expect(Conversation::query()->whereNotNull('bot_id')->count())->toBe(1);
 });
 
 it('records what the visitor said and lets the bot take its turn', function (): void {

@@ -91,6 +91,7 @@ function StepNode({ id, data, selected }) {
         selected ? 'is-selected' : '',
         described ? '' : 'is-foreign',
         problem ? `has-problem is-${problem.severity}` : '',
+        data.visit ? 'is-visited' : '',
     ]
         .filter(Boolean)
         .join(' ');
@@ -131,6 +132,21 @@ function StepNode({ id, data, selected }) {
                     <span className="chatbot-graph__node-kind">{described ? described.label : 'Unknown kind'}</span>
                     <span className="chatbot-graph__node-key">{data.key}</span>
                 </div>
+
+                {/*
+                    Where this node came in the sandbox conversation, not merely
+                    that it was reached. A scenario that loops walks the same node
+                    twice, and "it was here" is a different fact from "it was here
+                    first" — which is the fact an author is checking.
+                */}
+                {data.visit ? (
+                    <span
+                        className="chatbot-graph__visit"
+                        title={`Step ${data.visit} of the sandbox conversation`}
+                    >
+                        {data.visit}
+                    </span>
+                ) : null}
 
                 {problem ? (
                     <span

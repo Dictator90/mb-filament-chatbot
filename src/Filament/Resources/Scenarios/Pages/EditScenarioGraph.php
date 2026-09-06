@@ -14,7 +14,9 @@ use MB\FilamentChatbot\Bot\Graph\ScenarioGraph;
 use MB\FilamentChatbot\Bot\Graph\ScenarioVersions;
 use MB\FilamentChatbot\Exceptions\ScenarioNotPublishable;
 use MB\FilamentChatbot\Filament\Resources\Scenarios\ScenarioResource;
+use MB\FilamentChatbot\Models\Conversation;
 use MB\FilamentChatbot\Models\Scenario;
+use MB\FilamentChatbot\Sandbox\SandboxRunner;
 
 /**
  * The canvas where a scenario is drawn.
@@ -132,6 +134,88 @@ class EditScenarioGraph extends Page
         return [
             'issues' => $issues,
             'blocking' => $this->blockingCount($issues),
+        ];
+    }
+
+    /**
+     * The sandbox as it stands, without starting one.
+     *
+     * Read by the page on its way to the browser, so a conversation begun before
+     * a reload is still there afterwards. Deliberately does not open a thread:
+     * most people who open a canvas came to read it, and a screen that wrote a
+     * conversation for every one of them would fill the table with threads
+     * nobody ever spoke into.
+     *
+     * @return array<string, mixed>
+     */
+    public function sandboxState(): array
+    {
+        $runner = app(SandboxRunner::class);
+        $conversation = $runner->find($this->sandboxOwner());
+
+        return $conversation === null
+            ? ['transcript' => [], 'visited' => [], 'trace' => [], 'state' => null]
+            : $this->sandboxPayload($runner, $conversation);
+    }
+
+    /**
+     * Says one line to the bot and reports where the conversation went.
+     *
+     * Entry is pinned to the scenario this canvas draws. Letting the router
+     * choose here would make a keyword-triggered scenario untestable without
+     * guessing its own keywords, and would light up nothing on the canvas the
+     * author is looking at. Routing between scenarios is the sandbox screen's
+     * question, and it is asked there with the router in charge.
+     *
+     * The engine reads the saved scenario, never the draft in the browser: the
+     * canvas holds nothing but a drawing until Save, and a sandbox that pretended
+     * otherwise would report on a scenario no visitor can reach.
+     *
+     * @return array<string, mixed>
+     */
+    public function sandboxSay(string $said): array
+    {
+        $runner = app(SandboxRunner::class);
+        $scenario = $this->scenario();
+
+        $conversation = $runner->open($this->sandboxOwner(), $scenario->bot);
+
+        $runner->say($conversation, $said, $scenario);
+
+        return $this->sandboxPayload($runner, $conversation->refresh());
+    }
+
+    /**
+     * Throws the sandbox conversation away and starts again from nothing.
+     *
+     * @return array<string, mixed>
+     */
+    public function sandboxReset(): array
+    {
+        app(SandboxRunner::class)->find($this->sandboxOwner())?->delete();
+
+        return ['transcript' => [], 'visited' => [], 'trace' => [], 'state' => null];
+    }
+
+    /**
+     * One thread per person per canvas, so two authors testing the same scenario
+     * do not answer each other's questions.
+     */
+    protected function sandboxOwner(): string
+    {
+        return SandboxRunner::ownerKey('graph:'.$this->record, Filament::auth()->id());
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    protected function sandboxPayload(SandboxRunner $runner, Conversation $conversation): array
+    {
+        return [
+            'transcript' => $runner->transcript($conversation),
+            'visited' => $runner->visited($conversation, $this->scenario()->slug),
+            'trace' => $runner->trace($conversation),
+            'state' => $runner->state($conversation),
         ];
     }
 

@@ -54,6 +54,13 @@ function mount() {
         return;
     }
 
+    /*
+     * The sandbox payload may legitimately be absent — a host embedding the
+     * canvas of its own accord passes the two it is documented to pass — so it
+     * is read separately and never guards the mount.
+     */
+    const sandbox = read(element, 'sandbox');
+
     configure(config);
 
     const component = componentFor(element);
@@ -61,13 +68,15 @@ function mount() {
     const wire = {
         save: (payload) => component?.call('saveGraph', payload),
         check: (payload) => component?.call('checkGraph', payload),
+        say: (said) => component?.call('sandboxSay', said),
+        reset: () => component?.call('sandboxReset'),
     };
 
     element.dataset.mounted = 'yes';
 
     const root = createRoot(element);
 
-    root.render(<Editor config={config} graph={graph} wire={wire} />);
+    root.render(<Editor config={config} graph={graph} sandbox={sandbox} wire={wire} />);
 
     /*
      * Livewire replaces the page on navigation without reloading it, which

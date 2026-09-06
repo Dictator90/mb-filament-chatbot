@@ -272,6 +272,33 @@ class SiteWidgetController
      */
     private function botId(?string $slug): ?int
     {
+        $bot = $this->publicBot($slug);
+
+        return $bot === null ? null : (int) $bot->getKey();
+    }
+
+    /**
+     * The named bot, but only if it is allowed to answer this request.
+     *
+     * Two settings decide that, and until now the runtime read neither. Both sat
+     * in the bot's form, both were saved, and both were ignored — which is worse
+     * than not offering them: somebody unticks "answers on the site", sees the
+     * form save, and believes the bot is off their pages while it goes on
+     * answering every visitor.
+     *
+     * `is_public_widget` is a straight refusal. `allowed_origins` narrows the
+     * installation-wide list rather than replacing it: the global list is the
+     * guard that fails closed, and this one says which of those sites *this*
+     * bot belongs on. An empty list therefore means "no narrowing" and not
+     * "nobody" — every bot has one until somebody fills it in, and reading it
+     * the other way would silence every widget on the first upgrade.
+     *
+     * Refusing here rather than in the origin middleware is not a preference:
+     * the middleware runs before the body is read, and which bot was asked for
+     * is in the body.
+     */
+    private function publicBot(?string $slug): ?Bot
+    {
         $slug = trim((string) $slug);
 
         if ($slug === '') {
@@ -280,6 +307,32 @@ class SiteWidgetController
 
         $bot = Bot::query()->where('slug', $slug)->first();
 
-        return $bot === null ? null : (int) $bot->getKey();
+        if ($bot === null || $bot->is_public_widget !== true) {
+            return null;
+        }
+
+        return $this->reachesBot($bot) ? $bot : null;
+    }
+
+    private function reachesBot(Bot $bot): bool
+    {
+        $origins = array_values(array_filter(array_map(
+            static fn (mixed $origin): string => trim((string) $origin),
+            (array) $bot->allowed_origins,
+        ), static fn (string $origin): bool => $origin !== ''));
+
+        if ($origins === []) {
+            return true;
+        }
+
+        $origin = trim((string) request()->headers->get('Origin', ''));
+
+        /*
+         * No Origin header means a same-origin request from this application's
+         * own pages — the middleware has already established that much. A bot
+         * that named its sites has not named this one, so it does not answer
+         * here either.
+         */
+        return $origin !== '' && in_array($origin, $origins, true);
     }
 }

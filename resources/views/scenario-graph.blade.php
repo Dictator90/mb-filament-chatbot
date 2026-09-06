@@ -36,6 +36,13 @@
             class="chatbot-graph__canvas"
             data-config="{{ json_encode($this->graphConfig(), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) }}"
             data-graph="{{ json_encode($this->graph, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) }}"
+            {{--
+                A sandbox conversation begun before a reload comes back with the
+                page. Without it the transcript is thrown away every time
+                somebody presses F5, and nothing that takes more than one message
+                — which is every scenario worth drawing — can be tried at all.
+            --}}
+            data-sandbox="{{ json_encode($this->sandboxState(), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) }}"
         ></div>
     </div>
 

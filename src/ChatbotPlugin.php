@@ -7,12 +7,16 @@ namespace MB\FilamentChatbot;
 use Filament\Contracts\Plugin;
 use Filament\Panel;
 use MB\FilamentChatbot\Filament\Pages\ChatInbox;
+use MB\FilamentChatbot\Filament\Pages\Sandbox;
 use MB\FilamentChatbot\Filament\Resources\Bots\BotResource;
 use MB\FilamentChatbot\Filament\Resources\DataResources\DataResourceResource;
 use MB\FilamentChatbot\Filament\Resources\KnowledgeEntries\KnowledgeEntryResource;
 use MB\FilamentChatbot\Filament\Resources\QuickReplies\QuickReplyResource;
 use MB\FilamentChatbot\Filament\Resources\Runs\RunResource;
 use MB\FilamentChatbot\Filament\Resources\Scenarios\ScenarioResource;
+use MB\FilamentChatbot\Filament\Widgets\ChatStatsWidget;
+use MB\FilamentChatbot\Filament\Widgets\ConversationsChartWidget;
+use MB\FilamentChatbot\Filament\Widgets\ScenarioOutcomesWidget;
 
 /**
  * Adds the chat screens to one panel.
@@ -79,6 +83,34 @@ class ChatbotPlugin implements Plugin
     {
         return [
             ChatInbox::class,
+            Sandbox::class,
+        ];
+    }
+
+    /**
+     * The dashboard widgets, offered rather than installed.
+     *
+     * Listed here so a suite and a host can walk the list instead of naming
+     * three classes by hand, but deliberately **not** registered on the panel in
+     * `register()`. Where these sit — or whether they sit anywhere — is the
+     * host's decision about their own front page, and a plugin that put three
+     * panels on it uninvited would be a plugin people uninstall.
+     *
+     * A host writes, in their own panel:
+     *
+     *     ->widgets(ChatbotPlugin::make()->widgets())
+     *
+     * `->widgets()` is also what registers them as Livewire components, so a
+     * custom dashboard page's `getWidgets()` alone is not enough.
+     *
+     * @return array<class-string>
+     */
+    public function widgets(): array
+    {
+        return [
+            ChatStatsWidget::class,
+            ConversationsChartWidget::class,
+            ScenarioOutcomesWidget::class,
         ];
     }
 }

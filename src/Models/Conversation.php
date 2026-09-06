@@ -45,6 +45,12 @@ class Conversation extends Model
     public const string QUALITY_META_KEY = 'quality_check';
 
     /**
+     * The key under `meta` that marks a thread as somebody trying the bot out
+     * from the panel. Written by the sandbox and read by the same global scope.
+     */
+    public const string SANDBOX_META_KEY = 'sandbox';
+
+    /**
      * The name of the global scope, so that lifting it reads as a decision.
      */
     public const string REAL_SCOPE = 'real';
@@ -69,12 +75,34 @@ class Conversation extends Model
      * deliver it to a real chat.
      *
      * The runner lifts it by name, which is the only place that may.
+     *
+     * A rehearsal comes from two places now — the quality runner and the panel's
+     * sandbox — and both are hidden by this one scope rather than by a second
+     * one beside it. Two scopes would be two chances for a screen to lift the
+     * wrong one, and the thing they hide is identical: a thread nobody wrote.
      */
     protected static function booted(): void
     {
         static::addGlobalScope(self::REAL_SCOPE, static function (Builder $query): void {
-            $query->whereNull($query->getModel()->qualifyColumn('meta').'->'.self::QUALITY_META_KEY);
+            $column = $query->getModel()->qualifyColumn('meta');
+
+            foreach (self::rehearsalMetaKeys() as $key) {
+                $query->whereNull($column.'->'.$key);
+            }
         });
+    }
+
+    /**
+     * Every `meta` key that means "this thread is a rehearsal".
+     *
+     * Named once so that a third kind of rehearsal has one list to join instead
+     * of a scope, a deletion sweep and a screen to be told about separately.
+     *
+     * @return list<string>
+     */
+    public static function rehearsalMetaKeys(): array
+    {
+        return [self::QUALITY_META_KEY, self::SANDBOX_META_KEY];
     }
 
     protected function casts(): array
@@ -239,6 +267,31 @@ class Conversation extends Model
     public function scopeForChannel(Builder $query, string $channel): void
     {
         $query->where('channel', $channel);
+    }
+
+    /**
+     * Unanswered work this person is expected to pick up: still waiting, and
+     * either theirs or nobody's.
+     *
+     * A named scope because two screens ask it — the unread badge beside the
+     * desk in the menu, and the dashboard tile that says how much of the queue
+     * is the viewer's. Written out twice, the two would eventually disagree
+     * about what "mine" means, and there would be no way to tell which of the
+     * numbers on screen is the lying one.
+     *
+     * A conversation a colleague has taken is not this person's work; counting
+     * the whole desk would show every operator the same number and mean nothing
+     * to any of them.
+     *
+     * @param  Builder<Conversation>  $query
+     */
+    public function scopeWaitingFor(Builder $query, ?int $userId): void
+    {
+        $query->open()
+            ->unread()
+            ->where(fn (Builder $scoped): Builder => $scoped
+                ->whereNull('assigned_to_id')
+                ->orWhere('assigned_to_id', $userId));
     }
 
     /**

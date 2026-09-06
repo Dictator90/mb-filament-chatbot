@@ -134,7 +134,22 @@ class BotEngine
         return $this->enter($conversation, $scenario, $said);
     }
 
-    protected function enter(Conversation $conversation, Scenario $scenario, ?string $said): bool
+    /**
+     * Begins a named scenario for this conversation, whatever the router thinks.
+     *
+     * Public for one caller: the sandbox beside a scenario's canvas, where the
+     * author is testing the drawing in front of them rather than the routing.
+     * Every other way into a scenario still goes through `handle()`, which is
+     * what keeps the silence rules and the handoff words in one place.
+     *
+     * Exposed rather than reimplemented because entering is five fields written
+     * together — state, scenario, the version pinned at entry, the cleared step
+     * and the cleared stack — and a copy of those five in a panel screen is a
+     * second definition of what starting a scenario means. The copy that drifts
+     * pins no version, and the sandbox then answers from whatever is drawn today
+     * while every visitor walks the published version.
+     */
+    public function enter(Conversation $conversation, Scenario $scenario, ?string $said): bool
     {
         $start = $scenario->startStep();
 

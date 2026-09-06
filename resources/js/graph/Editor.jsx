@@ -11,6 +11,7 @@ import {
 } from '@xyflow/react';
 
 import NoteNode from './NoteNode';
+import Sandbox from './Sandbox';
 import SideForm from './SideForm';
 import StepNode from './StepNode';
 import StepPicker from './StepPicker';
@@ -67,7 +68,15 @@ function edgeId(source, handle, target) {
     return `${source}:${handleIndex(handle)}:${target}`;
 }
 
-function Canvas({ config, graph, wire }) {
+/**
+ * A sandbox that has not been started yet.
+ *
+ * The same shape the server sends back after a turn, so the panel never has two
+ * cases to render and a missing payload cannot become `undefined.map`.
+ */
+const NO_CONVERSATION = { transcript: [], visited: [], trace: [], state: null };
+
+function Canvas({ config, graph, sandbox: opening, wire }) {
     const flow = useReactFlow();
     const wrapper = useRef(null);
     const area = useRef(null);
@@ -81,6 +90,15 @@ function Canvas({ config, graph, wire }) {
     const [busy, setBusy] = useState(false);
     const [selectedId, setSelectedId] = useState(null);
     const [picker, setPicker] = useState(null);
+    const [sandbox, setSandbox] = useState(opening || NO_CONVERSATION);
+    const [sandboxBusy, setSandboxBusy] = useState(false);
+
+    /*
+     * The panel opens by itself only for somebody who left a conversation
+     * unfinished. Opening it for everybody would take a fifth of the canvas
+     * away from the many people who came to draw rather than to talk.
+     */
+    const [trying, setTrying] = useState((opening?.transcript || []).length > 0);
 
     /*
      * A mirror of the current draft, read by handlers that were created before
@@ -144,8 +162,33 @@ function Canvas({ config, graph, wire }) {
         );
     }, []);
 
+    /**
+     * Numbers the nodes the conversation genuinely walked.
+     *
+     * The keys come from the run journal on the server, never from following the
+     * arrows here: which branch was taken is the whole question a sandbox is
+     * opened to answer, and a path worked out on the canvas would answer with the
+     * branch the author drew — the very thing under test.
+     *
+     * The number, not just a highlight, because a scenario that loops walks the
+     * same node twice and "it was here" is a different fact from "it was here
+     * first".
+     */
+    const applyVisited = useCallback((visited) => {
+        const order = new Map((visited || []).map((key, index) => [key, index + 1]));
+
+        setNodes((previous) =>
+            previous.map((node) =>
+                node.type === 'step'
+                    ? { ...node, data: { ...node.data, visit: order.get(node.id) || null } }
+                    : node,
+            ),
+        );
+    }, []);
+
     useEffect(() => {
         applyIssues(config.issues || []);
+        applyVisited(opening?.visited);
         // The server's opening verdict is applied once; afterwards the canvas
         // owns the marks and re-running this would wipe a fresh check result.
         // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -472,6 +515,36 @@ function Canvas({ config, graph, wire }) {
     const save = useCallback(() => run(wire.save, true), [run, wire]);
     const check = useCallback(() => run(wire.check, false), [run, wire]);
 
+    /**
+     * One turn of the sandbox conversation.
+     *
+     * The draft is deliberately not sent. The engine answers from the saved
+     * scenario, and pretending otherwise would report on a scenario no visitor
+     * can reach — the panel says so whenever there are unsaved changes.
+     */
+    const sandboxRun = useCallback(
+        async (call) => {
+            setSandboxBusy(true);
+
+            try {
+                const answer = await call();
+
+                if (answer) {
+                    setSandbox(answer);
+                    applyVisited(answer.visited);
+                }
+            } catch (error) {
+                console.error('[chatbot] the sandbox refused the turn', error);
+            } finally {
+                setSandboxBusy(false);
+            }
+        },
+        [applyVisited],
+    );
+
+    const say = useCallback((line) => sandboxRun(() => wire.say(line)), [sandboxRun, wire]);
+    const resetSandbox = useCallback(() => sandboxRun(() => wire.reset()), [sandboxRun, wire]);
+
     const undo = useCallback(() => {
         const previous = past.current.pop();
 
@@ -597,6 +670,14 @@ function Canvas({ config, graph, wire }) {
 
                 {dirty ? <span className="chatbot-graph__count is-dirty">unsaved</span> : null}
 
+                <button
+                    type="button"
+                    onClick={() => setTrying((open) => !open)}
+                    className={`chatbot-graph__button ${trying ? 'is-active' : ''}`}
+                >
+                    Try it
+                </button>
+
                 <button type="button" onClick={check} disabled={busy} className="chatbot-graph__button">
                     Check
                 </button>
@@ -672,15 +753,25 @@ function Canvas({ config, graph, wire }) {
                     onRename={renameSelected}
                     onDelete={() => deleteNode(selectedId)}
                 />
+
+                {trying ? (
+                    <Sandbox
+                        sandbox={sandbox}
+                        dirty={dirty}
+                        busy={sandboxBusy}
+                        onSay={say}
+                        onReset={resetSandbox}
+                    />
+                ) : null}
             </div>
         </div>
     );
 }
 
-export default function Editor({ config, graph, wire }) {
+export default function Editor({ config, graph, sandbox, wire }) {
     return (
         <ReactFlowProvider>
-            <Canvas config={config} graph={graph} wire={wire} />
+            <Canvas config={config} graph={graph} sandbox={sandbox} wire={wire} />
         </ReactFlowProvider>
     );
 }
