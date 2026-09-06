@@ -143,8 +143,26 @@
 
 /* --- nodes --- */
 
+/*
+ * The node grows with the number of outputs it has.
+ *
+ * A fixed width wrapped the outputs onto a second row as soon as there were
+ * more than two, and a wrapped row is not a cosmetic problem here: each output
+ * carries the connection handle for its own branch, so the row of outputs *is*
+ * the map of where the conversation can go next. Broken across two lines it
+ * stops reading left to right, and the edges leaving the node cross each other
+ * for no reason the author can see.
+ *
+ * `fit-content` between a floor and a ceiling. The floor keeps a one-output
+ * node the same size as its neighbours, so a column of nodes stays a column.
+ * The ceiling is where a node with a great many outputs is allowed to wrap after
+ * all — beyond it the node would be wider than the viewport, and one very wide
+ * node is worse to work with than two rows of outputs.
+ */
 .chatbot-graph__node {
-    width: 15rem;
+    width: fit-content;
+    min-width: 15rem;
+    max-width: 42rem;
     padding: 0.5rem 0.625rem 0.75rem;
     border: 1px solid var(--chatbot-border);
     border-left: 4px solid var(--chatbot-node-color, var(--chatbot-muted));
@@ -197,6 +215,20 @@
     flex: none;
 }
 
+/*
+ * The icon arrives from the server at whatever size its set draws it, and
+ * Heroicons ship at 24px — half again the size of the tile it sits in. Sized
+ * here rather than by asking for a class, because the classes an icon set
+ * expects are Tailwind's, and this canvas is not built with Tailwind: asking
+ * for `w-4 h-4` would produce markup that looks right in a Filament app and
+ * nowhere else.
+ */
+.chatbot-graph__glyph svg {
+    width: 1rem;
+    height: 1rem;
+    display: block;
+}
+
 .chatbot-graph__node-title {
     display: flex;
     flex-direction: column;
@@ -207,12 +239,22 @@
     font-weight: 600;
 }
 
+/*
+ * The text wraps at a readable measure and never at the node's full width.
+ *
+ * Two reasons, and the typographic one is the smaller: a node widened by six
+ * outputs would otherwise stretch its own description into one long line. The
+ * larger reason is that without this cap the description decides how wide the
+ * node is, and the width of a node would then depend on how much somebody
+ * happened to type into it.
+ */
 .chatbot-graph__node-key,
 .chatbot-graph__node-summary,
 .chatbot-graph__node-foreign {
     color: var(--chatbot-muted);
     font-size: 0.6875rem;
     overflow-wrap: anywhere;
+    max-width: 14rem;
 }
 
 .chatbot-graph__node-summary,

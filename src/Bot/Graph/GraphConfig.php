@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace MB\FilamentChatbot\Bot\Graph;
 
+use BladeUI\Icons\Factory as IconFactory;
 use MB\FilamentChatbot\Bot\Conditions\ConditionField;
 use MB\FilamentChatbot\Bot\Conditions\ConditionKind;
 use MB\FilamentChatbot\Bot\Slots\Slot;
@@ -13,6 +14,7 @@ use MB\FilamentChatbot\Capabilities\CapabilityAction;
 use MB\FilamentChatbot\Models\DataResource;
 use MB\FilamentChatbot\Models\Scenario;
 use MB\FilamentChatbot\Registry\ChatbotRegistry;
+use Throwable;
 
 /**
  * Everything the editor needs about this installation, in one answer.
@@ -86,9 +88,40 @@ class GraphConfig
     protected function types(): array
     {
         return array_values(array_map(
-            static fn (StepType $type): array => $type->toArray(),
+            fn (StepType $type): array => $type->toArray() + ['icon_svg' => $this->icon($type->icon())],
             $this->registry->steps(),
         ));
+    }
+
+    /**
+     * A step's declared icon, turned into a drawing here rather than in the
+     * browser.
+     *
+     * Every kind declares a Heroicon name and the canvas drew a letter instead,
+     * on the reasoning that a bundle cannot turn a name into a picture for a
+     * node it has never heard of. True of the bundle, and not of this: the icon
+     * set is installed on the server, so a name resolves here whether it belongs
+     * to this package or to a step the host registered this morning — which is
+     * the case the letter was chosen to serve, and the one it served worst,
+     * since an unfamiliar node is precisely the one an author needs to pick out.
+     *
+     * A name that resolves to nothing returns null instead of throwing, and the
+     * canvas falls back to the letter. One host step naming an icon nobody
+     * installed must not take the whole editor down with it.
+     */
+    protected function icon(string $name): ?string
+    {
+        $name = trim($name);
+
+        if ($name === '') {
+            return null;
+        }
+
+        try {
+            return app(IconFactory::class)->svg($name)->toHtml();
+        } catch (Throwable) {
+            return null;
+        }
     }
 
     /**

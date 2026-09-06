@@ -93,6 +93,16 @@ export function iconOf(type) {
     return describe(type)?.icon || null;
 }
 
+/**
+ * The node's icon as drawable markup, rendered from its name on the server.
+ *
+ * `iconOf` returns the *name*, which is of no use in a browser that has no icon
+ * set installed. This returns the drawing.
+ */
+export function iconSvgOf(type) {
+    return describe(type)?.icon_svg || null;
+}
+
 export function labelOf(type) {
     return describe(type)?.label || type;
 }

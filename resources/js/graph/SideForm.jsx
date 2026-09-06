@@ -236,8 +236,23 @@ function KeyValueWidget({ value, onChange }) {
  * anything unlisted would make those unreachable from a scenario.
  */
 function VariableWidget({ value, variables, onChange }) {
-    const known = variables || {};
-    const listed = Object.prototype.hasOwnProperty.call(known, value ?? '');
+    /*
+     * The server sends variables grouped by the source that fills them —
+     * `[{ key, label, available_after, fields: [{ name, label }] }]` — and this
+     * read them as a flat `{ name: label }` map. `Object.entries` over an array
+     * yields the group objects themselves, so React was handed one as a child
+     * and the whole canvas went blank with "Objects are not valid as a React
+     * child". It happened the first time anybody opened a condition node, which
+     * is the only node that shows this widget — the shape had been wrong since
+     * the canvas was written and nothing had asked for it.
+     *
+     * Grouped is the right shape, and worth drawing as groups: which source
+     * fills a variable is what tells an author whether it will hold anything by
+     * the time this node runs.
+     */
+    const groups = Array.isArray(variables) ? variables : [];
+    const known = groups.flatMap((group) => group.fields || []);
+    const listed = known.some((field) => field.name === (value ?? ''));
     const [custom, setCustom] = useState(Boolean(value) && !listed);
 
     return (
@@ -256,10 +271,14 @@ function VariableWidget({ value, variables, onChange }) {
                 }}
             >
                 <option value="">—</option>
-                {Object.entries(known).map(([name, label]) => (
-                    <option key={name} value={name}>
-                        {label} ({name})
-                    </option>
+                {groups.map((group) => (
+                    <optgroup key={group.key} label={group.label}>
+                        {(group.fields || []).map((field) => (
+                            <option key={field.name} value={field.name}>
+                                {field.label} ({field.name})
+                            </option>
+                        ))}
+                    </optgroup>
                 ))}
                 <option value={CUSTOM_VARIABLE}>Another name…</option>
             </select>

@@ -2,7 +2,7 @@ import { memo, useEffect } from 'react';
 import { Handle, Position, useUpdateNodeInternals } from '@xyflow/react';
 
 import { IN_HANDLE, outHandle } from './model';
-import { colorOf, describe, fieldsOf, labelOf, outputLabels, speaks } from './types';
+import { colorOf, describe, fieldsOf, iconSvgOf, labelOf, outputLabels, speaks } from './types';
 
 /*
  * One node on the canvas.
@@ -60,20 +60,28 @@ function summaryOf(data) {
 }
 
 /**
- * A stand-in for the node's icon.
+ * The node's icon, drawn on the server.
  *
- * The icon a step declares is a Heroicon name, and the bundle has no way to
- * turn a name into a drawing for a node it has never heard of. A table of the
- * package's own icons would look finished and then show nothing at all for the
- * host's steps — the exact nodes whose author most needs to recognise them. A
- * letter over the node's own colour treats every kind alike.
+ * A step declares a Heroicon name, and this bundle cannot turn a name into a
+ * picture — least of all for a kind the host registered and it has never heard
+ * of. So it no longer tries: the icon set is installed on the server, the name
+ * is resolved there, and the markup arrives already drawn in `icon_svg`. Every
+ * kind gets the icon it declared, the host's kinds included.
+ *
+ * The letter stays for the two cases that yield no drawing — a name nothing has
+ * installed, and a kind this installation no longer provides at all. Both still
+ * need something on the node, and a letter over the node's own colour is it.
+ *
+ * Inserted as HTML because it is markup, rendered on the server from a name
+ * written in PHP the host already runs. Nothing in it comes from a conversation,
+ * a visitor, or the database.
  */
-function Glyph({ type, color }) {
+function Glyph({ type, color, icon }) {
     const letter = (labelOf(type) || type || '?').trim().charAt(0).toUpperCase();
 
     return (
         <span className="chatbot-graph__glyph" style={{ backgroundColor: color }}>
-            {letter}
+            {icon ? <span dangerouslySetInnerHTML={{ __html: icon }} /> : letter}
         </span>
     );
 }
@@ -126,7 +134,7 @@ function StepNode({ id, data, selected }) {
             <Handle type="target" position={Position.Top} id={IN_HANDLE} className="chatbot-graph__handle" />
 
             <div className="chatbot-graph__node-head">
-                <Glyph type={data.type} color={color} />
+                <Glyph type={data.type} color={color} icon={iconSvgOf(data.type)} />
 
                 <div className="chatbot-graph__node-title">
                     <span className="chatbot-graph__node-kind">{described ? described.label : 'Unknown kind'}</span>
