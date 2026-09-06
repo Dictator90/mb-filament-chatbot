@@ -58,10 +58,16 @@ Route::get('/demo', function (): string {
                     thing on it that belongs to the package is the script tag
                     below — everything else is decoration.
                 </p>
+                <p>
+                    One tag, and nothing else. It used to carry a stylesheet link
+                    beside it, and that link was the reason nobody noticed the
+                    widget never fetched its own: this page worked, and only this
+                    page did. A demo that embeds more than a customer would is a
+                    demo that proves less than it looks like it proves.
+                </p>
                 <p>Say <strong>hello</strong> in the widget to start a conversation.</p>
             </main>
 
-            <link rel="stylesheet" href="{$base}/chatbot/widget.css?v={$version}">
             <script src="{$base}/chatbot/widget.js?v={$version}" async
                     data-bot="demo"
                     data-title="Demo support"

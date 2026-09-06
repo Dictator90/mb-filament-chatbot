@@ -35,6 +35,41 @@
     var base = script.src.replace(/\/chatbot\/widget\.js.*$/, '');
     var data = script.dataset || {};
 
+    /*
+     * The stylesheet is fetched by the widget, not by the embedding page.
+     *
+     * The embed is one script tag — that is the promise the README, the docs and
+     * the panel's copy-paste box all make — so anything else the widget needs it
+     * has to go and get. Left to the site, this is the tag somebody forgets, and
+     * forgetting it does not look like a missing stylesheet: the launcher has no
+     * position of its own, so the whole widget lands in the page flow at the very
+     * bottom of the document, below the footer, as a few lines of stray text. It
+     * reads as "the widget did not load" and sends whoever installed it looking
+     * at origins and bot slugs instead.
+     *
+     * Carried unnoticed for the life of the package because the one page that
+     * embedded the widget — the workbench demo — wrote the <link> by hand.
+     *
+     * The URL comes from this script's own src, for the same reason the API
+     * address does: two settings that can disagree eventually do, and when they
+     * do the widget loads perfectly and looks broken.
+     */
+    (function () {
+        var href = base + '/chatbot/widget.css';
+
+        if (document.querySelector('link[data-chatbot-styles], link[href^="' + href + '"]')) {
+            return;
+        }
+
+        var link = document.createElement('link');
+
+        link.rel = 'stylesheet';
+        link.href = href;
+        link.setAttribute('data-chatbot-styles', '');
+
+        (document.head || document.documentElement).appendChild(link);
+    })();
+
     var settings = {
         bot: data.bot || '',
         title: data.title || 'Chat',

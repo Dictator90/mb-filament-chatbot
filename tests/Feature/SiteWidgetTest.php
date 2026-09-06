@@ -132,6 +132,57 @@ it('stores the visitor token hashed and never in the clear', function (): void {
         ->and($conversation->visitor_key)->not->toBe($token);
 });
 
+/**
+ * One script tag is the whole embed, so the widget fetches its own stylesheet.
+ *
+ * The README, the documentation and the panel's copy-paste box all promise a
+ * single tag. Without this the widget still runs and still answers — it simply
+ * has no styles, and unstyled it has no position of its own: the launcher and
+ * the panel land in the page flow at the very bottom of the document, under the
+ * footer, as a few lines of stray text. Nobody reads that as "the stylesheet is
+ * missing". They read it as "the widget is broken" and go looking at origins and
+ * bot slugs.
+ *
+ * It went unnoticed for the life of the package because the only page that
+ * embedded the widget — the workbench demo — wrote the `<link>` by hand. That
+ * link is gone, and the second half of this test keeps it gone: a demo page that
+ * embeds more than a customer would is a demo that proves less than it appears
+ * to.
+ */
+it('fetches its own stylesheet, because the embed is one tag', function (): void {
+    /*
+     * Read from disk rather than through the route: the endpoint answers with a
+     * `BinaryFileResponse`, whose `getContent()` is `false`, and a test that
+     * asserted against that would be asserting against nothing at all.
+     *
+     * Comments are stripped before matching, and that is not tidiness. The first
+     * version of this check searched the whole file and stayed green after the
+     * `rel = 'stylesheet'` line was deleted — the words it was looking for were
+     * sitting in the comment above the code explaining what the code did. A test
+     * satisfied by its own subject's prose is worse than no test.
+     */
+    $widget = (string) preg_replace(
+        '#/\*.*?\*/#s',
+        '',
+        (string) file_get_contents(dirname(__DIR__, 2).'/resources/widget/widget.js'),
+    );
+
+    expect($widget)->toContain('/chatbot/widget.css')
+        ->and($widget)->toContain('stylesheet');
+
+    $this->get('/chatbot/widget.css')->assertOk();
+
+    /*
+     * The demo page is read from disk too, and not requested: the workbench's
+     * routes are not registered in the suite, so a request for `/demo` answers
+     * 404 and the assertion below would pass on a page it never saw.
+     */
+    $demo = (string) file_get_contents(dirname(__DIR__, 2).'/workbench/routes/web.php');
+
+    expect($demo)->toContain('/chatbot/widget.js')
+        ->and($demo)->not->toContain('widget.css');
+});
+
 it('records what the visitor said and lets the bot take its turn', function (): void {
     $this->withHeaders(['Origin' => 'https://shop.example.com'])
         ->postJson('/chatbot/site/messages', ['bot' => 'demo', 'body' => 'hello there'])
