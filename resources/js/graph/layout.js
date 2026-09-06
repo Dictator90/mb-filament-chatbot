@@ -1,16 +1,32 @@
 import dagre from '@dagrejs/dagre';
 
+import { canvasSettings } from './types';
+
 /*
- * Places the nodes of a scenario so the walk reads left to right.
+ * Places the nodes of a scenario along the direction the installation chose.
  *
- * A scenario is a story, and a story is read along a line. Dagre's default is
- * top to bottom, which turns a five-branch question into a column of nodes
- * nobody can compare; laid out along the reading direction the branches sit
- * side by side and the shape of the conversation is visible at a glance.
+ * Down the page by default. A canvas that grows downwards grows into space the
+ * window already scrolls through; one that grows sideways runs off the edge,
+ * and every branch past the third is found by panning rather than by looking.
+ * The direction is `chatbot.canvas.layout.direction`, so an installation whose
+ * scenarios are short and wide can have them laid out across instead — the
+ * trade is real either way, and it is not this file's to settle.
+ *
+ * Every distance here comes from the same place, for the same reason: the
+ * numbers that decide how a scenario is arranged belong where somebody can read
+ * them, not inside a bundle that has to be rebuilt to change them.
  */
 
-const RANK_GAP = 120;
-const NODE_GAP = 48;
+function layoutSettings() {
+    const layout = canvasSettings()?.layout || {};
+
+    return {
+        direction: layout.direction === 'LR' ? 'LR' : 'TB',
+        rankGap: Number(layout.rank_gap) || 120,
+        nodeGap: Number(layout.node_gap) || 48,
+        unreachableGap: Number(layout.unreachable_gap) || 160,
+    };
+}
 
 /*
  * Used only until React Flow has measured a node for real.
@@ -22,8 +38,6 @@ const NODE_GAP = 48;
  */
 const FALLBACK_WIDTH = 240;
 const FALLBACK_HEIGHT = 120;
-
-const UNREACHABLE_BAND_GAP = 160;
 
 function sizeOf(node) {
     return {
@@ -71,9 +85,10 @@ function reachableKeys(steps, edges) {
 }
 
 function layoutOf(steps, edges) {
+    const { direction, rankGap, nodeGap } = layoutSettings();
     const graph = new dagre.graphlib.Graph();
 
-    graph.setGraph({ rankdir: 'LR', ranksep: RANK_GAP, nodesep: NODE_GAP });
+    graph.setGraph({ rankdir: direction, ranksep: rankGap, nodesep: nodeGap });
     graph.setDefaultEdgeLabel(() => ({}));
 
     const present = new Set(steps.map((node) => node.id));
@@ -153,7 +168,7 @@ export function arrange(nodes, edges) {
         const extent = extentOf(mainGraph, main);
         const strandedGraph = layoutOf(stranded, edges);
         const strandedExtent = extentOf(strandedGraph, stranded);
-        const offsetY = (main.length > 0 ? extent.bottom : 0) + UNREACHABLE_BAND_GAP;
+        const offsetY = (main.length > 0 ? extent.bottom : 0) + layoutSettings().unreachableGap;
 
         stranded.forEach((node) => {
             const box = strandedGraph.node(node.id);

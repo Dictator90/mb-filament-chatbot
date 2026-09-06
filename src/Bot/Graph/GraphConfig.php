@@ -35,17 +35,27 @@ use Throwable;
 class GraphConfig
 {
     /**
-     * The canvas geometry the editor and this side have to agree on.
+     * The canvas geometry, for an installation that publishes no config.
      *
      * Sent from here rather than written into the JavaScript because the grid
      * step is what apply() rounds coordinates against and what the editor snaps
      * to. Two spellings of it produce nodes that jump slightly on every save,
      * which reads as the canvas being unable to keep still.
+     *
+     * These are only the fallbacks. The values a host actually gets come from
+     * `chatbot.canvas`, merged over them, so changing how the editor arranges a
+     * scenario is a config edit and not a rebuild of the bundle.
      */
     protected const CANVAS = [
         'grid' => 20,
         'node_width' => 240,
         'zoom' => ['min' => 0.25, 'max' => 2.0, 'step' => 0.1],
+        'layout' => [
+            'direction' => 'TB',
+            'rank_gap' => 120,
+            'node_gap' => 48,
+            'unreachable_gap' => 160,
+        ],
     ];
 
     public function __construct(
@@ -72,8 +82,28 @@ class GraphConfig
             'issues' => $this->graph->issues($scenario),
             'dangling' => $this->graph->danglingKeys($scenario),
             'unreachable' => $this->graph->unreachableKeys($scenario),
-            'canvas' => self::CANVAS,
+            'canvas' => $this->canvas(),
         ];
+    }
+
+    /**
+     * The canvas settings, host first and defaults underneath.
+     *
+     * Merged one level down rather than replaced wholesale: a host that wants
+     * only a horizontal arrangement writes one key, and a release that adds a
+     * setting does not silently take it away from everybody who published the
+     * config file before it existed.
+     *
+     * @return array<string, mixed>
+     */
+    protected function canvas(): array
+    {
+        $canvas = (array) config('chatbot.canvas', []);
+
+        return array_replace(self::CANVAS, $canvas, [
+            'zoom' => array_replace(self::CANVAS['zoom'], (array) ($canvas['zoom'] ?? [])),
+            'layout' => array_replace(self::CANVAS['layout'], (array) ($canvas['layout'] ?? [])),
+        ]);
     }
 
     /**

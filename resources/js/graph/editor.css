@@ -603,6 +603,21 @@
 }
 
 /*
+ * The connections of whatever node is selected.
+ *
+ * React Flow's own `animated` gives the moving dashes; this gives them the
+ * node's accent colour and a little more weight, so the line is picked out of a
+ * canvas of identical grey curves without having to be traced under them.
+ *
+ * Scoped under `.chatbot-graph` like everything else here, so a React Flow
+ * canvas the host draws for its own reasons is left alone.
+ */
+.chatbot-graph .react-flow__edge.is-linked .react-flow__edge-path {
+    stroke: var(--chatbot-accent);
+    stroke-width: 2;
+}
+
+/*
  * The two panels React Flow draws for itself: the overview map and the zoom
  * buttons.
  *

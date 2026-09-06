@@ -20,6 +20,44 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Scenario canvas
+    |--------------------------------------------------------------------------
+    |
+    | How the graph editor draws and arranges a scenario. Everything here is
+    | sent to the browser, so this is the single place that decides it — the
+    | editor reads these values and keeps no copy of its own.
+    |
+    | direction is what "Auto-arrange" lays the walk along: 'TB' down the page,
+    | 'LR' across it. Down is the default because a canvas that grows downwards
+    | grows into space the window already scrolls through, while one that grows
+    | sideways runs off the edge and every branch past the third is found by
+    | panning. Set 'LR' if your scenarios are short and wide rather than long.
+    |
+    | rank_gap is the distance from one step to the next along that direction;
+    | node_gap separates branches across it. unreachable_gap is how far past the
+    | scenario the nodes nothing reaches yet are parked — far enough that work
+    | in progress does not rearrange the finished part.
+    |
+    | grid is what coordinates are rounded to on save and what the editor snaps
+    | to while dragging. The two must agree: two spellings of it make nodes jump
+    | slightly on every save, which reads as a canvas that cannot keep still.
+    |
+    */
+
+    'canvas' => [
+        'grid' => 20,
+        'node_width' => 240,
+        'zoom' => ['min' => 0.25, 'max' => 2.0, 'step' => 0.1],
+        'layout' => [
+            'direction' => 'TB',
+            'rank_gap' => 120,
+            'node_gap' => 48,
+            'unreachable_gap' => 160,
+        ],
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | Operator model
     |--------------------------------------------------------------------------
     |

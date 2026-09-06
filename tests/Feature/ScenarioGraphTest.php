@@ -280,6 +280,33 @@ it('hands the editor every registered kind in a box that survives the trip', fun
 });
 
 /**
+ * The canvas is arranged by configuration, not by the bundle.
+ *
+ * Every distance and the direction of the layout live in `chatbot.canvas`, and
+ * the editor reads them from there. What matters is that the host's value wins
+ * *and* that a key the host did not write keeps its default: an override that
+ * blanked the rest would leave the arrange with a direction and no spacing, and
+ * dagre answers that by stacking every node at the origin — a canvas that looks
+ * empty with the whole scenario piled under the first node.
+ *
+ * Checked here rather than by driving the editor, because on this side the
+ * failure is silent: a setting the browser never receives is not an error
+ * anywhere, it is a canvas that quietly ignores the config file.
+ */
+it('lets the installation decide how a scenario is laid out', function (): void {
+    config(['chatbot.canvas.layout.direction' => 'LR']);
+
+    $scenario = Scenario::query()->where('bot_id', $this->bot->getKey())->firstOrFail();
+    $canvas = app(GraphConfig::class)->forScenario($scenario)['canvas'];
+
+    expect($canvas['layout']['direction'])->toBe('LR')
+        ->and($canvas['layout']['rank_gap'])->toBeInt()
+        ->and($canvas['layout']['node_gap'])->toBeInt()
+        ->and($canvas['layout']['unreachable_gap'])->toBeInt()
+        ->and($canvas['grid'])->toBeInt();
+});
+
+/**
  * The one defect that costs money rather than embarrassment.
  *
  * A node that changes the host's records — cancels the booking, awards the

@@ -196,6 +196,33 @@ function Canvas({ config, graph, sandbox: opening, wire }) {
 
     const selected = nodes.find((node) => node.id === selectedId && node.type === 'step') || null;
 
+    /*
+     * The selected node's own connections, drawn as a moving dashed line.
+     *
+     * What an author checks on a busy canvas is where this node came from and
+     * where it can go, and a scenario of thirty nodes is a thicket of identical
+     * grey curves — following one by eye means tracing it under the others. The
+     * animation is the part that carries: a dashed line that is merely a
+     * different colour still has to be found first, while one that moves is seen
+     * without looking for it.
+     *
+     * Both directions, deliberately. Half the question an author is asking is
+     * what reaches this node — a branch nothing points at is the commonest
+     * mistake on a canvas, and it is invisible unless incoming edges answer too.
+     *
+     * Built here rather than written into the edges themselves: selection is not
+     * part of a scenario, and marking the stored edges would put it into the
+     * undo history and into what gets saved.
+     */
+    const drawnEdges = useMemo(
+        () => (selectedId === null
+            ? edges
+            : edges.map((edge) => (edge.source === selectedId || edge.target === selectedId
+                ? { ...edge, animated: true, className: [edge.className, 'is-linked'].filter(Boolean).join(' ') }
+                : edge))),
+        [edges, selectedId],
+    );
+
     const onNodesChange = useCallback(
         (changes) => {
             /*
@@ -695,7 +722,7 @@ function Canvas({ config, graph, sandbox: opening, wire }) {
                 <div className="chatbot-graph__canvas-area" ref={area}>
                     <ReactFlow
                         nodes={nodes}
-                        edges={edges}
+                        edges={drawnEdges}
                         nodeTypes={nodeTypes}
                         onNodesChange={onNodesChange}
                         onEdgesChange={onEdgesChange}
