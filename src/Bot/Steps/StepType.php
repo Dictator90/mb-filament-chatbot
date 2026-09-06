@@ -134,6 +134,26 @@ abstract class StepType
         return false;
     }
 
+    /**
+     * The answers this node offers the visitor, if it offers any.
+     *
+     * Only for nodes where the visitor picks: an `ask`'s buttons, a `choose`'s
+     * records. A `condition` and a `keyword` also carry a list of options, and
+     * those are branch rules the visitor must never be shown — offering them
+     * would put the author's private routing words on somebody's screen as
+     * though they were choices.
+     *
+     * Returned as labels rather than drawn here, because how a choice looks is
+     * the channel's business: buttons in the widget, a numbered list where
+     * buttons do not exist.
+     *
+     * @return list<string>
+     */
+    public function choiceLabels(Step $step): array
+    {
+        return [];
+    }
+
     /** Whether reaching this node ends the branch on its own. */
     public function ends(): bool
     {

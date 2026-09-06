@@ -48,13 +48,7 @@ enum StepOutputs: string implements HasLabel
 
     public function getLabel(): string
     {
-        return match ($this) {
-            self::None => 'No exits',
-            self::Single => 'One exit',
-            self::Options => 'One exit per option',
-            self::OptionsElse => 'One exit per option, plus a fallback',
-            self::Pair => 'Two fixed exits',
-        };
+        return __('chatbot::panel.enums.step_outputs.'.$this->value);
     }
 
     /**

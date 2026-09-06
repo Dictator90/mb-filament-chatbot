@@ -38,7 +38,7 @@ final class JumpStep extends StepType
 
     public function label(): string
     {
-        return 'Go to scenario';
+        return __('chatbot::nodes.steps.jump.label');
     }
 
     public function icon(): string
@@ -58,9 +58,9 @@ final class JumpStep extends StepType
     {
         return [
             Field::scenario('scenario')
-                ->label('Continue in')
+                ->label(__('chatbot::nodes.steps.jump.fields.scenario.label'))
                 ->required()
-                ->hint('The conversation carries on there and never returns to this scenario.'),
+                ->hint(__('chatbot::nodes.steps.jump.fields.scenario.hint')),
         ];
     }
 
@@ -106,7 +106,7 @@ final class JumpStep extends StepType
 
         return [[
             'severity' => 'blocking',
-            'message' => 'This node names no scenario, so every conversation reaching it goes to a person instead.',
+            'message' => __('chatbot::nodes.steps.jump.issues.no_scenario'),
         ]];
     }
 

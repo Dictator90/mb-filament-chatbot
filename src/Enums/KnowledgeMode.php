@@ -58,12 +58,6 @@ enum KnowledgeMode: string implements HasLabel
 
     public function getLabel(): string
     {
-        return match ($this) {
-            self::Answer => 'Answer',
-            self::Verify => 'Answer, needs checking',
-            self::Handoff => 'Never answer, hand off',
-            self::Scenario => 'Start a scenario',
-            self::Urgent => 'Urgent, reach a person',
-        };
+        return __('chatbot::panel.enums.knowledge_mode.'.$this->value);
     }
 }

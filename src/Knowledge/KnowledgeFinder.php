@@ -119,11 +119,7 @@ final class KnowledgeFinder
         $frequency = [];
 
         foreach ($entries as $index => $entry) {
-            $roots[$index] = $this->extractor->rootsOfAll(array_merge(
-                [$entry->question],
-                array_map(static fn (mixed $word): string => (string) $word, (array) $entry->keywords),
-                array_map(static fn (mixed $word): string => (string) $word, (array) $entry->variants),
-            ));
+            $roots[$index] = $this->extractor->rootsOfAll($entry->searchableTexts());
 
             foreach ($roots[$index] as $root) {
                 $frequency[$root] = ($frequency[$root] ?? 0) + 1;

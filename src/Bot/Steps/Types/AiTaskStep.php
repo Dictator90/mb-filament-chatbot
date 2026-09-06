@@ -36,10 +36,10 @@ use MB\FilamentChatbot\Models\Step;
  * and a scenario stays explainable with a model in it.
  *
  * Two exits. The second means no values came back — no model configured, the
- * provider refused, the answer unreadable — and **nothing is written on that
- * path**. Writing partial or invented values would be worse than not extracting
- * at all: the conversation would carry on confidently against a passenger count
- * nobody said.
+ * provider refused, the month's budget spent, the answer unreadable — and
+ * **nothing is written on that path**. Writing partial or invented values would
+ * be worse than not extracting at all: the conversation would carry on
+ * confidently against a passenger count nobody said.
  */
 final class AiTaskStep extends StepType
 {
@@ -147,7 +147,10 @@ final class AiTaskStep extends StepType
             ]);
         }
 
-        $gateway = $this->gateways->make((string) $context->setting('provider', ''));
+        $gateway = $this->gateways->guarded(
+            $context->conversation->bot,
+            (string) $context->setting('provider', ''),
+        );
 
         if (! $gateway->isAvailable()) {
             return StepResult::second()->traced(RunStep::FAILED, [

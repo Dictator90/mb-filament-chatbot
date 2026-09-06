@@ -39,7 +39,7 @@ final class AnswerStep extends StepType
 
     public function label(): string
     {
-        return 'Answer from the knowledge base';
+        return __('chatbot::nodes.steps.answer.label');
     }
 
     public function icon(): string
@@ -62,7 +62,7 @@ final class AnswerStep extends StepType
      */
     public function pairLabels(): array
     {
-        return ['answered', 'do not know'];
+        return array_values((array) __('chatbot::nodes.steps.answer.exits'));
     }
 
     /**
@@ -95,14 +95,14 @@ final class AnswerStep extends StepType
     {
         return [
             Field::select('category')
-                ->label('Only this section of the knowledge base')
+                ->label(__('chatbot::nodes.steps.answer.fields.category.label'))
                 ->options(fn (): array => $this->categories())
-                ->hint('Leave empty to search every topic. Narrowing helps when one scenario is about one subject.'),
+                ->hint(__('chatbot::nodes.steps.answer.fields.category.hint')),
 
             Field::textarea('fallback')
-                ->label('When the topic has no text')
+                ->label(__('chatbot::nodes.steps.answer.fields.fallback.label'))
                 ->rows(2)
-                ->hint('Sent when a topic matches but its answer field is empty. Left empty, the node takes its second exit instead.'),
+                ->hint(__('chatbot::nodes.steps.answer.fields.fallback.hint')),
         ];
     }
 

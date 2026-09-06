@@ -90,6 +90,32 @@ export default function Sandbox({ sandbox, dirty, busy, onSay, onReset }) {
                     </p>
                 ))}
 
+                {/*
+                    The options the bot is waiting on. They are rendered per
+                    channel and are no part of the message body, so without this
+                    an `ask` node arrives here as one bare line with nothing to
+                    answer it — the author sees the question, sees no menu, and
+                    concludes the node is broken rather than the panel.
+
+                    Picking one sends its label as if it had been typed, which is
+                    exactly what a button in the widget does.
+                */}
+                {(sandbox.choices || []).length > 0 ? (
+                    <div className="chatbot-graph__choices">
+                        {(sandbox.choices || []).map((choice, index) => (
+                            <button
+                                type="button"
+                                className="chatbot-graph__choice"
+                                key={index}
+                                disabled={busy}
+                                onClick={() => onSay(choice.label)}
+                            >
+                                {choice.label}
+                            </button>
+                        ))}
+                    </div>
+                ) : null}
+
                 <span ref={tail} />
             </div>
 

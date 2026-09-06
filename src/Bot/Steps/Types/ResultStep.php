@@ -33,7 +33,7 @@ final class ResultStep extends StepType
 
     public function label(): string
     {
-        return 'Return a result';
+        return __('chatbot::nodes.steps.result.label');
     }
 
     public function icon(): string
@@ -63,8 +63,8 @@ final class ResultStep extends StepType
     {
         return [
             Field::text('value')
-                ->label('Value to return')
-                ->hint('Supports {{variables}}. Leave empty to return nothing.'),
+                ->label(__('chatbot::nodes.steps.result.fields.value.label'))
+                ->hint(__('chatbot::nodes.steps.result.fields.value.hint')),
         ];
     }
 

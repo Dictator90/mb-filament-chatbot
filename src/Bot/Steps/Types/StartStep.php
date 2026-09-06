@@ -39,7 +39,7 @@ final class StartStep extends StepType
 
     public function label(): string
     {
-        return 'Start';
+        return __('chatbot::nodes.steps.start.label');
     }
 
     public function icon(): string
@@ -97,44 +97,31 @@ final class StartStep extends StepType
     {
         return [
             Field::select('trigger')
-                ->label('Starts on')
-                ->options([
-                    'greeting' => 'A conversation opening',
-                    'keyword' => 'One of these words',
-                    'fallback' => 'Anything nothing else answered',
-                    'call' => 'Being called from another scenario',
-                ])
+                ->label(__('chatbot::nodes.steps.start.fields.trigger.label'))
+                ->options((array) __('chatbot::nodes.steps.start.fields.trigger.options'))
                 ->default('keyword')
                 ->required()
-                ->hint('Exactly one scenario per bot should be the fallback, or two of them will race for the same message.'),
+                ->hint(__('chatbot::nodes.steps.start.fields.trigger.hint')),
 
             Field::list('keywords')
-                ->label('Words')
-                ->hint('Matched inside the message, on whole words.')
+                ->label(__('chatbot::nodes.steps.start.fields.keywords.label'))
+                ->hint(__('chatbot::nodes.steps.start.fields.keywords.hint'))
                 ->visibleWhen('trigger', 'keyword'),
 
             Field::select('channels')
-                ->label('Only on these channels')
+                ->label(__('chatbot::nodes.steps.start.fields.channels.label'))
                 ->options([])
                 ->multiple()
-                ->hint('Leave empty for every channel this bot answers on.'),
+                ->hint(__('chatbot::nodes.steps.start.fields.channels.hint')),
 
             Field::select('audience')
-                ->label('Only for')
-                ->options([
-                    'any' => 'Anyone',
-                    'known' => 'Visitors we have identified',
-                    'anonymous' => 'Visitors we have not identified',
-                ])
+                ->label(__('chatbot::nodes.steps.start.fields.audience.label'))
+                ->options((array) __('chatbot::nodes.steps.start.fields.audience.options'))
                 ->default('any'),
 
             Field::select('familiarity')
-                ->label('Only when')
-                ->options([
-                    'any' => 'Every conversation',
-                    'new' => 'This is their first conversation',
-                    'returning' => 'They have written before',
-                ])
+                ->label(__('chatbot::nodes.steps.start.fields.familiarity.label'))
+                ->options((array) __('chatbot::nodes.steps.start.fields.familiarity.options'))
                 ->default('any'),
         ];
     }

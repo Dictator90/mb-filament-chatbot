@@ -36,7 +36,7 @@ final class CallStep extends StepType
 
     public function label(): string
     {
-        return 'Call a scenario';
+        return __('chatbot::nodes.steps.call.label');
     }
 
     public function icon(): string
@@ -59,7 +59,7 @@ final class CallStep extends StepType
      */
     public function pairLabels(): array
     {
-        return ['returned', 'could not'];
+        return array_values((array) __('chatbot::nodes.steps.call.exits'));
     }
 
     /**
@@ -77,11 +77,11 @@ final class CallStep extends StepType
     {
         return [
             Field::scenario('scenario')
-                ->label('Scenario to call')
+                ->label(__('chatbot::nodes.steps.call.fields.scenario.label'))
                 ->required(),
             Field::text('into')
-                ->label('Remember the answer as')
-                ->hint('Leave empty to ignore what it returns.'),
+                ->label(__('chatbot::nodes.steps.call.fields.into.label'))
+                ->hint(__('chatbot::nodes.steps.call.fields.into.hint')),
         ];
     }
 
@@ -115,7 +115,7 @@ final class CallStep extends StepType
     public function issues(Step $step, Scenario $scenario): array
     {
         if (trim((string) $step->setting('scenario', '')) === '') {
-            return [['severity' => 'blocking', 'message' => 'This node does not say which scenario to call.']];
+            return [['severity' => 'blocking', 'message' => __('chatbot::nodes.steps.call.issues.no_scenario')]];
         }
 
         return [];

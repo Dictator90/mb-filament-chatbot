@@ -46,7 +46,7 @@ final class FormStep extends StepType
 
     public function label(): string
     {
-        return 'Form';
+        return __('chatbot::nodes.steps.form.label');
     }
 
     public function icon(): string
@@ -69,7 +69,7 @@ final class FormStep extends StepType
      */
     public function pairLabels(): array
     {
-        return ['collected', 'could not'];
+        return array_values((array) __('chatbot::nodes.steps.form.exits'));
     }
 
     public function isBasic(): bool
@@ -97,14 +97,14 @@ final class FormStep extends StepType
     {
         return [
             Field::select('slots')
-                ->label('What to collect')
+                ->label(__('chatbot::nodes.steps.form.fields.slots.label'))
                 ->required()
                 ->multiple()
                 ->options(fn (): array => collect(Chatbot::slots())
                     ->mapWithKeys(fn (Slot $slot): array => [$slot->key() => $slot->name()])
                     ->all()),
             Field::number('attempts')
-                ->label('Attempts per question')
+                ->label(__('chatbot::nodes.steps.form.fields.attempts.label'))
                 ->default(2)
                 ->min(1)
                 ->max(5),
@@ -167,7 +167,7 @@ final class FormStep extends StepType
     public function issues(Step $step, Scenario $scenario): array
     {
         if ((array) $step->setting('slots', []) === []) {
-            return [['severity' => 'blocking', 'message' => 'This form does not collect anything.']];
+            return [['severity' => 'blocking', 'message' => __('chatbot::nodes.steps.form.issues.nothing_collected')]];
         }
 
         return [];

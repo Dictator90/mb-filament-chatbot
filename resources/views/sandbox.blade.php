@@ -81,6 +81,19 @@
             background: var(--cs-raised);
         }
 
+        /*
+            Bubbles rather than full-width paragraphs, the visitor's own lines on
+            the right. Alternating background across the whole column made a
+            two-turn conversation hard to skim for who said what.
+
+            `max-width` with `width: fit-content` and not a fixed width: the cap
+            keeps a long answer from crossing the whole panel, and the shrink
+            keeps a two-word answer a two-word bubble. Either alone looks wrong —
+            a fixed 40% pads "yes" out to a slab, an uncapped bubble runs the
+            full width and the two speakers stop being distinguishable.
+
+            The cap lifts on a narrow screen, where 40% is about four characters.
+        */
         .chatbot-sandbox__line {
             margin: 0 0 0.375rem;
             padding: 0.35rem 0.5rem;
@@ -88,10 +101,44 @@
             background: var(--cs-surface);
             white-space: pre-wrap;
             overflow-wrap: anywhere;
+            max-width: 40%;
+            width: fit-content;
+        }
+
+        .chatbot-sandbox__line.is-visitor {
+            margin-left: auto;
         }
 
         .chatbot-sandbox__line.is-bot {
             background: var(--cs-bot);
+        }
+
+        @media (max-width: 60rem) {
+            .chatbot-sandbox__line {
+                max-width: 85%;
+            }
+        }
+
+        .chatbot-sandbox__choices {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.375rem;
+            margin: 0.5rem 0 0;
+        }
+
+        .chatbot-sandbox__choice {
+            padding: 0.3rem 0.6rem;
+            border: 1px solid var(--cs-line);
+            border-radius: 999px;
+            background: var(--cs-bot);
+            color: inherit;
+            cursor: pointer;
+            font: inherit;
+            font-size: 0.8125rem;
+        }
+
+        .chatbot-sandbox__choice:hover {
+            background: var(--cs-raised);
         }
 
         .chatbot-sandbox__composer {
@@ -176,6 +223,30 @@
                         where a scenario claiming words that belong to another one shows up.
                     </p>
                 @endforelse
+
+                {{--
+                    The options the bot is waiting on, drawn where a visitor
+                    meets them. Options are rendered per channel and are no part
+                    of the message body, so without this an `ask` node arrives
+                    here as one bare line with nothing to answer it — the author
+                    sees the question, sees no menu, and concludes the node is
+                    broken rather than the screen.
+
+                    Picking one sends its label as if it had been typed, because
+                    that is exactly what a button in the widget does.
+                --}}
+                @if (count($this->choices) > 0)
+                    <div class="chatbot-sandbox__choices">
+                        @foreach ($this->choices as $choice)
+                            <button
+                                type="button"
+                                class="chatbot-sandbox__choice"
+                                wire:click="choose(@js($choice['label']))"
+                                wire:loading.attr="disabled"
+                            >{{ $choice['label'] }}</button>
+                        @endforeach
+                    </div>
+                @endif
             </div>
 
             <form class="chatbot-sandbox__composer" wire:submit="send">

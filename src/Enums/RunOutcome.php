@@ -72,15 +72,7 @@ enum RunOutcome: string implements HasColor, HasLabel
 
     public function getLabel(): string
     {
-        return match ($this) {
-            self::Running => 'Running',
-            self::HandedOff => 'Handed to a human',
-            self::Closed => 'Conversation closed',
-            self::DeadEnd => 'Scenario led nowhere',
-            self::StepLimit => 'Hit the step limit',
-            self::Lost => 'Step disappeared',
-            self::Failed => 'Failed',
-        };
+        return __('chatbot::panel.enums.run_outcome.'.$this->value);
     }
 
     /**

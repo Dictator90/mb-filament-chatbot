@@ -152,7 +152,10 @@ final class AiStep extends StepType
             ]);
         }
 
-        $gateway = $this->gateways->make((string) $context->setting('provider', ''));
+        $gateway = $this->gateways->guarded(
+            $context->conversation->bot,
+            (string) $context->setting('provider', ''),
+        );
 
         if (! $gateway->isAvailable()) {
             return StepResult::second()->traced(RunStep::FAILED, [

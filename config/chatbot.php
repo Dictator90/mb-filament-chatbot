@@ -199,6 +199,20 @@ return [
                 'timeout' => 20,
                 'temperature' => 0.2,
                 'max_tokens' => 600,
+
+                /*
+                 * What this account pays, per million tokens, in whole units of
+                 * whatever currency it is billed in.
+                 *
+                 * No endpoint of this shape returns a price, and nobody but the
+                 * account holder knows one: the same request costs one thing on
+                 * OpenAI, another through a reseller and nothing at all against
+                 * a model on your own machine. Left at zero, tokens are still
+                 * counted and the money ceiling simply never fires — which is
+                 * visible and fixable, unlike a price the package guessed.
+                 */
+                'price_per_million_input' => env('CHATBOT_AI_PRICE_INPUT', 0),
+                'price_per_million_output' => env('CHATBOT_AI_PRICE_OUTPUT', 0),
             ],
 
             /*
@@ -426,6 +440,29 @@ return [
         'monthly_cost' => null,
         'tool_calls_per_turn' => 5,
         'seconds_per_turn' => 90,
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Quality checks
+    |--------------------------------------------------------------------------
+    |
+    | A rehearsal drives the real engine, which means it can reach the real
+    | provider and spend the real monthly budget. Held off by default: a nightly
+    | run of a few hundred checks would make a few hundred paid calls before
+    | anybody is awake, and a check graded on what a model wrote passes on Monday
+    | and fails on Tuesday for a sentence nobody changed. What it rehearses
+    | instead is the path the package promises works — the scenario with no model
+    | behind it, which is where every conversation lands on the day the provider
+    | is down or the month is spent.
+    |
+    | Switch it on to grade the model as well. The spending is counted and
+    | refused like anybody else's; nothing here lifts the budget.
+    |
+    */
+
+    'quality' => [
+        'use_model' => false,
     ],
 
 ];

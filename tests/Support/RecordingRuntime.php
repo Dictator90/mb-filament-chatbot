@@ -24,9 +24,16 @@ final class RecordingRuntime implements Runtime
     /** @var array<string, string|null> */
     public array $stored = [];
 
-    public function say(string $text): void
+    /** @var list<list<string>> */
+    public array $offered = [];
+
+    /**
+     * @param  list<string>  $options
+     */
+    public function say(string $text, array $options = []): void
     {
         $this->said[] = $text;
+        $this->offered[] = $options;
     }
 
     public function store(string $name, ?string $value): void

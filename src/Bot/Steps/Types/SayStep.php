@@ -33,7 +33,7 @@ final class SayStep extends StepType
 
     public function label(): string
     {
-        return 'Say';
+        return __('chatbot::nodes.steps.say.label');
     }
 
     public function icon(): string

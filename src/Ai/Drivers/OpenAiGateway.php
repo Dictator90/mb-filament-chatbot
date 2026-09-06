@@ -250,10 +250,39 @@ final class OpenAiGateway implements AiGateway
      */
     private function usageOf(array $body): AiUsage
     {
-        return new AiUsage(
-            (int) data_get($body, 'usage.prompt_tokens', 0),
-            (int) data_get($body, 'usage.completion_tokens', 0),
-        );
+        $input = (int) data_get($body, 'usage.prompt_tokens', 0);
+        $output = (int) data_get($body, 'usage.completion_tokens', 0);
+
+        return new AiUsage($input, $output, $this->costOf($input, $output));
+    }
+
+    /**
+     * What those tokens cost, at the price this installation was told.
+     *
+     * **No endpoint in this shape returns a price**, and the price is not the
+     * package's to know: the same request costs one thing on OpenAI, another
+     * through OpenRouter and nothing at all against a model running on the
+     * host's own machine. So the figures come from this driver's own
+     * configuration, stated per million tokens the way every provider quotes
+     * them, and unpriced means zero rather than a guess — the money ceiling then
+     * never stops the month, which somebody can see and set, instead of stopping
+     * it against a number nobody agreed to.
+     *
+     * The conversion needs no scaling factor because the two units cancel:
+     * cost is kept in millionths and prices are quoted per million tokens, so a
+     * token priced at P per million costs exactly P micro-units.
+     */
+    private function costOf(int $inputTokens, int $outputTokens): int
+    {
+        $cost = $inputTokens * $this->price('price_per_million_input')
+            + $outputTokens * $this->price('price_per_million_output');
+
+        return max(0, (int) round($cost));
+    }
+
+    private function price(string $key): float
+    {
+        return max(0.0, (float) ($this->config[$key] ?? 0));
     }
 
     /**

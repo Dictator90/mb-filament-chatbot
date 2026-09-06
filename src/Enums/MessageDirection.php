@@ -20,9 +20,6 @@ enum MessageDirection: string implements HasLabel
 
     public function getLabel(): string
     {
-        return match ($this) {
-            self::Incoming => 'Incoming',
-            self::Outgoing => 'Outgoing',
-        };
+        return __('chatbot::panel.enums.message_direction.'.$this->value);
     }
 }

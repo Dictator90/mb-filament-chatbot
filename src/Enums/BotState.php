@@ -25,11 +25,7 @@ enum BotState: string implements HasColor, HasLabel
 
     public function getLabel(): string
     {
-        return match ($this) {
-            self::Off => 'Off',
-            self::Active => 'Running',
-            self::HandedOff => 'Handed off',
-        };
+        return __('chatbot::panel.enums.bot_state.'.$this->value);
     }
 
     public function getColor(): string

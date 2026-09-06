@@ -248,7 +248,7 @@ class BotEngine
                 $body = $runtime->fill($step->body);
 
                 if (trim($body) !== '') {
-                    $runtime->say($body);
+                    $runtime->say($body, $type->choiceLabels($step));
                     $spoke = true;
                 }
             }

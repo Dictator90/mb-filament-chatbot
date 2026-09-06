@@ -35,7 +35,7 @@ final class SetStep extends StepType
 
     public function label(): string
     {
-        return 'Remember';
+        return __('chatbot::nodes.steps.set.label');
     }
 
     public function icon(): string
@@ -63,15 +63,15 @@ final class SetStep extends StepType
     {
         return [
             Field::text('name')
-                ->label('Name')
-                ->placeholder('interest')
+                ->label(__('chatbot::nodes.steps.set.fields.name.label'))
+                ->placeholder(__('chatbot::nodes.steps.set.fields.name.placeholder'))
                 ->required()
-                ->hint('The name later steps and message templates read it back by.'),
+                ->hint(__('chatbot::nodes.steps.set.fields.name.hint')),
 
             Field::text('value')
-                ->label('Value')
-                ->placeholder('tour')
-                ->hint('May contain {{other_name}}, substituted when the node runs.'),
+                ->label(__('chatbot::nodes.steps.set.fields.value.label'))
+                ->placeholder(__('chatbot::nodes.steps.set.fields.value.placeholder'))
+                ->hint(__('chatbot::nodes.steps.set.fields.value.hint')),
         ];
     }
 
@@ -106,7 +106,7 @@ final class SetStep extends StepType
 
         return [[
             'severity' => 'blocking',
-            'message' => 'This node has no name to remember the value under, so it would do nothing at all.',
+            'message' => __('chatbot::nodes.steps.set.issues.no_name'),
         ]];
     }
 }

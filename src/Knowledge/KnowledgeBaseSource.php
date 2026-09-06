@@ -46,7 +46,7 @@ class KnowledgeBaseSource implements KnowledgeSource
         return $entries
             ->map(fn (KnowledgeEntry $entry): array => [
                 'entry' => $entry,
-                'overlap' => count(array_intersect($roots, $this->extractor->rootsOfAll($entry))),
+                'overlap' => count(array_intersect($roots, $this->extractor->rootsOfAll($entry->searchableTexts()))),
             ])
             ->filter(fn (array $row): bool => $row['overlap'] > 0)
             ->sortByDesc('overlap')

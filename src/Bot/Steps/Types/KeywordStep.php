@@ -28,7 +28,7 @@ final class KeywordStep extends StepType
 
     public function label(): string
     {
-        return 'Split on words';
+        return __('chatbot::nodes.steps.keyword.label');
     }
 
     public function icon(): string

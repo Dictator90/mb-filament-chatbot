@@ -42,7 +42,7 @@ final class CollectStep extends StepType
 
     public function label(): string
     {
-        return 'Collect an answer';
+        return __('chatbot::nodes.steps.collect.label');
     }
 
     public function icon(): string
@@ -85,16 +85,16 @@ final class CollectStep extends StepType
     {
         return [
             Field::select('slot')
-                ->label('What to ask for')
+                ->label(__('chatbot::nodes.steps.collect.fields.slot.label'))
                 ->required()
                 ->options(fn (): array => collect(Chatbot::slots())
                     ->mapWithKeys(fn (Slot $slot): array => [$slot->key() => $slot->name()])
                     ->all()),
             Field::text('into')
-                ->label('Remember as')
-                ->hint('Leave empty to store it under the slot name.'),
+                ->label(__('chatbot::nodes.steps.collect.fields.into.label'))
+                ->hint(__('chatbot::nodes.steps.collect.fields.into.hint')),
             Field::number('attempts')
-                ->label('Attempts before giving up')
+                ->label(__('chatbot::nodes.steps.collect.fields.attempts.label'))
                 ->default(2)
                 ->min(1)
                 ->max(5),
@@ -180,7 +180,7 @@ final class CollectStep extends StepType
     public function issues(Step $step, Scenario $scenario): array
     {
         if (trim((string) $step->setting('slot', '')) === '') {
-            return [['severity' => 'blocking', 'message' => 'This node does not say what it asks for.']];
+            return [['severity' => 'blocking', 'message' => __('chatbot::nodes.steps.collect.issues.no_slot')]];
         }
 
         return [];

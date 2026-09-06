@@ -30,12 +30,7 @@ enum MessageAuthor: string implements HasColor, HasLabel
 
     public function getLabel(): string
     {
-        return match ($this) {
-            self::Visitor => 'Visitor',
-            self::Bot => 'Bot',
-            self::Operator => 'Operator',
-            self::System => 'System',
-        };
+        return __('chatbot::panel.enums.message_author.'.$this->value);
     }
 
     public function getColor(): string

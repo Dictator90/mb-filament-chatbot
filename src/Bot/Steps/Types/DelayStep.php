@@ -41,7 +41,7 @@ final class DelayStep extends StepType
 
     public function label(): string
     {
-        return 'Pause';
+        return __('chatbot::nodes.steps.delay.label');
     }
 
     public function icon(): string
@@ -69,11 +69,11 @@ final class DelayStep extends StepType
     {
         return [
             Field::number('seconds')
-                ->label('Seconds')
+                ->label(__('chatbot::nodes.steps.delay.fields.seconds.label'))
                 ->default(self::DEFAULT_SECONDS)
                 ->min(self::MIN_SECONDS)
                 ->max(self::MAX_SECONDS)
-                ->hint('A second or two reads as typing. Longer pauses read as the bot having stopped.'),
+                ->hint(__('chatbot::nodes.steps.delay.fields.seconds.hint')),
         ];
     }
 

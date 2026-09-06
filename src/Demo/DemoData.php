@@ -761,7 +761,43 @@ final class DemoData
                             ],
                         ],
                     ],
-                    'config' => ['else_key' => 'sorry'],
+                    'config' => ['else_key' => 'try-ai'],
+                ],
+                [
+                    /*
+                     * The one node in the demo that asks a model anything.
+                     *
+                     * It sits here, on the branch where nothing else matched,
+                     * because that is the only place a model is worth its cost:
+                     * every question the scenarios already answer is answered
+                     * cheaper, faster and the same way twice without one.
+                     *
+                     * It is also what makes the demo prove the rule the whole
+                     * package is built on. With no provider configured — which
+                     * is how the package ships — this node takes its second
+                     * branch on the first turn and the conversation carries on
+                     * to the same apology and the same menu as before. Nothing
+                     * is broken by the absence of a model; something is added by
+                     * its presence.
+                     */
+                    'key' => 'try-ai',
+                    'type' => 'ai',
+                    'next' => 'helped',
+                    'col' => 2,
+                    'row' => -1,
+                    'config' => [
+                        'provider' => '',
+                        'instruction' => 'You answer customers on behalf of this company. Use only the material you are given, keep the reply short and in the language the customer wrote in, and say plainly that you do not know when the material does not answer the question.',
+                        'candidates' => 5,
+                        'else_key' => 'sorry',
+                    ],
+                ],
+                [
+                    'key' => 'helped',
+                    'type' => 'close',
+                    'col' => 3,
+                    'row' => -1,
+                    'body' => 'Glad that helped. Write again any time.',
                 ],
                 [
                     'key' => 'sorry',

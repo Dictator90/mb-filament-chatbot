@@ -23,10 +23,7 @@ enum ConversationStatus: string implements HasColor, HasLabel
 
     public function getLabel(): string
     {
-        return match ($this) {
-            self::Open => 'Open',
-            self::Closed => 'Closed',
-        };
+        return __('chatbot::panel.enums.conversation_status.'.$this->value);
     }
 
     public function getColor(): string

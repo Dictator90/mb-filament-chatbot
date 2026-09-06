@@ -145,6 +145,21 @@ class Sandbox extends Page
     }
 
     /**
+     * The options the bot is waiting on, so an `ask` node can be answered here
+     * the way a visitor answers it — by picking one, rather than by guessing the
+     * wording of a button the screen never drew.
+     *
+     * @return list<array{label: string}>
+     */
+    #[Computed]
+    public function choices(): array
+    {
+        $conversation = $this->conversation;
+
+        return $conversation === null ? [] : app(SandboxRunner::class)->choices($conversation);
+    }
+
+    /**
      * @return list<array{seq: int, key: string, type: string, scenario: string, outcome: string, said: ?string}>
      */
     #[Computed]
@@ -189,6 +204,22 @@ class Sandbox extends Page
         $this->said = '';
 
         $this->forgetConversation();
+    }
+
+    /**
+     * Answers the pending question by picking one of its options.
+     *
+     * The label is sent as if it had been typed, because that is what the
+     * channels do: a button in the widget posts its own text, and the `ask` node
+     * matches on what came back. Answering here through any other route would
+     * exercise a path no visitor takes, which is the one thing a sandbox must
+     * not do.
+     */
+    public function choose(string $label): void
+    {
+        $this->said = $label;
+
+        $this->send();
     }
 
     /**
@@ -237,6 +268,6 @@ class Sandbox extends Page
      */
     protected function forgetConversation(): void
     {
-        unset($this->conversation, $this->transcript, $this->trace, $this->conversationState);
+        unset($this->conversation, $this->transcript, $this->choices, $this->trace, $this->conversationState);
     }
 }

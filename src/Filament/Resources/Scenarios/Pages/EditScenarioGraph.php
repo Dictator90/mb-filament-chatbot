@@ -154,7 +154,7 @@ class EditScenarioGraph extends Page
         $conversation = $runner->find($this->sandboxOwner());
 
         return $conversation === null
-            ? ['transcript' => [], 'visited' => [], 'trace' => [], 'state' => null]
+            ? self::EMPTY_SANDBOX
             : $this->sandboxPayload($runner, $conversation);
     }
 
@@ -194,8 +194,24 @@ class EditScenarioGraph extends Page
     {
         app(SandboxRunner::class)->find($this->sandboxOwner())?->delete();
 
-        return ['transcript' => [], 'visited' => [], 'trace' => [], 'state' => null];
+        return self::EMPTY_SANDBOX;
     }
+
+    /**
+     * What a sandbox looks like before anybody has said anything.
+     *
+     * Named once because it is returned from two places and consumed by a
+     * browser that reads its keys blindly: a shape that lost a key in one of
+     * them would leave the panel reading `undefined` and rendering nothing,
+     * which looks exactly like a conversation that produced no answer.
+     */
+    private const EMPTY_SANDBOX = [
+        'transcript' => [],
+        'choices' => [],
+        'visited' => [],
+        'trace' => [],
+        'state' => null,
+    ];
 
     /**
      * One thread per person per canvas, so two authors testing the same scenario
@@ -213,6 +229,7 @@ class EditScenarioGraph extends Page
     {
         return [
             'transcript' => $runner->transcript($conversation),
+            'choices' => $runner->choices($conversation),
             'visited' => $runner->visited($conversation, $this->scenario()->slug),
             'trace' => $runner->trace($conversation),
             'state' => $runner->state($conversation),

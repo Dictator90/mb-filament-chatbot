@@ -6,11 +6,9 @@ namespace MB\FilamentChatbot\Http\Controllers;
 
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use MB\FilamentChatbot\Channels\ChannelText;
 use MB\FilamentChatbot\Channels\Drivers\SiteDriver;
 use MB\FilamentChatbot\Channels\InboundMessage;
 use MB\FilamentChatbot\Channels\MessageRouter;
-use MB\FilamentChatbot\Enums\MessageDirection;
 use MB\FilamentChatbot\Http\VisitorToken;
 use MB\FilamentChatbot\Models\Bot;
 use MB\FilamentChatbot\Models\Conversation;
@@ -202,19 +200,7 @@ class SiteWidgetController
      */
     private function choices(Conversation $conversation): array
     {
-        $last = $conversation->messages()
-            ->where('direction', MessageDirection::Outgoing)
-            ->latest('id')
-            ->first();
-
-        if ($last === null) {
-            return [];
-        }
-
-        return array_map(
-            static fn (string $label): array => ['label' => $label],
-            ChannelText::options($last),
-        );
+        return $conversation->pendingChoices();
     }
 
     /**

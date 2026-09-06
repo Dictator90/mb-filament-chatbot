@@ -51,7 +51,10 @@ class BotRuntime implements Runtime
         );
     }
 
-    public function say(string $text): void
+    /**
+     * @param  list<string>  $options
+     */
+    public function say(string $text, array $options = []): void
     {
         $text = trim($text);
 
@@ -59,11 +62,23 @@ class BotRuntime implements Runtime
             return;
         }
 
+        $offered = array_values(array_filter(
+            array_map(static fn (mixed $label): string => trim((string) $label), $options),
+            static fn (string $label): bool => $label !== '',
+        ));
+
         Message::create([
             'conversation_id' => $this->conversation->getKey(),
             'direction' => MessageDirection::Outgoing,
             'author' => MessageAuthor::Bot,
             'body' => $text,
+            /*
+             * Left absent rather than written as an empty list when nothing is
+             * offered, so an ordinary sentence carries no `options` key at all
+             * and every channel's "is there a menu here" stays a straight look
+             * at the meta.
+             */
+            'meta' => $offered === [] ? null : ['options' => $offered],
         ]);
 
         $this->conversation->forceFill(['last_message_at' => now()])->save();

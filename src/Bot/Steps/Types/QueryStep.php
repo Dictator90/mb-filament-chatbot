@@ -59,7 +59,7 @@ final class QueryStep extends StepType
 
     public function label(): string
     {
-        return 'Look up data';
+        return __('chatbot::nodes.steps.query.label');
     }
 
     public function icon(): string
@@ -82,7 +82,7 @@ final class QueryStep extends StepType
      */
     public function pairLabels(): array
     {
-        return ['found', 'nothing found'];
+        return array_values((array) __('chatbot::nodes.steps.query.exits'));
     }
 
     /**
@@ -112,36 +112,36 @@ final class QueryStep extends StepType
     {
         return [
             Field::dataResource('resource')
-                ->label('Data resource')
+                ->label(__('chatbot::nodes.steps.query.fields.resource.label'))
                 ->required(),
 
             Field::select('mode')
-                ->label('What to read')
+                ->label(__('chatbot::nodes.steps.query.fields.mode.label'))
                 ->default(DataQueryMode::First->value)
                 ->options(fn (): array => collect(DataQueryMode::cases())
                     ->mapWithKeys(fn (DataQueryMode $mode): array => [$mode->value => $mode->getLabel()])
                     ->all()),
 
             Field::keyValue('filters')
-                ->label('Match these fields')
-                ->hint('Each pair is a field and the value it must equal. Values may contain {{variables}}.'),
+                ->label(__('chatbot::nodes.steps.query.fields.filters.label'))
+                ->hint(__('chatbot::nodes.steps.query.fields.filters.hint')),
 
             Field::select('select')
-                ->label('Fields to read')
+                ->label(__('chatbot::nodes.steps.query.fields.select.label'))
                 ->multiple()
                 ->options([])
-                ->hint('Leave empty for the fields the resource returns by default.'),
+                ->hint(__('chatbot::nodes.steps.query.fields.select.hint')),
 
             Field::number('limit')
-                ->label('How many records')
+                ->label(__('chatbot::nodes.steps.query.fields.limit.label'))
                 ->min(1)
                 ->max(100),
 
             Field::text('into')
-                ->label('Remember the result as')
-                ->placeholder('booking')
+                ->label(__('chatbot::nodes.steps.query.fields.into.label'))
+                ->placeholder(__('chatbot::nodes.steps.query.fields.into.placeholder'))
                 ->required()
-                ->hint('One variable per field of the record, named booking_status, booking_total and so on.'),
+                ->hint(__('chatbot::nodes.steps.query.fields.into.hint')),
         ];
     }
 
@@ -209,13 +209,13 @@ final class QueryStep extends StepType
         $issues = [];
 
         if (trim((string) $step->setting('resource', '')) === '') {
-            $issues[] = ['severity' => 'blocking', 'message' => 'This node does not say which data resource to read.'];
+            $issues[] = ['severity' => 'blocking', 'message' => __('chatbot::nodes.steps.query.issues.no_resource')];
         }
 
         if (trim((string) $step->setting('into', '')) === '') {
             $issues[] = [
                 'severity' => 'blocking',
-                'message' => 'This node does not say what to remember the result as, so nothing downstream could use it.',
+                'message' => __('chatbot::nodes.steps.query.issues.no_into'),
             ];
         }
 

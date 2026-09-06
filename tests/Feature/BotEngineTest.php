@@ -80,6 +80,44 @@ it('waits for an answer and then branches on it', function (): void {
 });
 
 /**
+ * The buttons reach the message, and the branch rules never do.
+ *
+ * A question's options are drawn by the channel — buttons in the widget, a
+ * numbered list where buttons do not exist — and every one of those readers was
+ * written and waiting while nothing ever wrote them. `Runtime::say()` took text
+ * and nothing else, so `meta.options` was never set on any message ever sent:
+ * `ChannelText::options()` answered "no options" forever, the widget's `choices`
+ * endpoint returned an empty list on every poll, and a question with three
+ * buttons arrived on every channel as a bare line with nothing to press. It is
+ * invisible from the server, because the bot said exactly what it was told to.
+ *
+ * The second half matters as much. A `condition` carries a list of options too,
+ * and those are the author's private routing rules; attaching them the same way
+ * would print "We have a number" on a customer's screen as if it were something
+ * to choose.
+ */
+it('sends a question with the answers it offers, and a branch rule with none', function (): void {
+    scenarioOf([
+        ['key' => 'start', 'type' => 'start', 'next_key' => 'pick', 'config' => ['trigger' => 'fallback']],
+        ['key' => 'pick', 'type' => 'ask', 'body' => 'Sales or support?', 'options' => [
+            ['label' => 'Sales', 'next' => 'sales'],
+            ['label' => 'Support', 'next' => 'support'],
+        ]],
+        ['key' => 'sales', 'type' => 'say', 'body' => 'Putting you through to sales.'],
+        ['key' => 'support', 'type' => 'say', 'body' => 'Support here.'],
+    ]);
+
+    visitorSays($this->conversation, 'hello there');
+
+    expect($this->conversation->refresh()->pendingChoices())
+        ->toBe([['label' => 'Sales'], ['label' => 'Support']]);
+
+    visitorSays($this->conversation, 'support');
+
+    expect($this->conversation->refresh()->pendingChoices())->toBe([]);
+});
+
+/**
  * A pause must not hold the request. Asserting the job is dispatched rather than
  * that the delay "worked" is the difference between a bot that is polite and one
  * that occupies a worker for three seconds per conversation.

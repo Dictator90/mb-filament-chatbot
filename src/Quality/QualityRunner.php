@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace MB\FilamentChatbot\Quality;
 
 use Illuminate\Contracts\Container\Container;
+use MB\FilamentChatbot\Ai\WithoutModel;
 use MB\FilamentChatbot\Bot\BotEngine;
 use MB\FilamentChatbot\Bot\Graph\ScenarioVersions;
 use MB\FilamentChatbot\Channels\WithoutDelivery;
@@ -58,6 +59,7 @@ final class QualityRunner
         private readonly ScenarioVersions $versions,
         private readonly ChatbotRegistry $registry,
         private readonly WithoutDelivery $undelivered,
+        private readonly WithoutModel $unmodelled,
     ) {}
 
     /**
@@ -250,7 +252,7 @@ final class QualityRunner
      */
     private function talk(QualityTest $check, Conversation $conversation): void
     {
-        $this->undelivered->run(function () use ($check, $conversation): void {
+        $this->undelivered->run(fn (): mixed => $this->withModelSetting(function () use ($check, $conversation): void {
             foreach ((array) $check->said as $line) {
                 $line = trim((string) $line);
 
@@ -267,7 +269,39 @@ final class QualityRunner
 
                 $this->container->make(BotEngine::class)->handle($conversation->refresh(), $message);
             }
-        });
+        }));
+    }
+
+    /**
+     * Holds the rehearsal with the model off, unless the installation asked for
+     * it on.
+     *
+     * The second suppression beside the delivery one, and for a related reason:
+     * a rehearsal drives the real engine, so it reaches the real provider and
+     * spends the real monthly budget. A nightly run of a few hundred checks
+     * would make a few hundred paid calls before anybody is awake, against the
+     * same ceiling the customers talk through — and grade the bot on wording
+     * that comes back different on Tuesday.
+     *
+     * Off by default because the deterministic path is the one the package
+     * promises: every scenario must remain useful with the model switched off,
+     * and that is the path a check should be holding the author to. An
+     * installation that wants its model graded says so, and pays for it out of
+     * the same budget as everything else — the guard is not lifted here, only
+     * the calls avoided.
+     *
+     * @template TReturn
+     *
+     * @param  callable(): TReturn  $work
+     * @return TReturn
+     */
+    private function withModelSetting(callable $work): mixed
+    {
+        if ((bool) config('chatbot.quality.use_model', false)) {
+            return $work();
+        }
+
+        return $this->unmodelled->run($work);
     }
 
     /**

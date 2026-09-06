@@ -8,6 +8,9 @@ use Closure;
 use MB\FilamentChatbot\Ai\Drivers\LaravelAiGateway;
 use MB\FilamentChatbot\Ai\Drivers\NullGateway;
 use MB\FilamentChatbot\Ai\Drivers\OpenAiGateway;
+use MB\FilamentChatbot\Budgets\BudgetedGateway;
+use MB\FilamentChatbot\Budgets\BudgetGuard;
+use MB\FilamentChatbot\Models\Bot;
 
 /**
  * Builds the gateway named in configuration, and never fails to build one.
@@ -33,6 +36,8 @@ class AiGatewayFactory
     /** @var array<string, Closure(array<string, mixed>): AiGateway> */
     private array $drivers = [];
 
+    public function __construct(private readonly BudgetGuard $budgets) {}
+
     /**
      * @param  Closure(array<string, mixed>): AiGateway  $factory
      */
@@ -44,14 +49,25 @@ class AiGatewayFactory
     }
 
     /**
-     * The gateway for a driver name, or for the configured default.
+     * The bare driver for a name, or for the configured default.
      *
      * An empty name means "whatever the installation is set to", which is what
      * a node's blank provider field sends: an author who did not choose a
      * provider wants the one the administrator chose.
+     *
+     * **Nothing that actually asks a model should build its gateway here.**
+     * This one spends without being counted; `guarded()` is the one a
+     * conversation uses. What is left for this method is everything that only
+     * wants to know whether a provider is configured at all — the doctor, the
+     * editor's warnings, the panel's driver list — none of which sends a
+     * request.
      */
     public function make(?string $name = null): AiGateway
     {
+        if ($this->suppressed()) {
+            return new NullGateway;
+        }
+
         $name = trim((string) ($name ?? ''));
 
         if ($name === '') {
@@ -69,6 +85,35 @@ class AiGatewayFactory
             'laravel-ai' => new LaravelAiGateway($config),
             default => new NullGateway,
         };
+    }
+
+    /**
+     * The gateway a conversation asks: the driver with this month's budget in
+     * front of it.
+     *
+     * The bot is asked for rather than looked up, because the budget belongs to
+     * the bot holding the conversation and this class has no conversation. A
+     * null bot is not an oversight — a call made outside any bot still costs
+     * money and is charged to the installation's own row, which is the row
+     * nobody thinks to look at until it is the only spending there is.
+     */
+    public function guarded(?Bot $bot = null, ?string $name = null): AiGateway
+    {
+        return new BudgetedGateway($this->make($name), $this->budgets, $bot);
+    }
+
+    /**
+     * Whether something has switched models off for the duration of its work.
+     *
+     * Read here rather than at each call site because a node carries its own
+     * provider setting: a rehearsal that only cleared the installation default
+     * would still reach a provider through every node that names one, and would
+     * do it on a nightly schedule nobody is watching. {@see WithoutModel} is
+     * what sets it.
+     */
+    private function suppressed(): bool
+    {
+        return (bool) config('chatbot.ai.suppressed', false);
     }
 
     /**

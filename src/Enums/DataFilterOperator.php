@@ -72,20 +72,6 @@ enum DataFilterOperator: string implements HasLabel
 
     public function getLabel(): string
     {
-        return match ($this) {
-            self::Equals => 'Equals',
-            self::NotEquals => 'Does not equal',
-            self::In => 'One of',
-            self::NotIn => 'None of',
-            self::LessThan => 'Less than',
-            self::LessOrEqual => 'Less than or equal to',
-            self::GreaterThan => 'Greater than',
-            self::GreaterOrEqual => 'Greater than or equal to',
-            self::Contains => 'Contains',
-            self::StartsWith => 'Starts with',
-            self::Between => 'Between',
-            self::IsNull => 'Is empty',
-            self::IsNotNull => 'Is not empty',
-        };
+        return __('chatbot::panel.enums.data_filter_operator.'.$this->value);
     }
 }

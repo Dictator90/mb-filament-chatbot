@@ -32,10 +32,6 @@ enum DataQueryMode: string implements HasLabel
 
     public function getLabel(): string
     {
-        return match ($this) {
-            self::List => 'List of records',
-            self::First => 'A single record',
-            self::Count => 'Number of records',
-        };
+        return __('chatbot::panel.enums.data_query_mode.'.$this->value);
     }
 }

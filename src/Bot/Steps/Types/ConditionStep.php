@@ -38,7 +38,7 @@ final class ConditionStep extends StepType
 
     public function label(): string
     {
-        return 'Condition';
+        return __('chatbot::nodes.steps.condition.label');
     }
 
     public function icon(): string
@@ -103,7 +103,7 @@ final class ConditionStep extends StepType
             if ($when === []) {
                 $issues[] = [
                     'severity' => 'notice',
-                    'message' => sprintf('Branch "%s" has no condition and can never be taken.', $choice['label']),
+                    'message' => __('chatbot::nodes.steps.condition.issues.branch_without_condition', ['branch' => $choice['label']]),
                 ];
 
                 continue;
@@ -112,7 +112,7 @@ final class ConditionStep extends StepType
             if (! $this->evaluator->isUsable($when)) {
                 $issues[] = [
                     'severity' => 'notice',
-                    'message' => sprintf('Branch "%s" is not described well enough to ever match.', $choice['label']),
+                    'message' => __('chatbot::nodes.steps.condition.issues.branch_unusable', ['branch' => $choice['label']]),
                 ];
             }
         }

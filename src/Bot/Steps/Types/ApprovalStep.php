@@ -36,13 +36,6 @@ use MB\FilamentChatbot\Models\RunStep;
  */
 final class ApprovalStep extends StepType
 {
-    /** The wording used when the answer was neither a yes nor a no. */
-    private const RETRY = 'Sorry, I did not catch that. Please answer with one of these:';
-
-    private const YES_WORDS = ['yes', 'yeah', 'yep', 'ok', 'okay', 'sure', 'confirm', 'confirmed', 'agree'];
-
-    private const NO_WORDS = ['no', 'nope', 'nah', 'cancel', 'stop', 'decline', 'abort'];
-
     public static function key(): string
     {
         return 'approval';
@@ -50,7 +43,36 @@ final class ApprovalStep extends StepType
 
     public function label(): string
     {
-        return 'Ask for confirmation';
+        return __('chatbot::nodes.steps.approval.label');
+    }
+
+    /**
+     * The wording used when the answer was neither a yes nor a no.
+     *
+     * Methods rather than constants now that these are translated: a constant
+     * is resolved at class-load time, and a worker serving one request in
+     * Russian would go on answering every later conversation with whatever
+     * language it happened to load with.
+     */
+    private function retry(): string
+    {
+        return __('chatbot::nodes.steps.approval.retry');
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function yesWords(): array
+    {
+        return array_values((array) __('chatbot::bot.approval.yes'));
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function noWords(): array
+    {
+        return array_values((array) __('chatbot::bot.approval.no'));
     }
 
     public function icon(): string
@@ -73,7 +95,7 @@ final class ApprovalStep extends StepType
      */
     public function pairLabels(): array
     {
-        return ['approved', 'declined'];
+        return array_values((array) __('chatbot::nodes.steps.approval.exits'));
     }
 
     public function speaks(): bool
@@ -101,19 +123,19 @@ final class ApprovalStep extends StepType
     {
         return [
             Field::text('yes_label')
-                ->label('The confirming answer')
-                ->default('Yes'),
+                ->label(__('chatbot::nodes.steps.approval.fields.yes_label.label'))
+                ->default(__('chatbot::nodes.steps.approval.yes')),
 
             Field::text('no_label')
-                ->label('The refusing answer')
-                ->default('No'),
+                ->label(__('chatbot::nodes.steps.approval.fields.no_label.label'))
+                ->default(__('chatbot::nodes.steps.approval.no')),
 
             Field::number('attempts')
-                ->label('Attempts')
+                ->label(__('chatbot::nodes.steps.approval.fields.attempts.label'))
                 ->default(2)
                 ->min(1)
                 ->max(5)
-                ->hint('After the last one an answer that is neither counts as a refusal.'),
+                ->hint(__('chatbot::nodes.steps.approval.fields.attempts.hint')),
         ];
     }
 
@@ -146,7 +168,7 @@ final class ApprovalStep extends StepType
 
         if ($used < $allowed) {
             $this->rememberAttempts($context, $used);
-            $context->runtime->say(self::RETRY.PHP_EOL.$this->options($context));
+            $context->runtime->say($this->retry().PHP_EOL.$this->options($context));
 
             return StepResult::wait()
                 ->traced(RunStep::UNKNOWN, ['answer' => $answer, 'attempt' => $used])
@@ -192,11 +214,11 @@ final class ApprovalStep extends StepType
             return false;
         }
 
-        if (in_array($answer, self::YES_WORDS, true)) {
+        if (in_array($answer, $this->yesWords(), true)) {
             return true;
         }
 
-        if (in_array($answer, self::NO_WORDS, true)) {
+        if (in_array($answer, $this->noWords(), true)) {
             return false;
         }
 
@@ -218,16 +240,18 @@ final class ApprovalStep extends StepType
 
     private function yesLabel(StepContext $context): string
     {
-        $label = trim((string) $context->setting('yes_label', 'Yes'));
+        $fallback = (string) __('chatbot::nodes.steps.approval.yes');
+        $label = trim((string) $context->setting('yes_label', $fallback));
 
-        return $label === '' ? 'Yes' : $label;
+        return $label === '' ? $fallback : $label;
     }
 
     private function noLabel(StepContext $context): string
     {
-        $label = trim((string) $context->setting('no_label', 'No'));
+        $fallback = (string) __('chatbot::nodes.steps.approval.no');
+        $label = trim((string) $context->setting('no_label', $fallback));
 
-        return $label === '' ? 'No' : $label;
+        return $label === '' ? $fallback : $label;
     }
 
     /**

@@ -146,6 +146,39 @@ it('writes the same rows when it is run again', function (): void {
 });
 
 /**
+ * The fallback still works with no model behind it.
+ *
+ * The demo's one `ai` node sits on the branch where nothing else matched, and
+ * the package ships with the null driver — so on a fresh installation this node
+ * takes its second branch on the very first turn and the visitor gets the same
+ * apology and the same menu as before it existed.
+ *
+ * This is the package's oldest rule and the easiest to break by accident: a
+ * scenario has to make sense with AI switched off, because an unset key, a
+ * provider outage and an exhausted budget all arrive at exactly this branch. A
+ * demo that only read well with a key configured would teach the opposite, and
+ * would be wrong for everybody who installs the package and types something into
+ * it before reading anything.
+ */
+it('falls back without a model exactly as it did before there was an ai node', function (): void {
+    config(['chatbot.ai.default' => 'null']);
+
+    /*
+     * Twice, because the first message of any conversation is claimed by the
+     * welcome scenario whatever it says. The fallback is reached the way a
+     * visitor reaches it: by answering the welcome menu with something that is
+     * not on it.
+     */
+    visitorSays($this->conversation, 'qwerty asdfgh');
+    visitorSays($this->conversation, 'zxcvbn qwerty');
+
+    expect(array_slice(botSaid($this->conversation), -2))->toBe([
+        'I did not catch that.',
+        'Here is what I can do:',
+    ]);
+});
+
+/**
  * The shared scenario must stay unreachable from outside.
  *
  * Routed to directly it would open with "How should I address you?" at somebody

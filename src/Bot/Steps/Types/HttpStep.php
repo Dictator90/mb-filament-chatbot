@@ -68,7 +68,7 @@ final class HttpStep extends StepType implements HasSideEffect
 
     public function label(): string
     {
-        return 'Ask another system';
+        return __('chatbot::nodes.steps.http.label');
     }
 
     public function icon(): string
@@ -109,7 +109,7 @@ final class HttpStep extends StepType implements HasSideEffect
      */
     public function pairLabels(): array
     {
-        return ['answered', 'failed'];
+        return array_values((array) __('chatbot::nodes.steps.http.exits'));
     }
 
     /**
@@ -127,37 +127,37 @@ final class HttpStep extends StepType implements HasSideEffect
     {
         return [
             Field::select('method')
-                ->label('Method')
+                ->label(__('chatbot::nodes.steps.http.fields.method.label'))
                 ->default('GET')
                 ->options(array_combine(self::METHODS, self::METHODS)),
 
             Field::text('url')
-                ->label('Address')
+                ->label(__('chatbot::nodes.steps.http.fields.url.label'))
                 ->required()
-                ->placeholder('https://api.example.com/orders/{{order_id}}')
-                ->hint('May contain {{variables}}. Only domains allowed in the chatbot configuration can be called.'),
+                ->placeholder(__('chatbot::nodes.steps.http.fields.url.placeholder'))
+                ->hint(__('chatbot::nodes.steps.http.fields.url.hint')),
 
             Field::keyValue('headers')
-                ->label('Headers'),
+                ->label(__('chatbot::nodes.steps.http.fields.headers.label')),
 
             Field::textarea('body')
-                ->label('Body')
+                ->label(__('chatbot::nodes.steps.http.fields.body.label'))
                 ->rows(6)
-                ->hint('Sent as JSON when it parses as JSON, as plain text otherwise. May contain {{variables}}.')
+                ->hint(__('chatbot::nodes.steps.http.fields.body.hint'))
                 ->visibleWhen('method', 'POST', 'PUT', 'PATCH'),
 
             Field::text('path')
-                ->label('Take from the answer')
-                ->placeholder('data.status')
-                ->hint('A path inside the JSON answer. Leave empty to keep the whole body.'),
+                ->label(__('chatbot::nodes.steps.http.fields.path.label'))
+                ->placeholder(__('chatbot::nodes.steps.http.fields.path.placeholder'))
+                ->hint(__('chatbot::nodes.steps.http.fields.path.hint')),
 
             Field::text('into')
-                ->label('Remember the answer as')
-                ->placeholder('order')
+                ->label(__('chatbot::nodes.steps.http.fields.into.label'))
+                ->placeholder(__('chatbot::nodes.steps.http.fields.into.placeholder'))
                 ->required(),
 
             Field::number('timeout')
-                ->label('Give up after, seconds')
+                ->label(__('chatbot::nodes.steps.http.fields.timeout.label'))
                 ->min(1)
                 ->max(60),
         ];
@@ -233,13 +233,13 @@ final class HttpStep extends StepType implements HasSideEffect
         $url = trim((string) $step->setting('url', ''));
 
         if ($url === '') {
-            $issues[] = ['severity' => 'blocking', 'message' => 'This node does not say what address to call.'];
+            $issues[] = ['severity' => 'blocking', 'message' => __('chatbot::nodes.steps.http.issues.no_url')];
         }
 
         if (trim((string) $step->setting('into', '')) === '') {
             $issues[] = [
                 'severity' => 'blocking',
-                'message' => 'This node does not say what to remember the answer as, so nothing downstream could use it.',
+                'message' => __('chatbot::nodes.steps.http.issues.no_into'),
             ];
         }
 
@@ -252,7 +252,7 @@ final class HttpStep extends StepType implements HasSideEffect
         if ($url !== '' && ! str_contains($url, '{{') && $this->guard->refusal($url) !== null) {
             $issues[] = [
                 'severity' => 'blocking',
-                'message' => 'This address cannot be called: '.$this->guard->refusal($url).'.',
+                'message' => __('chatbot::nodes.steps.http.issues.refused_url', ['reason' => (string) $this->guard->refusal($url)]),
             ];
         }
 

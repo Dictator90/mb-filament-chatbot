@@ -52,7 +52,7 @@ final class ActionStep extends StepType
 
     public function label(): string
     {
-        return 'Do something';
+        return __('chatbot::nodes.steps.action.label');
     }
 
     public function icon(): string
@@ -75,7 +75,7 @@ final class ActionStep extends StepType
      */
     public function pairLabels(): array
     {
-        return ['done', 'could not'];
+        return array_values((array) __('chatbot::nodes.steps.action.exits'));
     }
 
     /**
@@ -93,18 +93,18 @@ final class ActionStep extends StepType
     {
         return [
             Field::capability('capability')
-                ->label('Action')
+                ->label(__('chatbot::nodes.steps.action.fields.capability.label'))
                 ->required()
                 ->options(fn (): array => $this->options()),
 
             Field::keyValue('input')
-                ->label('Call it with')
-                ->hint('Each pair is an input of the action and the value to pass. Values may contain {{variables}}.'),
+                ->label(__('chatbot::nodes.steps.action.fields.input.label'))
+                ->hint(__('chatbot::nodes.steps.action.fields.input.hint')),
 
             Field::text('into')
-                ->label('Remember the result as')
-                ->placeholder('award')
-                ->hint('One variable per field the action returns, named award_balance and so on.'),
+                ->label(__('chatbot::nodes.steps.action.fields.into.label'))
+                ->placeholder(__('chatbot::nodes.steps.action.fields.into.placeholder'))
+                ->hint(__('chatbot::nodes.steps.action.fields.into.hint')),
         ];
     }
 
@@ -180,7 +180,7 @@ final class ActionStep extends StepType
         if ($key === '') {
             return [[
                 'severity' => 'blocking',
-                'message' => 'This node does not say which action to run, so it could only ever take its second exit.',
+                'message' => __('chatbot::nodes.steps.action.issues.no_action'),
             ]];
         }
 
@@ -189,7 +189,7 @@ final class ActionStep extends StepType
         if ($action === null) {
             return [[
                 'severity' => 'blocking',
-                'message' => "No action is registered under [{$key}]. The node would fail on every conversation.",
+                'message' => __('chatbot::nodes.steps.action.issues.unknown_action', ['key' => $key]),
             ]];
         }
 
@@ -199,7 +199,7 @@ final class ActionStep extends StepType
 
         return [[
             'severity' => 'notice',
-            'message' => "[{$action->label}] changes data. Make sure a confirmation node stands above it on this branch.",
+            'message' => __('chatbot::nodes.steps.action.issues.unconfirmed_write', ['action' => $action->label]),
         ]];
     }
 

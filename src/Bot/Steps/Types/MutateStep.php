@@ -42,7 +42,7 @@ final class MutateStep extends StepType implements HasSideEffect
 
     public function label(): string
     {
-        return 'Write a record';
+        return __('chatbot::nodes.steps.mutate.label');
     }
 
     public function icon(): string
@@ -65,7 +65,7 @@ final class MutateStep extends StepType implements HasSideEffect
      */
     public function pairLabels(): array
     {
-        return ['written', 'could not'];
+        return array_values((array) __('chatbot::nodes.steps.mutate.exits'));
     }
 
     public function sideEffect(Step $step): SideEffect
@@ -88,30 +88,27 @@ final class MutateStep extends StepType implements HasSideEffect
     {
         return [
             Field::dataResource('resource')
-                ->label('Which resource')
+                ->label(__('chatbot::nodes.steps.mutate.fields.resource.label'))
                 ->required(),
             Field::select('operation')
-                ->label('What to do')
+                ->label(__('chatbot::nodes.steps.mutate.fields.operation.label'))
                 ->required()
                 ->default('insert')
-                ->options([
-                    'insert' => 'Add a record',
-                    'update' => 'Change a record',
-                ]),
+                ->options((array) __('chatbot::nodes.steps.mutate.fields.operation.options')),
             Field::variable('key')
-                ->label('Which record')
-                ->hint('The variable holding the record to change. Usually filled by a lookup above.')
+                ->label(__('chatbot::nodes.steps.mutate.fields.key.label'))
+                ->hint(__('chatbot::nodes.steps.mutate.fields.key.hint'))
                 ->visibleWhen('operation', 'update'),
             Field::variable('expect')
-                ->label('As it was when read')
-                ->hint('The variable holding the lock column read by the lookup above. Without it the update is refused.')
+                ->label(__('chatbot::nodes.steps.mutate.fields.expect.label'))
+                ->hint(__('chatbot::nodes.steps.mutate.fields.expect.hint'))
                 ->visibleWhen('operation', 'update'),
             Field::keyValue('values')
-                ->label('Fields to write')
-                ->hint('Values support {{variables}}. Only fields the resource declares writable are accepted.'),
+                ->label(__('chatbot::nodes.steps.mutate.fields.values.label'))
+                ->hint(__('chatbot::nodes.steps.mutate.fields.values.hint')),
             Field::text('into')
-                ->label('Remember the record as')
-                ->hint('Receives the key of the row that was written.'),
+                ->label(__('chatbot::nodes.steps.mutate.fields.into.label'))
+                ->hint(__('chatbot::nodes.steps.mutate.fields.into.hint')),
         ];
     }
 
@@ -176,16 +173,16 @@ final class MutateStep extends StepType implements HasSideEffect
         $issues = [];
 
         if (trim((string) $step->setting('resource', '')) === '') {
-            $issues[] = ['severity' => 'blocking', 'message' => 'This node does not say what it writes to.'];
+            $issues[] = ['severity' => 'blocking', 'message' => __('chatbot::nodes.steps.mutate.issues.no_resource')];
         }
 
         if ((array) $step->setting('values', []) === []) {
-            $issues[] = ['severity' => 'blocking', 'message' => 'This node writes nothing.'];
+            $issues[] = ['severity' => 'blocking', 'message' => __('chatbot::nodes.steps.mutate.issues.no_values')];
         }
 
         if ((string) $step->setting('operation', 'insert') === 'update') {
             if (trim((string) $step->setting('key', '')) === '') {
-                $issues[] = ['severity' => 'blocking', 'message' => 'This node changes a record without saying which one.'];
+                $issues[] = ['severity' => 'blocking', 'message' => __('chatbot::nodes.steps.mutate.issues.no_key')];
             }
 
             /*
@@ -197,7 +194,7 @@ final class MutateStep extends StepType implements HasSideEffect
             if (trim((string) $step->setting('expect', '')) === '') {
                 $issues[] = [
                     'severity' => 'blocking',
-                    'message' => 'This node changes a record without saying how it looked when it was read.',
+                    'message' => __('chatbot::nodes.steps.mutate.issues.no_expect'),
                 ];
             }
         }

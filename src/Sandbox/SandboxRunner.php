@@ -35,6 +35,14 @@ use MB\FilamentChatbot\Models\Scenario;
  * that somebody was testing with, answer it, and find nobody there; the reports
  * must never count it as work.
  *
+ * **The model stays on here, unlike in a quality rehearsal.** The two look like
+ * the same thing and are not: a run of checks is unattended, repeats itself and
+ * would spend a month's budget before anybody is awake, while this is one person
+ * pressing send and waiting to see what the customer would read — shown the
+ * "could not" branch instead, they would take it for a fault in the scenario
+ * they came to test. The calls are reserved and settled like any others, so a
+ * sandbox cannot spend past the ceiling either: it is charged, not exempt.
+ *
  * Nothing accumulates. One thread per person per screen, replaced when they
  * start again, and anything older than the configured window is swept the next
  * time somebody opens a sandbox. Messages and runs go with it by foreign key.
@@ -169,6 +177,24 @@ final class SandboxRunner
             ])
             ->values()
             ->all();
+    }
+
+    /**
+     * What the bot is waiting to be answered with, when it offered a choice.
+     *
+     * Asked of the conversation, which is where the widget asks it, so the
+     * sandbox meets an `ask` node the way a visitor does. Reading the messages
+     * table alone does not do that: options are rendered per channel and are no
+     * part of the message body, so a question carrying three buttons arrives in
+     * the transcript as one bare line. An author testing that node sees the
+     * question, sees nothing to answer it with, and concludes the node is broken
+     * — when what is broken is the screen they are looking at.
+     *
+     * @return list<array{label: string}>
+     */
+    public function choices(Conversation $conversation): array
+    {
+        return $conversation->pendingChoices();
     }
 
     /**

@@ -641,6 +641,13 @@
     background: var(--chatbot-sunken);
 }
 
+/*
+ * `max-width` with `width: fit-content`, never a fixed width: the cap stops a
+ * long answer crossing the whole panel, the shrink keeps a two-word answer a
+ * two-word bubble. Either alone reads wrong — a fixed width pads "yes" out into
+ * a slab, an uncapped bubble runs full width and the two speakers stop being
+ * told apart at a glance.
+ */
 .chatbot-graph__line {
     margin: 0 0 0.375rem;
     padding: 0.35rem 0.5rem;
@@ -648,15 +655,52 @@
     overflow-wrap: anywhere;
     white-space: pre-wrap;
     background: var(--chatbot-raised);
+    max-width: 80%;
+    width: fit-content;
 }
 
 .chatbot-graph__line.is-visitor {
     background: var(--chatbot-surface);
     border: 1px solid var(--chatbot-border);
+    margin-left: auto;
 }
 
 .chatbot-graph__line.is-bot {
     border-left: 3px solid var(--chatbot-accent);
+}
+
+/*
+ * The options the bot is waiting on, drawn where a visitor meets them.
+ *
+ * Pills rather than a list, and inside the transcript rather than beside the
+ * input, because they belong to the question above them: a menu parked next to
+ * the composer would still be sitting there after the next question replaced it.
+ */
+.chatbot-graph__choices {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.375rem;
+    margin: 0.25rem 0 0.5rem;
+}
+
+.chatbot-graph__choice {
+    padding: 0.25rem 0.6rem;
+    border: 1px solid var(--chatbot-border);
+    border-radius: 999px;
+    background: var(--chatbot-raised);
+    color: var(--chatbot-text);
+    cursor: pointer;
+    font: inherit;
+    font-size: 0.75rem;
+}
+
+.chatbot-graph__choice:hover:not(:disabled) {
+    background: var(--chatbot-sunken);
+}
+
+.chatbot-graph__choice:disabled {
+    opacity: 0.5;
+    cursor: progress;
 }
 
 .chatbot-graph__composer {

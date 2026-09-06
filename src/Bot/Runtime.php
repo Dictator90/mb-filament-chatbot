@@ -21,8 +21,23 @@ interface Runtime
     /**
      * Sends a message to the visitor, through whichever channel this
      * conversation arrived on.
+     *
+     * `$options` are the answers being offered — the buttons of an `ask`, the
+     * records of a `choose`. They travel with the message rather than inside its
+     * text because each channel draws them its own way: the widget as buttons,
+     * a channel that cannot draw buttons as a numbered list the engine then
+     * reads a bare digit back against.
+     *
+     * The parameter exists because there was no way to send them at all. Every
+     * reader was written and waiting — `ChannelText::options()`, the widget's
+     * `choices` endpoint, the numbered-list fallback — and nothing ever wrote
+     * `meta.options`, so every one of them answered "no options" forever. A
+     * question with three buttons arrived on every channel as a bare line of
+     * text, and the visitor was left to guess the wording.
+     *
+     * @param  list<string>  $options
      */
-    public function say(string $text): void;
+    public function say(string $text, array $options = []): void;
 
     /**
      * Remembers a value under a name, for later steps and for message templates.

@@ -24,10 +24,14 @@ use MB\FilamentChatbot\Models\Scenario;
  * round trip in front of the busiest path in the package.
  *
  * **Every failure is silence, not an error.** No driver, no key, a refusal, a
- * timeout, an unreadable reply: all of them return null, and the picker carries
- * on to its fallback exactly as it would have without this class. The bot's
- * behaviour with the provider down is its behaviour with the provider absent,
- * which is the behaviour the suite runs against by default.
+ * timeout, an unreadable reply, a month's budget already spent: all of them
+ * return null, and the picker carries on to its fallback exactly as it would
+ * have without this class. The bot's behaviour with the provider down is its
+ * behaviour with the provider absent, which is the behaviour the suite runs
+ * against by default. The budget is the one worth naming: unlike an outage it
+ * does not pass, so it lands on every unmatched message for the rest of the
+ * month, and routing by words has to go on working underneath it that whole
+ * time.
  *
  * **The choice is from the given list only.** A model naming a scenario that
  * was not offered has invented it — or has named one deliberately withheld
@@ -63,7 +67,7 @@ class AiScenarioRouter implements ScenarioRouter
             return null;
         }
 
-        $gateway = $this->gateways->make();
+        $gateway = $this->gateways->guarded($conversation->bot);
 
         if (! $gateway->isAvailable()) {
             return null;

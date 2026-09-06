@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use Illuminate\Support\Facades\DB;
+use MB\FilamentChatbot\Ai\KnowledgeSource;
 use MB\FilamentChatbot\Bot\Steps\StepContext;
 use MB\FilamentChatbot\Bot\Steps\StepFlow;
 use MB\FilamentChatbot\Bot\Steps\StepResult;
@@ -152,6 +153,64 @@ it('sends the recorded text of a topic it may answer', function (): void {
         ->and($result->spoke)->toBeTrue()
         ->and($runtime->said)->toHaveCount(1)
         ->and($runtime->said[0])->toContain('two to four working days');
+});
+
+/**
+ * The material the model answers from comes out of the real base, not a stand-in.
+ *
+ * Both AI suites bind a fake `KnowledgeSource`, which is right for what they
+ * test — an `ai` node has to be exercised without a provider — but it meant the
+ * only real implementation of that contract was never once executed. It did not
+ * work: it handed the whole model to a method that takes a list of strings, and
+ * died with a TypeError the first time anybody put an `ai` node into a scenario
+ * and typed at it.
+ *
+ * A fake standing in for the sole implementation of a contract is worth exactly
+ * as much as a test that the implementation itself still runs.
+ */
+it('gathers real topics for the model to answer from', function (): void {
+    $found = app(KnowledgeSource::class)->candidates(
+        $this->bot->getKey(),
+        'how long does delivery take',
+        5,
+    );
+
+    expect($found)->not->toBeEmpty()
+        ->and($found[0])->toHaveKeys(['key', 'title', 'text'])
+        ->and($found[0]['text'])->toContain('two to four working days');
+});
+
+/**
+ * The finder and the model's material agree about what a topic is about.
+ *
+ * Both read one definition off the model. Written down because the two used to
+ * carry their own copies of it, and a drift between them reads as the base
+ * answering one way through a scenario and another way through the model, with
+ * both screens insisting they read the same knowledge base.
+ *
+ * The answer is deliberately not part of it: an answer is a paragraph written
+ * for a person, and matching on it makes every long topic a better fit for every
+ * question than the short topic actually about it.
+ */
+it('matches a topic on its keywords and variants, never on its answer', function (): void {
+    $entry = KnowledgeEntry::factory()->create([
+        'bot_id' => $this->bot->getKey(),
+        'topic_key' => 'parcels-abroad',
+        'question' => 'Do you deliver abroad?',
+        'keywords' => ['abroad'],
+        'variants' => ['overseas'],
+        'answer' => 'Yes. A pangolin courier carries it.',
+        'scenario_slug' => null,
+    ]);
+
+    expect($entry->searchableTexts())->toContain('Do you deliver abroad?')
+        ->and($entry->searchableTexts())->toContain('abroad')
+        ->and($entry->searchableTexts())->toContain('overseas')
+        ->and($entry->searchableTexts())->not->toContain('Yes. A pangolin courier carries it.');
+
+    $onAnswer = app(KnowledgeSource::class)->candidates($this->bot->getKey(), 'pangolin courier', 5);
+
+    expect(array_column($onAnswer, 'key'))->not->toContain('parcels-abroad');
 });
 
 it('costs the same number of queries whether the base holds five topics or forty', function (): void {

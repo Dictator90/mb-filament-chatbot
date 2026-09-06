@@ -64,7 +64,7 @@ final class TransformStep extends StepType
 
     public function label(): string
     {
-        return 'Reshape a value';
+        return __('chatbot::nodes.steps.transform.label');
     }
 
     public function icon(): string

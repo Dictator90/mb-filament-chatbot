@@ -45,6 +45,8 @@ Configured under `chatbot.ai`:
             'timeout' => 20,
             'temperature' => 0.2,
             'max_tokens' => 600,
+            'price_per_million_input' => env('CHATBOT_AI_PRICE_INPUT', 0),
+            'price_per_million_output' => env('CHATBOT_AI_PRICE_OUTPUT', 0),
         ],
 
         'laravel-ai' => [
@@ -63,6 +65,15 @@ that never needed a model keeps working.
 **`openai`** — any endpoint speaking the OpenAI chat-completions shape. Point
 `base_url` at a local runner, a gateway or a compatible provider; the driver has
 no opinion about who is on the other end.
+
+The two prices are what your account pays per million tokens, in whole units of
+whatever currency it is billed in. No endpoint of this shape reports a price, and
+nobody but the account holder knows one — the same request costs one thing on
+OpenAI, another through a reseller and nothing at all against a model on your own
+machine. Left at zero, tokens are still counted and the
+[money ceiling]({{ site.baseurl }}/operations#budgets) simply never fires, which
+is visible and fixable; a price the package guessed would be wrong on every
+invoice and would look authoritative while it was.
 
 **`laravel-ai`** — used only when `laravel/ai` is installed.
 

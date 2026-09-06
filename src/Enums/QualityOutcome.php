@@ -32,11 +32,7 @@ enum QualityOutcome: string implements HasLabel
 
     public function getLabel(): string
     {
-        return match ($this) {
-            self::Passed => 'Passed',
-            self::Failed => 'Failed',
-            self::Broken => 'Could not run',
-        };
+        return __('chatbot::panel.enums.quality_outcome.'.$this->value);
     }
 
     /**

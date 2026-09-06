@@ -43,9 +43,6 @@ final class ChooseStep extends StepType
 {
     use WritesRecordVariables;
 
-    /** The wording used when the answer names none of the records shown. */
-    private const NONE_DEFAULT = 'Not in the list';
-
     public function __construct(private readonly DataReader $reader) {}
 
     public static function key(): string
@@ -55,7 +52,19 @@ final class ChooseStep extends StepType
 
     public function label(): string
     {
-        return 'Let the visitor pick a record';
+        return __('chatbot::nodes.steps.choose.label');
+    }
+
+    /**
+     * The wording used when the answer names none of the records shown.
+     *
+     * A method rather than a constant now that it is translated: a constant is
+     * resolved at class-load time and would pin whichever locale the first
+     * request of a worker used onto every conversation it served afterwards.
+     */
+    private function noneDefault(): string
+    {
+        return __('chatbot::nodes.steps.choose.none_option');
     }
 
     public function icon(): string
@@ -78,7 +87,7 @@ final class ChooseStep extends StepType
      */
     public function pairLabels(): array
     {
-        return ['picked', 'not in the list'];
+        return array_values((array) __('chatbot::nodes.steps.choose.exits'));
     }
 
     public function speaks(): bool
@@ -106,34 +115,34 @@ final class ChooseStep extends StepType
     {
         return [
             Field::dataResource('resource')
-                ->label('Data resource')
+                ->label(__('chatbot::nodes.steps.choose.fields.resource.label'))
                 ->required(),
 
             Field::keyValue('filters')
-                ->label('Match these fields')
-                ->hint('Each pair is a field and the value it must equal. Values may contain {{variables}}.'),
+                ->label(__('chatbot::nodes.steps.choose.fields.filters.label'))
+                ->hint(__('chatbot::nodes.steps.choose.fields.filters.hint')),
 
             Field::number('limit')
-                ->label('How many to offer')
+                ->label(__('chatbot::nodes.steps.choose.fields.limit.label'))
                 ->default(5)
                 ->min(1)
                 ->max(10),
 
             Field::text('label')
-                ->label('How to label each record')
-                ->placeholder('{{reference}} to {{destination}}')
+                ->label(__('chatbot::nodes.steps.choose.fields.label.label'))
+                ->placeholder(__('chatbot::nodes.steps.choose.fields.label.placeholder'))
                 ->required()
-                ->hint('{{field}} of the record, not of the conversation.'),
+                ->hint(__('chatbot::nodes.steps.choose.fields.label.hint')),
 
             Field::text('into')
-                ->label('Remember the pick as')
-                ->placeholder('booking')
+                ->label(__('chatbot::nodes.steps.choose.fields.into.label'))
+                ->placeholder(__('chatbot::nodes.steps.choose.fields.into.placeholder'))
                 ->required()
-                ->hint('One variable per field of the chosen record, named booking_status and so on.'),
+                ->hint(__('chatbot::nodes.steps.choose.fields.into.hint')),
 
             Field::text('none_label')
-                ->label('The last option')
-                ->default(self::NONE_DEFAULT),
+                ->label(__('chatbot::nodes.steps.choose.fields.none_label.label'))
+                ->default($this->noneDefault()),
         ];
     }
 
@@ -189,7 +198,17 @@ final class ChooseStep extends StepType
         }
 
         $this->rememberOffer($context, $offered);
-        $context->runtime->say($this->question($context, $offered));
+
+        /*
+         * The labels travel beside the message as well as inside it. The text
+         * carries the numbered list a channel without buttons needs; the labels
+         * are what a channel with buttons draws. Sending only the text left the
+         * widget listing records the visitor had no way to tap.
+         */
+        $context->runtime->say(
+            $this->question($context, $offered),
+            array_column($offered, 'label'),
+        );
 
         return StepResult::wait()
             ->traced(RunStep::WAITING, ['resource' => $resource, 'offered' => count($offered)])
@@ -252,13 +271,13 @@ final class ChooseStep extends StepType
         $issues = [];
 
         if (trim((string) $step->setting('resource', '')) === '') {
-            $issues[] = ['severity' => 'blocking', 'message' => 'This node does not say which records to offer.'];
+            $issues[] = ['severity' => 'blocking', 'message' => __('chatbot::nodes.steps.choose.issues.no_resource')];
         }
 
         if (trim((string) $step->setting('into', '')) === '') {
             $issues[] = [
                 'severity' => 'blocking',
-                'message' => 'This node does not say what to remember the pick as, so nothing downstream could use it.',
+                'message' => __('chatbot::nodes.steps.choose.issues.no_into'),
             ];
         }
 
@@ -425,9 +444,9 @@ final class ChooseStep extends StepType
 
     private function noneLabel(StepContext $context): string
     {
-        $label = trim((string) $context->setting('none_label', self::NONE_DEFAULT));
+        $label = trim((string) $context->setting('none_label', $this->noneDefault()));
 
-        return $label === '' ? self::NONE_DEFAULT : $label;
+        return $label === '' ? $this->noneDefault() : $label;
     }
 
     /**

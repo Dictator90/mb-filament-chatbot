@@ -55,6 +55,32 @@ class KnowledgeEntry extends Model
     }
 
     /**
+     * The text a topic is matched against, in one definition.
+     *
+     * The question, the keywords and the variants — and deliberately **not** the
+     * answer. An answer is a paragraph of prose written for a person, full of
+     * incidental words, and matching on it makes every long topic a better fit
+     * for every question than the short topic that is actually about it.
+     *
+     * Here rather than at either call site because there are two: the finder
+     * that picks the one topic to answer with, and the source that gathers
+     * material for the model. Two copies of "what a topic is about" drift, and
+     * the drift shows up as the base answering one way through a scenario and
+     * another way through the model — with both screens insisting they are
+     * reading the same knowledge base.
+     *
+     * @return list<string>
+     */
+    public function searchableTexts(): array
+    {
+        return array_values(array_merge(
+            [(string) $this->question],
+            array_map(static fn (mixed $word): string => (string) $word, (array) $this->keywords),
+            array_map(static fn (mixed $word): string => (string) $word, (array) $this->variants),
+        ));
+    }
+
+    /**
      * @param  Builder<static>  $query
      * @return Builder<static>
      */

@@ -10,6 +10,7 @@ use MB\FilamentChatbot\Bot\Steps\StepResult;
 use MB\FilamentChatbot\Bot\Steps\StepType;
 use MB\FilamentChatbot\Enums\StepOutputs;
 use MB\FilamentChatbot\Models\RunStep;
+use MB\FilamentChatbot\Models\Step;
 
 /**
  * Asks a question with ready answers, and routes on the one that comes back.
@@ -19,9 +20,6 @@ use MB\FilamentChatbot\Models\RunStep;
  */
 final class AskStep extends StepType
 {
-    /** The wording used to list the options again when nothing matched. */
-    private const RETRY_DEFAULT = 'Sorry, I did not catch that. Please pick one of these:';
-
     public static function key(): string
     {
         return 'ask';
@@ -29,7 +27,20 @@ final class AskStep extends StepType
 
     public function label(): string
     {
-        return 'Ask';
+        return __('chatbot::nodes.steps.ask.label');
+    }
+
+    /**
+     * The wording used to list the options again when nothing matched.
+     *
+     * A method rather than a constant now that it is translated: a constant is
+     * resolved once, when the class is loaded, and would freeze whichever
+     * locale happened to be active on the first request a worker served for
+     * every conversation that worker handled afterwards.
+     */
+    private function retryDefault(): string
+    {
+        return __('chatbot::nodes.steps.ask.retry');
     }
 
     public function icon(): string
@@ -58,6 +69,21 @@ final class AskStep extends StepType
     }
 
     /**
+     * The buttons this question offers, taken from the same list the answer is
+     * matched against — so what the visitor is shown and what the bot will
+     * accept cannot be two different sets.
+     *
+     * @return list<string>
+     */
+    public function choiceLabels(Step $step): array
+    {
+        return array_values(array_map(
+            static fn (array $choice): string => (string) $choice['label'],
+            $step->choices(),
+        ));
+    }
+
+    /**
      * @return list<string>
      */
     public function nextTypes(): array
@@ -72,9 +98,9 @@ final class AskStep extends StepType
     {
         return [
             Field::text('retry')
-                ->label('When the answer matches nothing')
-                ->default(self::RETRY_DEFAULT)
-                ->hint('Sent once with the options listed again. After that the fallback exit takes over, if there is one.'),
+                ->label(__('chatbot::nodes.steps.ask.fields.retry.label'))
+                ->default($this->retryDefault())
+                ->hint(__('chatbot::nodes.steps.ask.fields.retry.hint')),
         ];
     }
 
@@ -190,10 +216,10 @@ final class AskStep extends StepType
      */
     private function retryMessage(StepContext $context, array $choices): string
     {
-        $lead = trim($context->filled('retry', self::RETRY_DEFAULT));
+        $lead = trim($context->filled('retry', $this->retryDefault()));
 
         if ($lead === '') {
-            $lead = self::RETRY_DEFAULT;
+            $lead = $this->retryDefault();
         }
 
         $lines = [$lead];

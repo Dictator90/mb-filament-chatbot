@@ -12,9 +12,11 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\Relations\MorphTo;
+use MB\FilamentChatbot\Channels\ChannelText;
 use MB\FilamentChatbot\Database\Factories\ConversationFactory;
 use MB\FilamentChatbot\Enums\BotState;
 use MB\FilamentChatbot\Enums\ConversationStatus;
+use MB\FilamentChatbot\Enums\MessageDirection;
 use MB\FilamentChatbot\Models\Concerns\ResolvesOperatorModel;
 
 /**
@@ -378,5 +380,47 @@ class Conversation extends Model
 
         return $this->agent_read_at === null
             || $this->agent_read_at->lt($this->last_incoming_at);
+    }
+
+    /**
+     * The options the last thing the bot said is waiting on.
+     *
+     * From the latest outgoing message and not accumulated, because options
+     * belong to one question: somebody now being asked for a phone number must
+     * not still be offered the buttons from the question before it.
+     *
+     * One definition, asked by the widget and by both sandboxes. It used to live
+     * only inside the widget's controller, and the sandboxes — which read the
+     * transcript straight out of the messages table — showed an `ask` node as a
+     * bare line of text with nothing to answer it: the author saw the question,
+     * saw no options, and concluded the node was broken rather than the screen.
+     *
+     * @return list<array{label: string}>
+     */
+    public function pendingChoices(): array
+    {
+        /*
+         * `reorder`, not `latest`. The relation already sorts oldest first, and
+         * `latest('id')` only appends a second clause — the query goes out as
+         * `order by id asc, id desc`, the first one wins, and `first()` hands
+         * back the *oldest* outgoing message. The widget's own version of this
+         * carried the same mistake and nobody could see it: nothing wrote
+         * options at all, so both the right message and the wrong one answered
+         * "no options" and the query looked correct for as long as it could not
+         * matter.
+         */
+        $last = $this->messages()
+            ->where('direction', MessageDirection::Outgoing)
+            ->reorder('id', 'desc')
+            ->first();
+
+        if ($last === null) {
+            return [];
+        }
+
+        return array_map(
+            static fn (string $label): array => ['label' => $label],
+            ChannelText::options($last),
+        );
     }
 }

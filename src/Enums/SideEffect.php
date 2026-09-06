@@ -22,10 +22,7 @@ enum SideEffect: string implements HasLabel
 
     public function getLabel(): string
     {
-        return match ($this) {
-            self::Read => 'Reads data',
-            self::Write => 'Changes data',
-        };
+        return __('chatbot::panel.enums.side_effect.'.$this->value);
     }
 
     /**
