@@ -73,7 +73,7 @@ in every environment, including testing.
 
 - [Installation]({{ site.baseurl }}/installation) — the plugin, the migrations, the assets.
 - [Scenarios]({{ site.baseurl }}/scenarios) — how a conversation is walked, and what publishing means.
-- [Node reference]({{ site.baseurl }}/nodes) — all twenty-four kinds, what each one branches on.
+- [Node reference]({{ site.baseurl }}/nodes) — all twenty-five kinds, what each one branches on.
 - [Data resources]({{ site.baseurl }}/data-resources) — letting the bot read your records, and every rule that keeps it honest.
 - [Capabilities]({{ site.baseurl }}/capabilities) — letting it do something.
 - [Slots and conditions]({{ site.baseurl }}/slots-and-conditions) — what a bot can ask for and branch on.

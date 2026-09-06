@@ -103,9 +103,10 @@ Built-in nodes today:
 the visitor, collecting a phone number — is written once as its own scenario and
 called from everywhere, instead of being copied into each one and drifting.
 
-Twenty-four kinds in all. The only one still planned is `mutate` — writing to a
-data resource. The columns are there (`is_writable`, `write_fields`,
-`lock_column`) and nothing uses them yet.
+Twenty-five kinds in all, `mutate` among them: a bot can write one row of a data
+resource, but only where the resource was declared writable, only into the
+columns it named, and only with an approval node above it on the branch —
+publishing refuses a graph where a write is reachable without one.
 
 The full reference, with every setting of every node, is in
 [the documentation](https://dictator90.github.io/mb-filament-chatbot/nodes).

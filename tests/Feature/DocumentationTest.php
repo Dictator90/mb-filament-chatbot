@@ -155,6 +155,57 @@ it('names only classes that exist', function (): void {
     }
 });
 
+/**
+ * The number of node kinds, wherever it is written out in words.
+ *
+ * The check above walks the registry and demands a heading in `nodes.md` for
+ * every kind, so a new node cannot go undocumented. It says nothing about the
+ * sentence a paragraph earlier that *counts* them — and that sentence is what a
+ * reader believes. `mutate` shipped, the reference page grew a section for it,
+ * every check stayed green, and four places went on saying twenty-four, one of
+ * them adding that `mutate` was still to come.
+ *
+ * A count in prose is a fact about the code and rots exactly like a link.
+ */
+it('counts the node kinds correctly wherever it counts them in words', function (): void {
+    $spelled = [
+        20 => 'twenty', 21 => 'twenty-one', 22 => 'twenty-two', 23 => 'twenty-three',
+        24 => 'twenty-four', 25 => 'twenty-five', 26 => 'twenty-six', 27 => 'twenty-seven',
+        28 => 'twenty-eight', 29 => 'twenty-nine', 30 => 'thirty',
+    ];
+
+    $kinds = count(app(ChatbotRegistry::class)->steps());
+
+    $this->assertArrayHasKey($kinds, $spelled, "Add the spelling for {$kinds} node kinds.");
+
+    $expected = $spelled[$kinds];
+
+    /*
+     * README and CHANGELOG are read alongside the site: they are the first two
+     * things anybody looks at, and nothing else here covers them.
+     */
+    $files = [...docPages(), __DIR__.'/../../README.md', __DIR__.'/../../CHANGELOG.md'];
+
+    foreach ($files as $path) {
+        $text = (string) file_get_contents($path);
+        $name = basename($path);
+
+        foreach (array_diff($spelled, [$expected]) as $word) {
+            /*
+             * The trailing `(?!-)` is load-bearing: a hyphen is a word boundary,
+             * so `\btwenty\b` matches inside "twenty-four" and the check reports
+             * the wrong number in correct prose — the sort of false alarm that
+             * gets a check deleted rather than fixed.
+             */
+            $this->assertDoesNotMatchRegularExpression(
+                '/\b'.preg_quote($word, '/').'\b(?!-)[^.\n]{0,40}\b(?:kinds?|nodes?)\b/i',
+                $text,
+                "{$name} counts [{$word}] node kinds; there are {$kinds}, so it should say [{$expected}].",
+            );
+        }
+    }
+});
+
 it('keeps the step contract the documentation promises', function (): void {
     foreach (['key', 'label', 'run', 'resume', 'fields', 'outputs', 'issues', 'pins'] as $method) {
         $this->assertTrue(

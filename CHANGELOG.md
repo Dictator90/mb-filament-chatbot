@@ -26,7 +26,7 @@ contain.
 
 ### Scenarios
 
-- Twenty-four kinds of node, walked one turn at a time by an engine that decides
+- Twenty-five kinds of node, walked one turn at a time by an engine that decides
   where the conversation goes while each node only reports what it did.
 - `call` and `result`: a scenario can be called from another and return a value,
   so shared work is written once instead of copied and left to drift.

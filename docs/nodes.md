@@ -6,7 +6,7 @@ nav_order: 4
 
 # Node reference
 
-Twenty-four node kinds ship with the package. Each one is a class under
+Twenty-five node kinds ship with the package. Each one is a class under
 `MB\FilamentChatbot\Bot\Steps\Types`, registered by the service provider under a
 key that is stable forever: that string is what a saved graph refers to, and
 renaming it orphans every node of that kind in every published version.
