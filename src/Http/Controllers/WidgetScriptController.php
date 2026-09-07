@@ -56,11 +56,30 @@ class WidgetScriptController
             abort(404);
         }
 
+        /*
+         * Revalidated every time, and never served stale.
+         *
+         * The URL carries no version and cannot: the tag naming it sits on a
+         * page this application does not control, and nobody edits that page
+         * again after the day it was pasted. So the only thing able to tell a
+         * browser the file changed is the file itself — and any max-age at all
+         * is a window during which an upgraded installation serves new markup
+         * and new endpoints to a visitor still running the old script. It was an
+         * hour, and it is the one combination that breaks the widget rather than
+         * merely dating it: found by upgrading a real installation and watching
+         * a feature that was plainly enabled fail to appear.
+         *
+         * The cost is one conditional request per page load, answered for nearly
+         * all of them by a 304 with no body — a few hundred bytes of headers
+         * against a widget that is otherwise a release behind on every site it
+         * is embedded on, with nothing on any of them to say so.
+         */
         $response = (new BinaryFileResponse($path))
             ->setPublic()
-            ->setMaxAge(3600)
             ->setAutoEtag()
             ->setAutoLastModified();
+
+        $response->headers->set('Cache-Control', 'public, no-cache');
 
         $response->isNotModified($request);
 

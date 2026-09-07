@@ -387,16 +387,44 @@ it('refuses everything while the widget is switched off', function (): void {
 /**
  * Served rather than published, so that installing the package is enough.
  *
- * Held for an hour with an ETag rather than marked immutable: the URL carries
- * no version, so an immutable copy would outlive the upgrade that changed the
- * file and a visitor would keep the old widget until they cleared their cache.
+ * Revalidated on every request rather than held for a while. The URL carries no
+ * version and cannot — the tag naming it is on a page this application does not
+ * control, and nobody edits that page again — so any max-age is a window in
+ * which an upgraded installation serves new markup and new endpoints to a
+ * visitor still running the old script.
+ *
+ * That is not hypothetical: it was an hour, and a feature plainly switched on in
+ * the panel simply did not appear on the site, because the browser was still
+ * running the previous release and had no reason to ask for another.
  */
-it('serves the widget script and stylesheet to anybody', function (): void {
-    $this->get('/chatbot/widget.js')
-        ->assertOk()
-        ->assertHeader('content-type', 'application/javascript; charset=utf-8');
+it('never lets a browser keep a stale copy of the widget', function (): void {
+    foreach (['/chatbot/widget.js', '/chatbot/widget.css'] as $path) {
+        $response = $this->get($path)->assertOk();
 
-    $this->get('/chatbot/widget.css')->assertOk();
+        $cache = (string) $response->headers->get('Cache-Control');
+
+        expect($cache)->toContain('no-cache')
+            ->and($cache)->not->toContain('max-age=3600')
+            ->and($cache)->not->toContain('immutable')
+            ->and($response->headers->get('ETag'))->not->toBeEmpty();
+    }
+
+    $this->get('/chatbot/widget.js')
+        ->assertHeader('content-type', 'application/javascript; charset=utf-8');
+});
+
+/**
+ * A revalidated file still answers 304, so the cost of never going stale is a
+ * few hundred bytes of headers rather than the file itself on every page load.
+ */
+it('answers a revalidation without sending the file again', function (): void {
+    $etag = $this->get('/chatbot/widget.js')->headers->get('ETag');
+
+    expect($etag)->not->toBeEmpty();
+
+    $this->withHeaders(['If-None-Match' => $etag])
+        ->get('/chatbot/widget.js')
+        ->assertStatus(304);
 });
 
 /**
