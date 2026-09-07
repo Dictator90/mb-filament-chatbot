@@ -34,37 +34,39 @@ final class WidgetEmbed
     }
 
     /**
-     * The tag itself, naming the bot by slug.
+     * The tag itself, naming a widget by its key.
      *
-     * By slug and never by id: the tag lives on a public page, where an id is
-     * both meaningless to whoever maintains that page and a number anybody can
-     * change to point at a different bot. The widget reads `data-bot` and the
-     * endpoint looks the slug up, so the two ends already agree on this.
+     * The key and never an id: the tag lives on a public page, where a number is
+     * both meaningless to whoever maintains it and trivially changed to point at
+     * something else. It names a widget rather than a bot so that which bot
+     * answers stays a setting on this side — re-pointing a widget must never
+     * mean asking somebody to edit their own website.
      */
-    public static function snippet(string $slug): string
+    public static function snippet(string $key): string
     {
         return '<script src="'.self::scriptUrl().'" async'."\n"
-            .'        data-bot="'.$slug.'"></script>';
+            .'        data-widget="'.$key.'"></script>';
     }
 
     /**
-     * The origins on which a given bot actually answers.
+     * The origins on which a given widget actually answers.
      *
      * Two lists decide that, and the panel has to report their combination
      * rather than whichever is nearer to hand. `chatbot.widget.origins` is the
      * guard: it says which sites may reach these endpoints at all, and an empty
-     * one admits nobody. A bot's own `allowed_origins` narrows that further —
-     * which of those sites carry *this* bot — and an empty one narrows nothing.
+     * one admits nobody. A widget's own `allowed_origins` narrows that further —
+     * which of those sites carry *this* widget — and an empty one narrows
+     * nothing.
      *
      * Reporting only the configuration would answer a different question from
      * the one the request is judged by, and be believed: somebody restricts a
-     * bot to one site, reads a list of five here, and pastes the tag onto a page
-     * where that bot will not answer.
+     * widget to one site, reads a list of five here, and pastes the tag onto a
+     * page where it will not answer.
      *
-     * @param  iterable<mixed>|null  $botOrigins  the bot's own list, if it names any
+     * @param  iterable<mixed>|null  $widgetOrigins  the widget's own list, if it names any
      * @return list<string>
      */
-    public static function allowedOrigins(?iterable $botOrigins = null): array
+    public static function allowedOrigins(?iterable $widgetOrigins = null): array
     {
         $clean = static function (mixed $list): array {
             $origins = [];
@@ -81,9 +83,9 @@ final class WidgetEmbed
         };
 
         $allowed = $clean(config('chatbot.widget.origins', []));
-        $bot = $clean($botOrigins);
+        $narrowed = $clean($widgetOrigins);
 
-        return $bot === [] ? $allowed : array_values(array_intersect($allowed, $bot));
+        return $narrowed === [] ? $allowed : array_values(array_intersect($allowed, $narrowed));
     }
 
     /**

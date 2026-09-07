@@ -126,6 +126,17 @@ class ChatbotServiceProvider extends ServiceProvider
         $this->loadViewsFrom(__DIR__.'/../resources/views', 'chatbot');
         $this->loadTranslationsFrom(__DIR__.'/../lang', 'chatbot');
 
+        /*
+         * The panel's own routes, loaded here rather than through the plugin.
+         *
+         * The widget preview frame is one plain page with a script tag on it,
+         * not a Livewire component, and registering it through a panel would
+         * mount a separate copy — with a separate address for the same page —
+         * for every panel a host runs. Which panel authorises a request is a
+         * segment of the path instead; see `routes/panel.php`.
+         */
+        $this->loadRoutesFrom(__DIR__.'/../routes/panel.php');
+
         $this->registerBuiltInSteps();
         $this->registerBuiltInSlots();
         $this->registerBuiltInConditions();

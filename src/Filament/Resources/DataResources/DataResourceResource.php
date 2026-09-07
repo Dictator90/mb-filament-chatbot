@@ -32,11 +32,14 @@ class DataResourceResource extends Resource
 
     protected static ?string $model = DataResource::class;
 
+    /** Named by its own label on its own pages — see `BotResource` for why. */
+    protected static ?string $recordTitleAttribute = 'label';
+
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedCircleStack;
 
     protected static function chatbotNavigationOffset(): int
     {
-        return 4;
+        return 5;
     }
 
     public static function getModelLabel(): string

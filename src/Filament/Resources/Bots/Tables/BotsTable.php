@@ -38,9 +38,6 @@ class BotsTable
                 IconColumn::make('is_active')
                     ->label(__('chatbot::panel.bots.table.active'))
                     ->boolean(),
-                IconColumn::make('is_public_widget')
-                    ->label(__('chatbot::panel.bots.table.public_widget'))
-                    ->boolean(),
                 TextColumn::make('scenarios_count')
                     ->label(__('chatbot::panel.bots.table.scenarios'))
                     ->alignEnd()
@@ -53,7 +50,6 @@ class BotsTable
             ->defaultSort('name')
             ->filters([
                 TernaryFilter::make('is_active')->label(__('chatbot::panel.bots.table.active')),
-                TernaryFilter::make('is_public_widget')->label(__('chatbot::panel.bots.table.public_widget')),
             ])
             ->recordActions(ActionGroup::make([
                 EditAction::make(),

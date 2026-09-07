@@ -30,6 +30,19 @@ class BotResource extends Resource
 
     protected static ?string $model = Bot::class;
 
+    /**
+     * Names the record on its own pages instead of repeating the model label.
+     *
+     * Filament titles an edit page "Edit :label", and with nothing named here
+     * `:label` falls back to the model label: "Edit bot", on the page for one
+     * particular bot among several — a heading that answers a question nobody
+     * asked. In Russian it is also ungrammatical, because the phrase wants a
+     * genitive and one label cannot be that and a menu entry at once. The
+     * record's own name fixes both at once and says which one you are looking
+     * at.
+     */
+    protected static ?string $recordTitleAttribute = 'name';
+
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedCpuChip;
 
     protected static function chatbotNavigationOffset(): int

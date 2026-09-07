@@ -11,6 +11,7 @@ use MB\FilamentChatbot\Models\KnowledgeEntry;
 use MB\FilamentChatbot\Models\QuickReply;
 use MB\FilamentChatbot\Models\Scenario;
 use MB\FilamentChatbot\Models\Step;
+use MB\FilamentChatbot\Models\Widget;
 
 /**
  * A working bot somebody can talk to a minute after installing the package.
@@ -170,15 +171,42 @@ final class DemoData
      */
     private function bot(string $slug): Bot
     {
-        return Bot::query()->updateOrCreate(
+        $bot = Bot::query()->updateOrCreate(
             ['slug' => $slug],
             [
                 'name' => 'Demo Assistant',
                 'is_active' => true,
-                'is_public_widget' => true,
                 'greeting' => 'Hi — I am the demo assistant. Ask me about an order, a problem, or our opening hours.',
                 'hours_from' => '09:00:00',
                 'hours_till' => '18:00:00',
+            ],
+        );
+
+        $this->widget($bot);
+
+        return $bot;
+    }
+
+    /**
+     * A widget for the demo bot, so a seeded installation has something to embed
+     * and not only something to talk to.
+     *
+     * Its own origin list is left empty on purpose. Empty narrows nothing, and
+     * the guard that decides who may embed anything at all is the
+     * installation-wide `CHATBOT_WIDGET_ORIGINS`; seeding a domain here would
+     * put a made-up hostname into a real installation's allow-list and make it
+     * look deliberate.
+     */
+    private function widget(Bot $bot): Widget
+    {
+        return Widget::query()->updateOrCreate(
+            ['key' => 'demo'],
+            [
+                'name' => 'Demo site',
+                'bot_id' => $bot->getKey(),
+                'is_active' => true,
+                'theme' => ['accent' => '#4f46e5', 'bubbles' => 'rounded'],
+                'labels' => ['title' => 'Support', 'launcher' => 'Chat with us'],
             ],
         );
     }

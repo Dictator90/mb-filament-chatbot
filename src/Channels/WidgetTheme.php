@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace MB\FilamentChatbot\Channels;
 
 use MB\FilamentChatbot\Models\Bot;
+use MB\FilamentChatbot\Models\Widget;
 
 /**
  * How a bot's widget looks, as a closed vocabulary.
@@ -80,6 +81,11 @@ final class WidgetTheme
     public static function forBot(Bot $bot): self
     {
         return self::make((array) (($bot->settings ?? [])['widget'] ?? []));
+    }
+
+    public static function forWidget(?Widget $widget): self
+    {
+        return self::make($widget === null ? [] : (array) $widget->theme);
     }
 
     /**

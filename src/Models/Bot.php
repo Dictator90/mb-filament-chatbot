@@ -15,9 +15,14 @@ use MB\FilamentChatbot\Database\Factories\BotFactory;
  * One assistant: its voice, its working hours and its budget.
  *
  * An installation may run several — a public one on the website and an internal
- * one for staff — which is why the prompt, the model and the origin list live on
- * the row rather than in configuration. Configuration is the fallback for the
- * fields left empty here, not the other way round.
+ * one for staff — which is why the prompt and the model live on the row rather
+ * than in configuration. Configuration is the fallback for the fields left empty
+ * here, not the other way round.
+ *
+ * Where a bot is *put* is not here. Which sites may embed it, what colour it is
+ * and what its launcher says belong to a widget, because one bot has several of
+ * those: the same personality on the company site and on a partner's portal, in
+ * two liveries and with two allow-lists.
  */
 class Bot extends Model
 {
@@ -32,8 +37,6 @@ class Bot extends Model
     {
         return [
             'is_active' => 'boolean',
-            'is_public_widget' => 'boolean',
-            'allowed_origins' => 'array',
             'monthly_token_budget' => 'integer',
             'monthly_cost_budget' => 'integer',
             'settings' => 'array',

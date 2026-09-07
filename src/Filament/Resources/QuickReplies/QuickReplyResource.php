@@ -28,11 +28,14 @@ class QuickReplyResource extends Resource
 
     protected static ?string $model = QuickReply::class;
 
+    /** Named by its own title on its own pages — see `BotResource` for why. */
+    protected static ?string $recordTitleAttribute = 'title';
+
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedBookmarkSquare;
 
     protected static function chatbotNavigationOffset(): int
     {
-        return 3;
+        return 4;
     }
 
     public static function getModelLabel(): string

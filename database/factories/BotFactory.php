@@ -40,11 +40,6 @@ class BotFactory extends Factory
         return $this->state(fn (): array => ['is_active' => false]);
     }
 
-    public function publicWidget(): static
-    {
-        return $this->state(fn (): array => ['is_public_widget' => true]);
-    }
-
     /**
      * A bot with an explicit window. Given as a state rather than a default so
      * that tests asking about working hours have to say so out loud.

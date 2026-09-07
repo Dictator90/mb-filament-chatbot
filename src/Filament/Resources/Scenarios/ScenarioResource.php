@@ -31,11 +31,14 @@ class ScenarioResource extends Resource
 
     protected static ?string $model = Scenario::class;
 
+    /** Named by its own name on its own pages — see `BotResource` for why. */
+    protected static ?string $recordTitleAttribute = 'name';
+
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedRectangleGroup;
 
     protected static function chatbotNavigationOffset(): int
     {
-        return 1;
+        return 2;
     }
 
     public static function getModelLabel(): string

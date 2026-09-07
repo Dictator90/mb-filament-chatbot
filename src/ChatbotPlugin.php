@@ -14,6 +14,7 @@ use MB\FilamentChatbot\Filament\Resources\KnowledgeEntries\KnowledgeEntryResourc
 use MB\FilamentChatbot\Filament\Resources\QuickReplies\QuickReplyResource;
 use MB\FilamentChatbot\Filament\Resources\Runs\RunResource;
 use MB\FilamentChatbot\Filament\Resources\Scenarios\ScenarioResource;
+use MB\FilamentChatbot\Filament\Resources\Widgets\WidgetResource;
 use MB\FilamentChatbot\Filament\Widgets\ChatStatsWidget;
 use MB\FilamentChatbot\Filament\Widgets\ConversationsChartWidget;
 use MB\FilamentChatbot\Filament\Widgets\ScenarioOutcomesWidget;
@@ -65,6 +66,7 @@ class ChatbotPlugin implements Plugin
     {
         return [
             BotResource::class,
+            WidgetResource::class,
             ScenarioResource::class,
             KnowledgeEntryResource::class,
             QuickReplyResource::class,

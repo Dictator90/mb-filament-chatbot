@@ -17,6 +17,7 @@ use MB\FilamentChatbot\Models\RunStep;
 use MB\FilamentChatbot\Models\Scenario;
 use MB\FilamentChatbot\Models\ScenarioVersion;
 use MB\FilamentChatbot\Models\Step;
+use MB\FilamentChatbot\Models\Widget;
 
 /**
  * Which policy speaks for which model.
@@ -38,6 +39,7 @@ final class Policies
     {
         return [
             Bot::class => BotPolicy::class,
+            Widget::class => WidgetPolicy::class,
             BudgetPeriod::class => BudgetPeriodPolicy::class,
             Scenario::class => ScenarioPolicy::class,
             Step::class => StepPolicy::class,

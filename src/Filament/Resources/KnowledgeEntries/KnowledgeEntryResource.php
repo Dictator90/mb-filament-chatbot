@@ -31,11 +31,14 @@ class KnowledgeEntryResource extends Resource
 
     protected static ?string $model = KnowledgeEntry::class;
 
+    /** Named by its own topic on its own pages — see `BotResource` for why. */
+    protected static ?string $recordTitleAttribute = 'topic_key';
+
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedBookOpen;
 
     protected static function chatbotNavigationOffset(): int
     {
-        return 2;
+        return 3;
     }
 
     public static function getModelLabel(): string

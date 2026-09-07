@@ -36,13 +36,17 @@ return new class extends Migration
             $table->time('hours_till')->nullable();
 
             /*
-             * Which bot answers the site widget when the embed code does not
-             * name one. A flag on the bot rather than a config key, because
-             * the choice is data a panel user changes, and a config key would
-             * mean a deploy every time the agency swaps its public bot.
+             * There is no `is_public_widget` and no `allowed_origins` here, and
+             * the absence is a decision rather than an oversight. Both used to
+             * sit on the bot, and both asked a question a bot cannot answer: the
+             * same bot goes on the company site and on a partner's portal, in
+             * different colours and with a different list of sites allowed for
+             * each. One flag and one list per bot could describe only the first
+             * placement, and the embed tag they produced carried the bot's own
+             * slug onto a public page — so re-pointing it meant asking somebody
+             * to edit their own website. Both live on `chatbot_widgets` now,
+             * where there can be as many of them as there are placements.
              */
-            $table->boolean('is_public_widget')->default(false);
-            $table->json('allowed_origins')->nullable();
 
             /*
              * Budgets are whole numbers of micro-minor units — millionths of a

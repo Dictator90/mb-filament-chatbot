@@ -71,6 +71,14 @@
     })();
 
     var settings = {
+        /*
+         * `data-widget` is the key an embed carries today; `data-bot` is what
+         * embeds written before widgets existed carry, and those live on pages
+         * this application does not control. Both are sent, and the server
+         * prefers the first — dropping the second would take the chat off every
+         * site already running one, with nothing on that site to explain it.
+         */
+        widget: data.widget || '',
         bot: data.bot || '',
         greeting: data.greeting || '',
         color: data.color || '#4f46e5',
@@ -583,6 +591,7 @@
         api('messages', {
             method: 'POST',
             body: {
+                widget: settings.widget,
                 bot: settings.bot,
                 body: body,
                 page: window.location.href,
@@ -627,8 +636,11 @@
          * would never appear at all. Drawn first, the worst case is a launcher
          * that settles into its colours a moment later.
          */
-        api('theme?bot=' + encodeURIComponent(settings.bot))
-            .then(applyTheme)
+        api('theme?widget=' + encodeURIComponent(settings.widget) + '&bot=' + encodeURIComponent(settings.bot))
+            .then(function (sent) {
+                applyTheme(sent);
+                applyLabels(sent && sent.labels);
+            })
             .catch(function () {});
 
         if (settings.greeting) {

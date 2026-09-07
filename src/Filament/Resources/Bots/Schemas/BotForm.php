@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace MB\FilamentChatbot\Filament\Resources\Bots\Schemas;
 
 use Filament\Forms\Components\Select;
-use Filament\Forms\Components\TagsInput;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\TimePicker;
@@ -18,23 +17,28 @@ use Filament\Schemas\Components\Text;
 use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Components\Utilities\Set;
 use Filament\Schemas\Schema;
-use Filament\Support\Enums\FontFamily;
 use Illuminate\Support\Str;
 use MB\FilamentChatbot\Ai\AiGatewayFactory;
-use MB\FilamentChatbot\Http\WidgetEmbed;
 
 class BotForm
 {
     /**
-     * Three tabs, split by who answers the question the setting asks.
+     * Two tabs, split by who answers the question the setting asks.
      *
      * The sections used to be one flat column, and the complaint about it was
      * exact: nothing said where the AI settings ended. A prompt, a provider and
      * a monthly ceiling sat between working hours and an origin list, so an
      * installation with no model configured still read as one where every
      * second field was about a model. The tabs are drawn along the only line
-     * that matters to whoever fills them in — what the bot is (Basics), what
-     * thinks for it (AI), and what a site owner has to be given (Widget).
+     * that matters to whoever fills them in — what the bot is (Basics) and what
+     * thinks for it (AI).
+     *
+     * There was a third, Widget, and it is gone rather than moved: how a bot is
+     * embedded is not a property of the bot. One bot belongs on the company site
+     * in blue and on a partner's portal in the partner's green, which that tab
+     * could not express at all — and the tag it produced carried the bot's own
+     * slug onto a public page, so re-pointing it meant asking somebody to edit
+     * their own website. It lives on the widget screen now.
      *
      * The budgets belong with the model rather than with the rest: they are a
      * ceiling on what a provider may be asked to do, and mean nothing at all on
@@ -52,9 +56,6 @@ class BotForm
                     Tab::make('ai')
                         ->label(__('chatbot::panel.bots.tabs.ai'))
                         ->schema(self::ai()),
-                    Tab::make('widget')
-                        ->label(__('chatbot::panel.bots.tabs.widget'))
-                        ->schema(self::widget()),
                 ]),
         ]);
     }
@@ -215,100 +216,6 @@ class BotForm
     }
 
     /**
-     * @return array<int, mixed>
-     */
-    protected static function widget(): array
-    {
-        return [
-            Section::make(__('chatbot::panel.bots.widget.heading'))->schema([
-                Toggle::make('is_public_widget')
-                    ->label(__('chatbot::panel.bots.widget.is_public'))
-                    ->live()
-                    ->helperText(__('chatbot::panel.bots.widget.is_public_help')),
-                /*
-                 * Origins are listed rather than free text because the list is
-                 * what an empty value means here: no origin at all, not every
-                 * origin. Getting that backwards turns a forgotten field into
-                 * an endpoint any site can embed and bill to this
-                 * installation's AI budget.
-                 */
-                /*
-                 * Live, so the sentence under the embed code re-reads it as it
-                 * is typed: that sentence names the sites this bot answers on,
-                 * and one that lagged a field on the same screen would be read
-                 * as the answer and be wrong.
-                 *
-                 * The helper text says "narrows" and not "blocks". It used to
-                 * claim an empty list blocked every site, which was false twice
-                 * over — nothing read the column at all, and now that something
-                 * does, an empty list cannot mean nobody: every bot has one
-                 * until somebody fills it in, and reading it that way would
-                 * silence every widget in every installation on upgrade. The
-                 * list that fails closed is the installation's own.
-                 */
-                TagsInput::make('allowed_origins')
-                    ->label(__('chatbot::panel.attributes.allowed_origins'))
-                    ->placeholder('https://example.com')
-                    ->live(onBlur: true)
-                    ->helperText(__('chatbot::panel.bots.widget.origins_help')),
-
-                /*
-                 * The embed code, with this installation's own URL and this
-                 * bot's own slug in it.
-                 *
-                 * Whoever owns the site is not the person who can look any of
-                 * this up. Left to the documentation they copy the example
-                 * address out of it, paste a tag pointing at app.example.com,
-                 * and the widget never loads — with nothing in the panel that
-                 * would have shown them the right one.
-                 *
-                 * Shown only when a copied tag would actually open a
-                 * conversation. A snippet handed over while the widget is off,
-                 * or while the allow-list is empty, is a promise kept by a 403
-                 * on somebody else's page: it installs cleanly, looks right in
-                 * the source, and fails where neither of us is watching.
-                 */
-                Section::make(__('chatbot::panel.bots.widget.embed_heading'))->schema([
-                    Text::make(fn (Get $get): string => WidgetEmbed::snippet((string) $get('slug')))
-                        ->key('widget_snippet')
-                        ->fontFamily(FontFamily::Mono)
-                        ->extraAttributes(['style' => 'white-space: pre-wrap; word-break: break-all;'])
-                        ->copyable()
-                        ->copyMessage(__('chatbot::panel.bots.widget.copied'))
-                        ->tooltip(__('chatbot::panel.bots.widget.copy_tooltip'))
-                        ->visible(fn (Get $get): bool => self::isEmbeddable($get)),
-
-                    /*
-                     * The list is reported for this bot and not for the
-                     * installation. Both lists decide where the tag works — the
-                     * configured one says which sites may reach the endpoints at
-                     * all, the bot's own narrows that to the sites it belongs on
-                     * — and naming only the first would tell somebody who has
-                     * just restricted this bot to one site that it answers on
-                     * five.
-                     */
-                    Text::make(function (Get $get): string {
-                        $origins = WidgetEmbed::allowedOrigins($get('allowed_origins') ?? []);
-
-                        return __('chatbot::panel.bots.widget.snippet_hint', [
-                            'origins' => $origins === []
-                                ? __('chatbot::panel.bots.widget.snippet_hint_none')
-                                : implode(', ', $origins).'.',
-                        ]);
-                    })
-                        ->key('widget_snippet_hint')
-                        ->visible(fn (Get $get): bool => self::isEmbeddable($get)),
-
-                    Text::make(fn (Get $get): string => self::embedObstacle($get))
-                        ->key('widget_snippet_blocked')
-                        ->color('warning')
-                        ->visible(fn (Get $get): bool => ! self::isEmbeddable($get)),
-                ]),
-            ]),
-        ];
-    }
-
-    /**
      * The driver this bot would actually use, with an empty field meaning the
      * installation default — which is what the runtime does with it.
      */
@@ -324,39 +231,5 @@ class BotForm
         $default = trim((string) config('chatbot.ai.default', 'null'));
 
         return $default !== '' ? $default : 'null';
-    }
-
-    /**
-     * Whether the snippet would work if it were copied out of this form now.
-     */
-    protected static function isEmbeddable(Get $get): bool
-    {
-        return (bool) $get('is_public_widget')
-            && filled($get('slug'))
-            && WidgetEmbed::isServable();
-    }
-
-    /**
-     * Names the one thing standing between this bot and a working embed.
-     *
-     * One reason at a time, and the nearest one first: a list of everything
-     * that could be wrong reads as a wall, and the reader only ever has to fix
-     * the first of them before the next is worth knowing about.
-     */
-    protected static function embedObstacle(Get $get): string
-    {
-        if (! $get('is_public_widget')) {
-            return __('chatbot::panel.bots.widget.blocked_not_public');
-        }
-
-        if (blank($get('slug'))) {
-            return __('chatbot::panel.bots.widget.blocked_no_slug');
-        }
-
-        if (! config('chatbot.widget.enabled', true)) {
-            return __('chatbot::panel.bots.widget.blocked_disabled');
-        }
-
-        return __('chatbot::panel.bots.widget.blocked_no_origins');
     }
 }

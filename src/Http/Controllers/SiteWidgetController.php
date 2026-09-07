@@ -9,6 +9,7 @@ use Illuminate\Http\Request;
 use MB\FilamentChatbot\Channels\Drivers\SiteDriver;
 use MB\FilamentChatbot\Channels\InboundMessage;
 use MB\FilamentChatbot\Channels\MessageRouter;
+use MB\FilamentChatbot\Channels\WidgetResolver;
 use MB\FilamentChatbot\Channels\WidgetTheme;
 use MB\FilamentChatbot\Http\VisitorToken;
 use MB\FilamentChatbot\Models\Bot;
@@ -32,6 +33,7 @@ class SiteWidgetController
 {
     public function __construct(
         private readonly MessageRouter $router,
+        private readonly WidgetResolver $widgets,
     ) {}
 
     /**
@@ -49,12 +51,18 @@ class SiteWidgetController
      */
     public function theme(Request $request): JsonResponse
     {
-        $bot = $this->publicBot($request->query('bot'));
-        $theme = $bot === null ? WidgetTheme::make() : WidgetTheme::forBot($bot);
+        $widget = $this->widgets->forRequest($request);
+
+        if (! $this->widgets->reachable($widget, $request)) {
+            $widget = null;
+        }
+
+        $theme = WidgetTheme::forWidget($widget);
 
         return response()->json([
             'properties' => $theme->properties(),
             'flags' => $theme->flags(),
+            'labels' => array_filter((array) ($widget?->labels ?? [])),
         ]);
     }
 
@@ -148,6 +156,7 @@ class SiteWidgetController
         $data = $request->validate([
             'body' => ['required', 'string', 'max:'.(int) config('chatbot.chat.max_message_length', 4000)],
             'bot' => ['nullable', 'string', 'max:191'],
+            'widget' => ['nullable', 'string', 'max:64'],
             'page' => ['nullable', 'string', 'max:2048'],
             'identity' => ['nullable', 'array'],
             'identity.id' => ['nullable', 'string', 'max:191'],
@@ -171,7 +180,7 @@ class SiteWidgetController
             email: $identity['email'] ?? null,
             entryPage: $data['page'] ?? null,
             visitorKey: VisitorToken::hash($token),
-            botId: $this->botId($data['bot'] ?? null),
+            botId: $this->answeringBotId($request),
         ));
 
         return response()->json(array_filter([
@@ -307,78 +316,28 @@ class SiteWidgetController
     }
 
     /**
-     * The bot named by the embed, looked up by slug.
+     * Which bot answers this message, if any.
      *
-     * By slug and not by id, because the value is written into a script tag on
-     * a public page: an id there is both meaningless to whoever maintains that
-     * page and a number anybody can change to point at a different bot. An
-     * unknown slug resolves to nothing rather than failing, so a typo in an
-     * embed leaves the conversation on the default routing instead of dropping
-     * the visitor's message.
+     * Three things have to be true, and each of them silently used to be
+     * assumed: the request names a widget that exists and is switched on, that
+     * widget belongs on the site the request came from, and the bot behind it is
+     * itself active.
+     *
+     * A widget that fails any of them does not refuse the message — it takes the
+     * bot off it. The conversation still opens and goes to a person, which is
+     * what "no bot" has always meant here. Refusing instead would drop what a
+     * visitor typed on the strength of a configuration mistake they had no part
+     * in, and they would be looking at a chat window that swallowed their
+     * question.
      */
-    private function botId(?string $slug): ?int
+    private function answeringBotId(Request $request): ?int
     {
-        $bot = $this->publicBot($slug);
+        $widget = $this->widgets->forRequest($request);
 
-        return $bot === null ? null : (int) $bot->getKey();
-    }
-
-    /**
-     * The named bot, but only if it is allowed to answer this request.
-     *
-     * Two settings decide that, and until now the runtime read neither. Both sat
-     * in the bot's form, both were saved, and both were ignored — which is worse
-     * than not offering them: somebody unticks "answers on the site", sees the
-     * form save, and believes the bot is off their pages while it goes on
-     * answering every visitor.
-     *
-     * `is_public_widget` is a straight refusal. `allowed_origins` narrows the
-     * installation-wide list rather than replacing it: the global list is the
-     * guard that fails closed, and this one says which of those sites *this*
-     * bot belongs on. An empty list therefore means "no narrowing" and not
-     * "nobody" — every bot has one until somebody fills it in, and reading it
-     * the other way would silence every widget on the first upgrade.
-     *
-     * Refusing here rather than in the origin middleware is not a preference:
-     * the middleware runs before the body is read, and which bot was asked for
-     * is in the body.
-     */
-    private function publicBot(?string $slug): ?Bot
-    {
-        $slug = trim((string) $slug);
-
-        if ($slug === '') {
+        if (! $this->widgets->reachable($widget, $request)) {
             return null;
         }
 
-        $bot = Bot::query()->where('slug', $slug)->first();
-
-        if ($bot === null || $bot->is_public_widget !== true) {
-            return null;
-        }
-
-        return $this->reachesBot($bot) ? $bot : null;
-    }
-
-    private function reachesBot(Bot $bot): bool
-    {
-        $origins = array_values(array_filter(array_map(
-            static fn (mixed $origin): string => trim((string) $origin),
-            (array) $bot->allowed_origins,
-        ), static fn (string $origin): bool => $origin !== ''));
-
-        if ($origins === []) {
-            return true;
-        }
-
-        $origin = trim((string) request()->headers->get('Origin', ''));
-
-        /*
-         * No Origin header means a same-origin request from this application's
-         * own pages — the middleware has already established that much. A bot
-         * that named its sites has not named this one, so it does not answer
-         * here either.
-         */
-        return $origin !== '' && in_array($origin, $origins, true);
+        return $widget?->answeringBotId();
     }
 }

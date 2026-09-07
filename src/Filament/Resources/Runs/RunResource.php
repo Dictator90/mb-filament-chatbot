@@ -40,7 +40,7 @@ class RunResource extends Resource
 
     protected static function chatbotNavigationOffset(): int
     {
-        return 5;
+        return 6;
     }
 
     public static function getModelLabel(): string
