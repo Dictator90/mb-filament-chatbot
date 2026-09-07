@@ -32,7 +32,7 @@ final class OnlyGreetingCondition extends ConditionField
 
     public function label(): string
     {
-        return 'Said only a greeting';
+        return __('chatbot::nodes.conditions.only_greeting.label');
     }
 
     public function evaluate(

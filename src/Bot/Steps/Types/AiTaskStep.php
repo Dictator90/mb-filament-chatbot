@@ -54,7 +54,7 @@ final class AiTaskStep extends StepType
 
     public function label(): string
     {
-        return 'Extract with a model';
+        return __('chatbot::nodes.steps.ai_task.label');
     }
 
     public function icon(): string
@@ -77,7 +77,7 @@ final class AiTaskStep extends StepType
      */
     public function pairLabels(): array
     {
-        return ['extracted', 'could not'];
+        return array_values((array) __('chatbot::nodes.steps.ai_task.exits'));
     }
 
     public function speaks(): bool
@@ -100,31 +100,31 @@ final class AiTaskStep extends StepType
     {
         return [
             Field::textarea('instruction')
-                ->label('What to pull out')
+                ->label(__('chatbot::nodes.steps.ai_task.fields.instruction.label'))
                 ->rows(4)
                 ->required()
-                ->placeholder('Read the traveller count, the departure city and the month out of the message.')
-                ->hint('Describe the values, not the format. The node asks for them by the names below.'),
+                ->placeholder(__('chatbot::nodes.steps.ai_task.fields.instruction.placeholder'))
+                ->hint(__('chatbot::nodes.steps.ai_task.fields.instruction.hint')),
 
             Field::text('input')
-                ->label('Read from')
+                ->label(__('chatbot::nodes.steps.ai_task.fields.input.label'))
                 ->placeholder('{{last_message}}')
-                ->hint('May contain {{variables}}. Left empty, the message the visitor just sent is used.'),
+                ->hint(__('chatbot::nodes.steps.ai_task.fields.input.hint')),
 
             Field::list('fields')
-                ->label('Values to expect')
-                ->hint('One name per value, as it will be read back: adults, city, month.'),
+                ->label(__('chatbot::nodes.steps.ai_task.fields.fields.label'))
+                ->hint(__('chatbot::nodes.steps.ai_task.fields.fields.hint')),
 
             Field::text('into')
-                ->label('Remember them as')
+                ->label(__('chatbot::nodes.steps.ai_task.fields.into.label'))
                 ->required()
                 ->placeholder('trip')
-                ->hint('One variable per value, named trip_adults, trip_city and so on.'),
+                ->hint(__('chatbot::nodes.steps.ai_task.fields.into.hint')),
 
             Field::select('provider')
-                ->label('Model')
+                ->label(__('chatbot::nodes.steps.ai_task.fields.provider.label'))
                 ->default('')
-                ->options(fn (): array => ['' => 'The one this installation is set to'] + $this->gateways->names()),
+                ->options(fn (): array => ['' => __('chatbot::nodes.steps.ai_task.fields.provider.default_option')] + $this->gateways->names()),
         ];
     }
 

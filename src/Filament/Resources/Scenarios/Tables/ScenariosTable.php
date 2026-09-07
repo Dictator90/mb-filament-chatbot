@@ -36,25 +36,28 @@ class ScenariosTable
                 ->withCount('steps'))
             ->columns([
                 TextColumn::make('name')
+                    ->label(__('chatbot::panel.attributes.name'))
                     ->searchable()
                     ->sortable()
                     ->wrap(),
                 TextColumn::make('bot.name')
-                    ->label('Bot')
-                    ->placeholder('every bot')
+                    ->label(__('chatbot::panel.scenarios.bot'))
+                    ->placeholder(__('chatbot::panel.scenarios.table.bot_placeholder'))
                     ->sortable(),
                 TextColumn::make('slug')
+                    ->label(__('chatbot::panel.attributes.slug'))
                     ->badge()
                     ->color('gray')
                     ->searchable(),
                 IconColumn::make('is_active')
-                    ->label('Active')
+                    ->label(__('chatbot::panel.scenarios.table.active'))
                     ->boolean(),
                 TextColumn::make('priority')
+                    ->label(__('chatbot::panel.attributes.priority'))
                     ->alignEnd()
                     ->sortable(),
                 TextColumn::make('steps_count')
-                    ->label('Steps')
+                    ->label(__('chatbot::panel.scenarios.table.steps'))
                     ->alignEnd()
                     ->sortable(),
                 /*
@@ -64,22 +67,22 @@ class ScenariosTable
                  * the moment it is saved.
                  */
                 TextColumn::make('liveVersion.number')
-                    ->label('Live version')
+                    ->label(__('chatbot::panel.scenarios.table.live_version'))
                     ->badge()
                     ->color(fn (Scenario $record): string => $record->isPublished() ? 'success' : 'warning')
                     ->formatStateUsing(fn (mixed $state): string => '#'.$state)
-                    ->placeholder('draft'),
+                    ->placeholder(__('chatbot::panel.scenarios.table.draft')),
                 TextColumn::make('updated_at')
-                    ->label('Updated')
+                    ->label(__('chatbot::panel.scenarios.table.updated'))
                     ->dateTime()
                     ->sortable(),
             ])
             ->defaultSort('priority', 'desc')
             ->filters([
                 SelectFilter::make('bot_id')
-                    ->label('Bot')
+                    ->label(__('chatbot::panel.scenarios.bot'))
                     ->options(fn (): array => Bot::query()->orderBy('name')->pluck('name', 'id')->all()),
-                TernaryFilter::make('is_active')->label('Active'),
+                TernaryFilter::make('is_active')->label(__('chatbot::panel.scenarios.table.active')),
             ])
             /*
              * The canvas is a button of its own, outside the group, and that is
@@ -94,7 +97,7 @@ class ScenariosTable
              */
             ->recordActions([
                 Action::make('graph')
-                    ->label('Graph')
+                    ->label(__('chatbot::panel.scenarios.table.graph'))
                     ->icon(Heroicon::OutlinedShare)
                     ->url(fn (Scenario $record): string => ScenarioResource::getUrl('graph', ['record' => $record])),
                 ActionGroup::make([
@@ -102,7 +105,7 @@ class ScenariosTable
                     DeleteAction::make(),
                 ]),
             ])
-            ->emptyStateHeading('No scenarios yet')
-            ->emptyStateDescription('A scenario is one conversation the bot knows how to have, from its opening line to a handover or a close.');
+            ->emptyStateHeading(__('chatbot::panel.scenarios.table.empty_heading'))
+            ->emptyStateDescription(__('chatbot::panel.scenarios.table.empty_description'));
     }
 }

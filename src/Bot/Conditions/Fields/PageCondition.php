@@ -32,7 +32,7 @@ final class PageCondition extends ConditionField
 
     public function label(): string
     {
-        return 'Page the chat was opened from';
+        return __('chatbot::nodes.conditions.page.label');
     }
 
     public function kind(): ConditionKind
@@ -42,7 +42,7 @@ final class PageCondition extends ConditionField
 
     public function hint(): ?string
     {
-        return '/pricing';
+        return __('chatbot::nodes.conditions.page.hint');
     }
 
     public function evaluate(

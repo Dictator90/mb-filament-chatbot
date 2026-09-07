@@ -16,12 +16,20 @@
  * context read for an unchanging table is work plus a provider to forget.
  */
 
+/*
+ * The two fixed socket names are display only.
+ *
+ * An edge remembers which socket it leaves from by *position*, never by this
+ * text — see `pruneEdges` in `model.js` — which is what makes it safe to say
+ * them in the reader's language.
+ */
 const NEXT_SLOT = 'next';
 const ELSE_SLOT = 'otherwise';
 
 let types = {};
 let canvas = {};
 let defaults = {};
+let strings = {};
 
 /**
  * Stores the dictionaries the server sent. Called once, before the first paint.
@@ -35,6 +43,30 @@ export function configure(config) {
 
     canvas = config.canvas || {};
     defaults = config.defaults || {};
+    strings = config.strings || {};
+}
+
+/**
+ * One of the canvas's own labels, in the application's language.
+ *
+ * The wording arrives from the server with the rest of the configuration, for
+ * the reason recorded beside `strings()` in `src/Bot/Graph/GraphConfig.php`:
+ * this bundle is built once and committed, so a language compiled into it would
+ * be whichever one the release happened to be cut in.
+ *
+ * A key the server did not send falls back to the key itself rather than to an
+ * empty string. Both are wrong and only one of them is visible: an empty button
+ * reads as a broken canvas, while "add_branch" reads as a missing translation
+ * and sends whoever sees it to the right file.
+ */
+export function text(key, replacements) {
+    let line = strings[key] || key;
+
+    Object.entries(replacements || {}).forEach(([name, value]) => {
+        line = line.split(`:${name}`).join(String(value));
+    });
+
+    return line;
 }
 
 /**
@@ -65,7 +97,9 @@ export function basicTypes() {
  */
 export function outputLabels(type, options) {
     const described = describe(type);
-    const branches = (options || []).map((option, index) => option.label || `Branch ${index + 1}`);
+    const branches = (options || []).map(
+        (option, index) => option.label || text('branch_default', { number: index + 1 }),
+    );
 
     if (!described) {
         return [];
@@ -79,9 +113,9 @@ export function outputLabels(type, options) {
         case 'options':
             return branches;
         case 'options_else':
-            return [...branches, ELSE_SLOT];
+            return [...branches, text(ELSE_SLOT)];
         default:
-            return [NEXT_SLOT];
+            return [text(NEXT_SLOT)];
     }
 }
 

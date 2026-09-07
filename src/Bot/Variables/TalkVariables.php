@@ -38,7 +38,7 @@ final class TalkVariables implements VariableSource
 
     public function label(): string
     {
-        return 'Conversation';
+        return __('chatbot::nodes.variables.talk.label');
     }
 
     /**
@@ -46,12 +46,7 @@ final class TalkVariables implements VariableSource
      */
     public function fields(): array
     {
-        return [
-            'answer' => 'What the visitor just wrote',
-            'channel' => 'Channel',
-            'visitor' => 'Visitor name',
-            'bot' => 'Bot name',
-        ];
+        return (array) __('chatbot::nodes.variables.talk.fields');
     }
 
     /**

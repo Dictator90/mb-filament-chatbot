@@ -29,42 +29,46 @@ class RunsTable
             ->modifyQueryUsing(fn (Builder $query): Builder => $query->with(['scenario', 'conversation']))
             ->columns([
                 TextColumn::make('conversation_id')
-                    ->label('Conversation')
-                    ->state(fn (Run $record): string => $record->conversation?->title() ?? 'gone'),
+                    ->label(__('chatbot::panel.runs.conversation'))
+                    ->state(fn (Run $record): string => $record->conversation?->title()
+                        ?? __('chatbot::panel.runs.conversation_gone')),
                 /*
                  * The scenario name with the recorded slug as a fallback: a
                  * scenario can be deleted while its runs stay, and an empty
                  * cell would read as a trace belonging to nothing.
                  */
                 TextColumn::make('scenario_slug')
-                    ->label('Scenario')
+                    ->label(__('chatbot::panel.runs.scenario'))
                     ->state(fn (Run $record): string => $record->scenario?->name ?? (string) $record->scenario_slug)
-                    ->description(fn (Run $record): ?string => $record->scenario === null ? 'scenario deleted' : null)
+                    ->description(fn (Run $record): ?string => $record->scenario === null
+                        ? __('chatbot::panel.runs.scenario_deleted')
+                        : null)
                     ->searchable()
                     ->wrap(),
                 TextColumn::make('channel')
+                    ->label(__('chatbot::panel.attributes.channel'))
                     ->badge()
                     ->color('gray'),
                 TextColumn::make('outcome')
-                    ->label('How it ended')
+                    ->label(__('chatbot::panel.runs.outcome'))
                     ->badge()
                     ->placeholder('—'),
                 TextColumn::make('steps_count')
-                    ->label('Steps')
+                    ->label(__('chatbot::panel.runs.steps'))
                     ->alignEnd()
                     ->sortable(),
                 TextColumn::make('started_at')
-                    ->label('Started')
+                    ->label(__('chatbot::panel.runs.started'))
                     ->dateTime()
                     ->sortable(),
             ])
             ->defaultSort('started_at', 'desc')
             ->filters([
                 SelectFilter::make('scenario_id')
-                    ->label('Scenario')
+                    ->label(__('chatbot::panel.runs.scenario'))
                     ->options(fn (): array => Scenario::query()->orderBy('name')->pluck('name', 'id')->all()),
                 SelectFilter::make('outcome')
-                    ->label('How it ended')
+                    ->label(__('chatbot::panel.runs.outcome'))
                     ->options(RunOutcome::class),
             ])
             ->recordActions(ActionGroup::make([
@@ -72,7 +76,7 @@ class RunsTable
             ]))
             /* No bulk actions: the journal cannot be edited or deleted from here. */
             ->toolbarActions([])
-            ->emptyStateHeading('The bot has not run yet')
-            ->emptyStateDescription('A row appears the moment a scenario picks up a conversation, with every node it passed through recorded in it.');
+            ->emptyStateHeading(__('chatbot::panel.runs.table.empty_heading'))
+            ->emptyStateDescription(__('chatbot::panel.runs.table.empty_description'));
     }
 }

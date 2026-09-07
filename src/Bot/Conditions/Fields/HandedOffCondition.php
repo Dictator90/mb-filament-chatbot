@@ -30,7 +30,7 @@ final class HandedOffCondition extends ConditionField
 
     public function label(): string
     {
-        return 'Already handed to a person';
+        return __('chatbot::nodes.conditions.handed_off.label');
     }
 
     public function evaluate(

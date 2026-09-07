@@ -52,7 +52,7 @@ final class ForEachStep extends StepType
 
     public function label(): string
     {
-        return 'For each entry';
+        return __('chatbot::nodes.steps.foreach.label');
     }
 
     public function icon(): string
@@ -75,7 +75,7 @@ final class ForEachStep extends StepType
      */
     public function pairLabels(): array
     {
-        return ['each', 'done'];
+        return array_values((array) __('chatbot::nodes.steps.foreach.exits'));
     }
 
     /**
@@ -93,26 +93,26 @@ final class ForEachStep extends StepType
     {
         return [
             Field::variable('source')
-                ->label('Go through')
+                ->label(__('chatbot::nodes.steps.foreach.fields.source.label'))
                 ->required()
-                ->hint('A variable holding a list — one entry per line, as a lookup in list mode writes it.'),
+                ->hint(__('chatbot::nodes.steps.foreach.fields.source.hint')),
 
             Field::text('item')
-                ->label('Remember each entry as')
-                ->placeholder('booking_line')
+                ->label(__('chatbot::nodes.steps.foreach.fields.item.label'))
+                ->placeholder(__('chatbot::nodes.steps.foreach.fields.item.placeholder'))
                 ->required(),
 
             Field::text('index')
-                ->label('Remember its number as')
-                ->placeholder('booking_number'),
+                ->label(__('chatbot::nodes.steps.foreach.fields.index.label'))
+                ->placeholder(__('chatbot::nodes.steps.foreach.fields.index.placeholder')),
 
             Field::number('max_items')
-                ->label('Never more than')
+                ->label(__('chatbot::nodes.steps.foreach.fields.max_items.label'))
                 ->default(10)
                 ->min(1)
                 ->max(self::CEILING)
                 ->required()
-                ->hint('Entries beyond this many are not walked. A loop without a bound is a conversation that never finishes.'),
+                ->hint(__('chatbot::nodes.steps.foreach.fields.max_items.hint')),
         ];
     }
 
@@ -187,13 +187,16 @@ final class ForEachStep extends StepType
         $issues = [];
 
         if (trim((string) $step->setting('source', '')) === '') {
-            $issues[] = ['severity' => 'blocking', 'message' => 'This node does not say which list to go through.'];
+            $issues[] = [
+                'severity' => 'blocking',
+                'message' => __('chatbot::nodes.steps.foreach.issues.no_source'),
+            ];
         }
 
         if (trim((string) $step->setting('item', '')) === '') {
             $issues[] = [
                 'severity' => 'blocking',
-                'message' => 'This node does not say what to remember each entry as, so the branch below it would read nothing.',
+                'message' => __('chatbot::nodes.steps.foreach.issues.no_item'),
             ];
         }
 
@@ -203,12 +206,12 @@ final class ForEachStep extends StepType
         if ($limit < 1) {
             $issues[] = [
                 'severity' => 'blocking',
-                'message' => 'This loop has no limit. Without one the conversation walks the whole list and may never reach its next answer.',
+                'message' => __('chatbot::nodes.steps.foreach.issues.no_limit'),
             ];
         } elseif ($limit > self::CEILING) {
             $issues[] = [
                 'severity' => 'blocking',
-                'message' => 'A loop of more than '.self::CEILING.' entries holds the conversation open long past the point a visitor waits.',
+                'message' => __('chatbot::nodes.steps.foreach.issues.over_ceiling', ['ceiling' => self::CEILING]),
             ];
         }
 

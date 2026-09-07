@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace MB\FilamentChatbot\Filament\Concerns;
 
+use Illuminate\Support\Str;
 use UnitEnum;
 
 /**
@@ -44,5 +45,30 @@ trait HasChatbotNavigation
     public static function getNavigationSort(): ?int
     {
         return (int) config('chatbot.panel.navigation_sort', 0) + static::chatbotNavigationOffset();
+    }
+
+    /**
+     * A heading made from the model label by raising its first letter only.
+     *
+     * Filament title-cases these — Every Word In Capitals — which is an English
+     * rule and wrong nearly everywhere else. Russian capitalises the first word
+     * of a heading and nothing after it, so «база знаний» arrived in the menu as
+     * «База Знаний»: nothing crashed, nothing was missing, the package simply
+     * read as though translated by somebody who does not speak the language.
+     *
+     * Sentence case rather than deferring to the translation file, because the
+     * labels are deliberately stored lowercase — Filament also drops them into
+     * the middle of its own sentences ("Create bot", "No bots found"), and a
+     * file holding "Bots" would put a capital there too. One rule that is right
+     * in both languages beats two spellings of every label.
+     */
+    public static function getTitleCaseModelLabel(): string
+    {
+        return Str::ucfirst(static::getModelLabel());
+    }
+
+    public static function getTitleCasePluralModelLabel(): string
+    {
+        return Str::ucfirst(static::getPluralModelLabel());
     }
 }

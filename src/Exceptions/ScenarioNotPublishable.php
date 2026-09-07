@@ -31,10 +31,12 @@ class ScenarioNotPublishable extends RuntimeException
     public static function because(string $scenarioName, array $issues): static
     {
         $count = count($issues);
-        $noun = $count === 1 ? 'problem' : 'problems';
 
         return new static(
-            "Scenario [{$scenarioName}] cannot be published: {$count} blocking {$noun} found.",
+            trans_choice('chatbot::nodes.graph.not_publishable', $count, [
+                'scenario' => $scenarioName,
+                'count' => $count,
+            ]),
             $issues,
         );
     }

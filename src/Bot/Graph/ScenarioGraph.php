@@ -181,7 +181,11 @@ class ScenarioGraph
             $type = $this->registry->step($step->type);
 
             if ($type === null) {
-                $issues[] = $this->issue(self::BLOCKING, $step->key, "This node is of the kind [{$step->type}], which nothing in this installation provides. It is kept as it is, and a conversation reaching it stops.");
+                $issues[] = $this->issue(
+                    self::BLOCKING,
+                    $step->key,
+                    __('chatbot::nodes.graph.unknown_kind', ['kind' => $step->type]),
+                );
             }
 
             foreach ($type?->issues($step, $scenario) ?? [] as $issue) {
@@ -198,27 +202,31 @@ class ScenarioGraph
 
             foreach ($this->targets($step, $this->outputsOf($step)) as $slot => $target) {
                 if ($target !== null && ! $steps->has($target)) {
-                    $issues[] = $this->issue(self::BLOCKING, $step->key, "Exit {$slot} of this node leads to [{$target}], and the scenario has no such node.");
+                    $issues[] = $this->issue(
+                        self::BLOCKING,
+                        $step->key,
+                        __('chatbot::nodes.graph.dangling_exit', ['slot' => $slot, 'target' => $target]),
+                    );
                 }
             }
         }
 
         if ($startKeys === []) {
-            $issues[] = $this->issue(self::BLOCKING, null, 'The scenario has no start node, so nothing ever begins it.');
+            $issues[] = $this->issue(self::BLOCKING, null, __('chatbot::nodes.graph.no_start'));
         }
 
         if (count($startKeys) > 1) {
             foreach ($startKeys as $key) {
-                $issues[] = $this->issue(self::BLOCKING, $key, 'The scenario has more than one start node, and which of them runs is not something an author can decide from the canvas.');
+                $issues[] = $this->issue(self::BLOCKING, $key, __('chatbot::nodes.graph.many_starts'));
             }
         }
 
         foreach ($this->unreachableKeys($scenario) as $key) {
-            $issues[] = $this->issue(self::NOTICE, $key, 'Nothing leads to this node from the start, so no conversation reaches it yet.');
+            $issues[] = $this->issue(self::NOTICE, $key, __('chatbot::nodes.graph.unreachable'));
         }
 
         foreach ($this->unapprovedWriteKeys($steps) as $key) {
-            $issues[] = $this->issue(self::BLOCKING, $key, 'This node changes data and can be reached without a confirmation node above it. Add one on every path that leads here.');
+            $issues[] = $this->issue(self::BLOCKING, $key, __('chatbot::nodes.graph.unconfirmed_write'));
         }
 
         return $issues;

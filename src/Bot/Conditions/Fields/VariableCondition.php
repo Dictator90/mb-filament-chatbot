@@ -36,7 +36,7 @@ final class VariableCondition extends ConditionField implements ReceivesName
 
     public function label(): string
     {
-        return 'Collected variable';
+        return __('chatbot::nodes.conditions.variable.label');
     }
 
     public function kind(): ConditionKind
@@ -51,7 +51,7 @@ final class VariableCondition extends ConditionField implements ReceivesName
 
     public function hint(): ?string
     {
-        return 'What the value should be';
+        return __('chatbot::nodes.conditions.variable.hint');
     }
 
     public function withName(?string $name): static

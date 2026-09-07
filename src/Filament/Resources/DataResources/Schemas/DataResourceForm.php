@@ -22,7 +22,7 @@ class DataResourceForm
     public static function configure(Schema $schema): Schema
     {
         return $schema->columns(1)->components([
-            Section::make('Resource')->schema([
+            Section::make(__('chatbot::panel.data_resources.heading'))->schema([
                 Grid::make(2)->schema([
                     /*
                      * The key is how a scenario step names this resource. It is
@@ -32,40 +32,44 @@ class DataResourceForm
                      * nothing" rather than "the lookup is broken".
                      */
                     TextInput::make('key')
+                        ->label(__('chatbot::panel.attributes.key'))
                         ->required()
                         ->maxLength(191)
                         ->unique(ignoreRecord: true)
                         ->disabledOn('edit')
-                        ->helperText('How a scenario step names this resource. Set once.'),
+                        ->helperText(__('chatbot::panel.data_resources.key_help')),
                     TextInput::make('label')
+                        ->label(__('chatbot::panel.attributes.label'))
                         ->required()
                         ->maxLength(191),
                 ]),
 
                 TextInput::make('model')
-                    ->label('Model class')
+                    ->label(__('chatbot::panel.data_resources.model'))
                     ->required()
                     ->maxLength(255)
                     ->placeholder('App\\Models\\Order')
-                    ->helperText('The fully qualified Eloquent model this resource reads. Global scopes the application puts on it stay in force.'),
+                    ->helperText(__('chatbot::panel.data_resources.model_help')),
 
                 Textarea::make('description')
+                    ->label(__('chatbot::panel.attributes.description'))
                     ->rows(2)
                     ->maxLength(2000)
-                    ->helperText('For whoever maintains the declaration.'),
+                    ->helperText(__('chatbot::panel.data_resources.description_help')),
 
                 Textarea::make('query_guidance')
-                    ->label('Guidance for the model')
+                    ->label(__('chatbot::panel.data_resources.guidance'))
                     ->rows(3)
                     ->maxLength(2000)
-                    ->helperText('Read by the language model when it decides how to query this resource.'),
+                    ->helperText(__('chatbot::panel.data_resources.guidance_help')),
 
                 Toggle::make('is_active')
+                    ->label(__('chatbot::panel.attributes.is_active'))
                     ->default(true)
-                    ->helperText('A switched-off resource answers nothing, as if it were not declared.'),
+                    ->helperText(__('chatbot::panel.data_resources.is_active_help')),
             ]),
 
-            Section::make('What may be asked')->schema([
+            Section::make(__('chatbot::panel.data_resources.asked.heading'))->schema([
                 /*
                  * Modes are per resource rather than global. A resource that
                  * answers "how many unpaid invoices" and never lists them is a
@@ -74,16 +78,16 @@ class DataResourceForm
                  * default.
                  */
                 Select::make('modes')
-                    ->label('Query shapes')
+                    ->label(__('chatbot::panel.data_resources.asked.modes'))
                     ->multiple()
                     ->options(DataQueryMode::class)
                     ->default([DataQueryMode::List->value])
                     ->required()
-                    ->helperText('Anything not listed here is refused, not adapted.'),
+                    ->helperText(__('chatbot::panel.data_resources.asked.modes_help')),
 
                 Grid::make(2)->schema([
                     TextInput::make('default_limit')
-                        ->label('Rows when none asked for')
+                        ->label(__('chatbot::panel.data_resources.asked.default_limit'))
                         ->numeric()
                         ->minValue(1)
                         ->default(10)
@@ -96,43 +100,47 @@ class DataResourceForm
                      * truncated one as the truth.
                      */
                     TextInput::make('max_limit')
-                        ->label('Hard ceiling')
+                        ->label(__('chatbot::panel.data_resources.asked.max_limit'))
                         ->numeric()
                         ->minValue(1)
                         ->default(100)
                         ->required()
-                        ->helperText('A query asking for more is refused, never trimmed. The installation-wide ceiling still wins if it is lower.'),
+                        ->helperText(__('chatbot::panel.data_resources.asked.max_limit_help')),
                 ]),
 
                 Grid::make(2)->schema([
                     TextInput::make('default_sort.field')
-                        ->label('Default sort field')
+                        ->label(__('chatbot::panel.data_resources.asked.sort_field'))
                         ->maxLength(191)
-                        ->helperText('Must be a field marked sortable below, or it is ignored.'),
+                        ->helperText(__('chatbot::panel.data_resources.asked.sort_field_help')),
                     Select::make('default_sort.direction')
-                        ->label('Direction')
-                        ->options(['asc' => 'Ascending', 'desc' => 'Descending'])
+                        ->label(__('chatbot::panel.data_resources.asked.direction'))
+                        ->options(fn (): array => [
+                            'asc' => __('chatbot::panel.data_resources.asked.ascending'),
+                            'desc' => __('chatbot::panel.data_resources.asked.descending'),
+                        ])
                         ->default('asc'),
                 ]),
             ]),
 
-            Section::make('Fields')
-                ->description('A field listed with nothing ticked grants no access at all — every box left unticked resolves to the closed value.')
+            Section::make(__('chatbot::panel.data_resources.fields.heading'))
+                ->description(__('chatbot::panel.data_resources.fields.description'))
                 ->schema([
                     Repeater::make('fields')
                         ->hiddenLabel()
-                        ->addActionLabel('Add a field')
+                        ->addActionLabel(__('chatbot::panel.data_resources.fields.add'))
                         ->defaultItems(1)
                         ->itemLabel(fn (array $state): ?string => $state['name'] ?? null)
                         ->schema([
                             Grid::make(2)->schema([
                                 TextInput::make('name')
-                                    ->label('Column')
+                                    ->label(__('chatbot::panel.data_resources.fields.column'))
                                     ->required()
                                     ->maxLength(191),
                                 TextInput::make('label')
+                                    ->label(__('chatbot::panel.attributes.label'))
                                     ->maxLength(191)
-                                    ->helperText('Shown to the model in place of the column name.'),
+                                    ->helperText(__('chatbot::panel.data_resources.fields.label_help')),
                             ]),
 
                             /*
@@ -141,8 +149,9 @@ class DataResourceForm
                              * the moment it is ticked.
                              */
                             Checkbox::make('sensitive')
+                                ->label(__('chatbot::panel.attributes.sensitive'))
                                 ->live()
-                                ->helperText('Never leaves the application, whatever else is ticked.'),
+                                ->helperText(__('chatbot::panel.data_resources.fields.sensitive_help')),
 
                             Grid::make(4)->schema([
                                 /*
@@ -156,10 +165,10 @@ class DataResourceForm
                                  * bug in the scenario.
                                  */
                                 Checkbox::make('returned_by_default')
-                                    ->label('Returned by default')
+                                    ->label(__('chatbot::panel.data_resources.fields.returned'))
                                     ->disabled(fn (Get $get): bool => (bool) $get('sensitive'))
                                     ->helperText(fn (Get $get): ?string => $get('sensitive')
-                                        ? 'Unavailable: a sensitive field is never returned.'
+                                        ? __('chatbot::panel.data_resources.fields.returned_blocked')
                                         : null),
                                 /*
                                  * Text search is greyed out for the same
@@ -172,10 +181,10 @@ class DataResourceForm
                                  * declared.
                                  */
                                 Checkbox::make('searchable')
-                                    ->label('Text search')
+                                    ->label(__('chatbot::panel.data_resources.fields.searchable'))
                                     ->disabled(fn (Get $get): bool => (bool) $get('sensitive'))
                                     ->helperText(fn (Get $get): ?string => $get('sensitive')
-                                        ? 'Unavailable: matching text against a hidden value reveals it.'
+                                        ? __('chatbot::panel.data_resources.fields.searchable_blocked')
                                         : null),
                                 /*
                                  * Filtering on a sensitive field is greyed out
@@ -189,29 +198,30 @@ class DataResourceForm
                                  * difference that matters.
                                  */
                                 Checkbox::make('filterable')
-                                    ->label('Filterable')
+                                    ->label(__('chatbot::panel.data_resources.fields.filterable'))
                                     ->disabled(fn (Get $get): bool => (bool) $get('sensitive'))
                                     ->helperText(fn (Get $get): ?string => $get('sensitive')
-                                        ? 'Unavailable: use an access scope. Equality on a hidden field confirms its value without returning it.'
+                                        ? __('chatbot::panel.data_resources.fields.filterable_blocked')
                                         : null),
-                                Checkbox::make('sortable'),
+                                Checkbox::make('sortable')
+                                    ->label(__('chatbot::panel.attributes.sortable')),
                             ]),
                         ])
                         ->columnSpanFull(),
                 ]),
 
-            Section::make('Access scope')
-                ->description('Applied to every query of this resource, whatever the mode or the filters. The value is fetched from server state at query time and is never shown to the model or to the scenario author — a scope that can be read is a scope that can be argued with.')
+            Section::make(__('chatbot::panel.data_resources.scopes.heading'))
+                ->description(__('chatbot::panel.data_resources.scopes.description'))
                 ->schema([
                     Repeater::make('scopes')
                         ->hiddenLabel()
-                        ->addActionLabel('Add a condition')
+                        ->addActionLabel(__('chatbot::panel.data_resources.scopes.add'))
                         ->defaultItems(0)
                         ->itemLabel(fn (array $state): ?string => $state['field'] ?? null)
                         ->schema([
                             Grid::make(3)->schema([
                                 TextInput::make('field')
-                                    ->label('Column')
+                                    ->label(__('chatbot::panel.data_resources.scopes.column'))
                                     ->required()
                                     ->maxLength(191),
                                 /*
@@ -225,11 +235,13 @@ class DataResourceForm
                                  * table.
                                  */
                                 TextInput::make('source')
+                                    ->label(__('chatbot::panel.attributes.source'))
                                     ->required()
                                     ->maxLength(191)
                                     ->placeholder('actor.id')
-                                    ->helperText('actor.*, tenant.* or conversation.*. An unresolvable source refuses the query.'),
+                                    ->helperText(__('chatbot::panel.data_resources.scopes.source_help')),
                                 Select::make('operator')
+                                    ->label(__('chatbot::panel.attributes.operator'))
                                     ->options(DataFilterOperator::class)
                                     ->default(DataFilterOperator::Equals->value)
                                     ->required(),

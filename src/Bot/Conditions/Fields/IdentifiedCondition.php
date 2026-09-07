@@ -29,7 +29,7 @@ final class IdentifiedCondition extends ConditionField
 
     public function label(): string
     {
-        return 'Visitor is identified';
+        return __('chatbot::nodes.conditions.identified.label');
     }
 
     public function evaluate(

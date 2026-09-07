@@ -28,47 +28,44 @@ final class BuiltInSlots
     {
         return [
             Slot::text('name')
-                ->label('Name')
-                ->question('How should I address you?')
+                ->label(static fn (): string => __('chatbot::nodes.slots.name.label'))
+                ->question(static fn (): string => __('chatbot::nodes.slots.name.question'))
                 ->group('contact'),
 
             Slot::phone('phone')
-                ->label('Phone')
-                ->question('What is the best number to reach you on?')
+                ->label(static fn (): string => __('chatbot::nodes.slots.phone.label'))
+                ->question(static fn (): string => __('chatbot::nodes.slots.phone.question'))
                 ->group('contact'),
 
             Slot::email('email')
-                ->label('Email')
-                ->question('What is your email address?')
+                ->label(static fn (): string => __('chatbot::nodes.slots.email.label'))
+                ->question(static fn (): string => __('chatbot::nodes.slots.email.question'))
                 ->group('contact'),
 
-            Slot::choice('contact_preference', [
-                'phone' => 'A phone call',
-                'email' => 'Email',
-                'messenger' => 'A messenger',
-            ])
-                ->label('Preferred way to reach you')
-                ->question('How would you like us to get back to you?')
+            Slot::choice(
+                'contact_preference',
+                static fn (): array => (array) __('chatbot::nodes.slots.contact_preference.options'),
+            )
+                ->label(static fn (): string => __('chatbot::nodes.slots.contact_preference.label'))
+                ->question(static fn (): string => __('chatbot::nodes.slots.contact_preference.question'))
                 ->group('contact'),
 
             Slot::text('company')
-                ->label('Company')
-                ->question('Which company are you with?')
+                ->label(static fn (): string => __('chatbot::nodes.slots.company.label'))
+                ->question(static fn (): string => __('chatbot::nodes.slots.company.question'))
                 ->group('contact'),
 
             Slot::longText('request')
-                ->label('Request')
-                ->question('Tell me what you need')
+                ->label(static fn (): string => __('chatbot::nodes.slots.request.label'))
+                ->question(static fn (): string => __('chatbot::nodes.slots.request.question'))
                 ->group('request'),
 
-            Slot::choice('urgency', [
-                'now' => 'Right now',
-                'today' => 'Today',
-                'this_week' => 'This week',
-                'no_rush' => 'No rush',
-            ])
-                ->label('Urgency')
-                ->question('How soon do you need this?')
+            Slot::choice(
+                'urgency',
+                static fn (): array => (array) __('chatbot::nodes.slots.urgency.options'),
+            )
+                ->label(static fn (): string => __('chatbot::nodes.slots.urgency.label'))
+                ->question(static fn (): string => __('chatbot::nodes.slots.urgency.question'))
                 ->group('request'),
 
             /*
@@ -78,8 +75,8 @@ final class BuiltInSlots
              * industry would read as a mistake in every other one.
              */
             Slot::text('order_number')
-                ->label('Reference number')
-                ->question('Do you have a reference number for this?')
+                ->label(static fn (): string => __('chatbot::nodes.slots.order_number.label'))
+                ->question(static fn (): string => __('chatbot::nodes.slots.order_number.question'))
                 ->group('request'),
         ];
     }

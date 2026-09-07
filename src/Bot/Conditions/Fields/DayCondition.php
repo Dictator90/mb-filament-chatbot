@@ -24,7 +24,7 @@ final class DayCondition extends ConditionField
 
     public function label(): string
     {
-        return 'Day of the month';
+        return __('chatbot::nodes.conditions.day.label');
     }
 
     public function kind(): ConditionKind
@@ -34,7 +34,7 @@ final class DayCondition extends ConditionField
 
     public function hint(): ?string
     {
-        return '1 to 31';
+        return __('chatbot::nodes.conditions.day.hint');
     }
 
     public function evaluate(

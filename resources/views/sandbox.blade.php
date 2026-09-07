@@ -186,12 +186,12 @@
     <div class="chatbot-sandbox">
         <div class="chatbot-sandbox__panel">
             <div class="chatbot-sandbox__head">
-                <label for="chatbot-sandbox-bot" class="chatbot-sandbox__muted">Bot</label>
+                <label for="chatbot-sandbox-bot" class="chatbot-sandbox__muted">{{ __('chatbot::panel.sandbox.bot') }}</label>
 
                 <select id="chatbot-sandbox-bot" wire:model.live="botId">
                     @foreach ($this->bots as $bot)
                         <option value="{{ $bot->getKey() }}">
-                            {{ $bot->name }}@unless ($bot->is_active) (switched off)@endunless
+                            {{ $bot->name }}@unless ($bot->is_active) ({{ __('chatbot::panel.sandbox.switched_off') }})@endunless
                         </option>
                     @endforeach
                 </select>
@@ -199,11 +199,11 @@
                 <span class="chatbot-sandbox__spacer"></span>
 
                 @if ($this->conversationState)
-                    <span class="chatbot-sandbox__muted">The conversation is {{ $this->conversationState }}.</span>
+                    <span class="chatbot-sandbox__muted">{{ __('chatbot::panel.sandbox.state', ['state' => $this->conversationState]) }}</span>
                 @endif
 
                 <x-filament::button size="sm" color="gray" wire:click="restart">
-                    Restart
+                    {{ __('chatbot::panel.sandbox.restart') }}
                 </x-filament::button>
             </div>
 
@@ -219,8 +219,7 @@
                         the sandbox.
                     --}}
                     <p class="chatbot-sandbox__muted">
-                        Say something. The bot routes it exactly as it would a visitor's message, so this is
-                        where a scenario claiming words that belong to another one shows up.
+                        {{ __('chatbot::panel.sandbox.empty') }}
                     </p>
                 @endforelse
 
@@ -253,21 +252,21 @@
                 <input
                     type="text"
                     wire:model="said"
-                    placeholder="Say something to the bot"
+                    placeholder="{{ __('chatbot::panel.sandbox.say_placeholder') }}"
                     autocomplete="off"
                 />
 
                 <x-filament::button type="submit">
-                    Send
+                    {{ __('chatbot::panel.sandbox.send') }}
                 </x-filament::button>
             </form>
         </div>
 
         <div class="chatbot-sandbox__panel">
-            <p class="chatbot-sandbox__muted">Nodes it walked</p>
+            <p class="chatbot-sandbox__muted">{{ __('chatbot::panel.sandbox.walked') }}</p>
 
             @if (count($this->trace) === 0)
-                <p class="chatbot-sandbox__muted">Nothing has run yet.</p>
+                <p class="chatbot-sandbox__muted">{{ __('chatbot::panel.sandbox.nothing_ran') }}</p>
             @else
                 <ol class="chatbot-sandbox__trace">
                     @foreach ($this->trace as $step)

@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 
+import { text } from './types';
+
 /*
  * Talking to the bot without leaving the canvas.
  *
@@ -54,14 +56,16 @@ export default function Sandbox({ sandbox, dirty, busy, onSay, onReset }) {
         <aside className="chatbot-graph__sandbox">
             <header className="chatbot-graph__side-head">
                 <div>
-                    <p className="chatbot-graph__side-kind">Try it</p>
+                    <p className="chatbot-graph__side-kind">{text('try_it')}</p>
                     <span className="chatbot-graph__hint">
-                        {sandbox.state ? `The conversation is ${sandbox.state}.` : 'Say something to start.'}
+                        {sandbox.state
+                            ? text('conversation_state', { state: sandbox.state })
+                            : text('say_to_start')}
                     </span>
                 </div>
 
                 <button type="button" className="chatbot-graph__button" onClick={onReset} disabled={busy}>
-                    Restart
+                    {text('restart')}
                 </button>
             </header>
 
@@ -71,17 +75,12 @@ export default function Sandbox({ sandbox, dirty, busy, onSay, onReset }) {
                 conclude the change did nothing.
             */}
             {dirty ? (
-                <p className="chatbot-graph__warning is-notice">
-                    The bot answers from the saved scenario. Save to try what is on the canvas now.
-                </p>
+                <p className="chatbot-graph__warning is-notice">{text('sandbox_dirty')}</p>
             ) : null}
 
             <div className="chatbot-graph__transcript">
                 {transcript.length === 0 ? (
-                    <p className="chatbot-graph__empty">
-                        Whatever you say enters this scenario at its start node, whatever the routing would have
-                        done with it.
-                    </p>
+                    <p className="chatbot-graph__empty">{text('sandbox_intro')}</p>
                 ) : null}
 
                 {transcript.map((line, index) => (
@@ -123,17 +122,17 @@ export default function Sandbox({ sandbox, dirty, busy, onSay, onReset }) {
                 <input
                     type="text"
                     value={said}
-                    placeholder="Say something to the bot"
+                    placeholder={text('say_placeholder')}
                     onChange={(event) => setSaid(event.target.value)}
                 />
                 <button type="submit" className="chatbot-graph__button is-primary" disabled={busy}>
-                    Send
+                    {text('send')}
                 </button>
             </form>
 
             {trace.length > 0 ? (
                 <section className="chatbot-graph__section">
-                    <h3 className="chatbot-graph__section-title">Nodes it walked</h3>
+                    <h3 className="chatbot-graph__section-title">{text('walked')}</h3>
 
                     <ol className="chatbot-graph__trace">
                         {trace.map((step, index) => (

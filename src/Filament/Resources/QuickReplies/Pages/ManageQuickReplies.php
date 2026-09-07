@@ -14,7 +14,7 @@ class ManageQuickReplies extends ManageRecords
 
     public function getSubheading(): string
     {
-        return 'Personal replies are yours alone; shared ones every operator sees. Both appear beside the reply box in the chat.';
+        return __('chatbot::panel.quick_replies.subheading');
     }
 
     protected function getHeaderActions(): array

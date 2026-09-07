@@ -41,9 +41,22 @@ class ScenarioOutcomesWidget extends ChartWidget
      */
     private const int SCENARIO_LIMIT = 6;
 
-    protected ?string $heading = 'Where runs end';
+    /**
+     * Methods rather than the `$heading` and `$description` properties: a
+     * property is evaluated at class load, before a request has a locale, so a
+     * translated one would freeze the configured language into the class. The
+     * window is substituted into the sentence for the same reason it is a
+     * constant here — two spellings of "30 days" drift apart.
+     */
+    public function getHeading(): ?string
+    {
+        return __('chatbot::panel.widgets.outcomes.heading');
+    }
 
-    protected ?string $description = 'Finished scenario runs over the last 30 days, busiest scenarios first.';
+    public function getDescription(): ?string
+    {
+        return __('chatbot::panel.widgets.outcomes.description', ['days' => self::WINDOW_DAYS]);
+    }
 
     protected ?string $maxHeight = '260px';
 
@@ -108,17 +121,17 @@ class ScenarioOutcomesWidget extends ChartWidget
             'labels' => array_keys($scenarios),
             'datasets' => [
                 [
-                    'label' => 'Finished',
+                    'label' => __('chatbot::panel.widgets.outcomes.finished'),
                     'data' => array_values(array_map(static fn (array $row): int => $row['finished'], $scenarios)),
                     'backgroundColor' => 'rgb(22, 163, 74)',
                 ],
                 [
-                    'label' => 'Handed to a person',
+                    'label' => __('chatbot::panel.widgets.outcomes.handed_off'),
                     'data' => array_values(array_map(static fn (array $row): int => $row['handed_off'], $scenarios)),
                     'backgroundColor' => 'rgb(217, 119, 6)',
                 ],
                 [
-                    'label' => 'Broken',
+                    'label' => __('chatbot::panel.widgets.outcomes.broken'),
                     'data' => array_values(array_map(static fn (array $row): int => $row['broken'], $scenarios)),
                     'backgroundColor' => 'rgb(220, 38, 38)',
                 ],

@@ -39,7 +39,7 @@ final class WorkingHoursCondition extends ConditionField
 
     public function label(): string
     {
-        return 'Within working hours';
+        return __('chatbot::nodes.conditions.working_hours.label');
     }
 
     public function evaluate(

@@ -40,12 +40,12 @@ class ScenarioResource extends Resource
 
     public static function getModelLabel(): string
     {
-        return 'scenario';
+        return __('chatbot::panel.scenarios.label');
     }
 
     public static function getPluralModelLabel(): string
     {
-        return 'scenarios';
+        return __('chatbot::panel.scenarios.plural');
     }
 
     public static function form(Schema $schema): Schema

@@ -58,7 +58,7 @@ class Sandbox extends Page
 
     public static function getNavigationLabel(): string
     {
-        return 'Sandbox';
+        return __('chatbot::panel.sandbox.title');
     }
 
     /**
@@ -86,7 +86,7 @@ class Sandbox extends Page
 
     public function getTitle(): string|Htmlable
     {
-        return 'Sandbox';
+        return __('chatbot::panel.sandbox.title');
     }
 
     /**

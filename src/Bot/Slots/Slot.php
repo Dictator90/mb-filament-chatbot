@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace MB\FilamentChatbot\Bot\Slots;
 
+use Closure;
 use Illuminate\Contracts\Support\Arrayable;
 use InvalidArgumentException;
 
@@ -16,23 +17,36 @@ use InvalidArgumentException;
  * scenario writes "phone", another "tel", and the host code that reads them
  * silently finds nothing.
  *
- * The package ships only the slots any business has: a name, a way to reach
+ * The package ships only the slots any business has: a name, a way to ask
  * someone, what they want, how urgent it is. Everything else a host registers,
  * which is how a travel agency gets "destination" and a clinic gets "symptom"
  * without either of them appearing in the other's install.
+ *
+ * **Wording may be given as a closure, and the built-in slots give it that
+ * way.** A slot is registered as a finished object in a provider's boot(), and
+ * boot runs before any middleware that switches the locale for the request —
+ * so a label translated at registration freezes whatever language the
+ * configuration happened to name, and an installation that picks the visitor's
+ * language per request would show the picker in one language and everything
+ * beside it in another. Nothing about that looks broken from the code; it only
+ * shows on screen, in one panel, to whoever changed the locale. Resolving on
+ * read costs a call per lookup and cannot go stale.
  *
  * @implements Arrayable<string, mixed>
  */
 final class Slot implements Arrayable
 {
-    private string $label;
+    /** @var Closure(): string|string */
+    private Closure|string $label;
 
-    private ?string $question = null;
+    /** @var Closure(): string|string|null */
+    private Closure|string|null $question = null;
 
-    private ?string $hint = null;
+    /** @var Closure(): string|string|null */
+    private Closure|string|null $hint = null;
 
-    /** @var array<string, string> */
-    private array $options = [];
+    /** @var Closure(): array<string, string>|array<string, string> */
+    private Closure|array $options = [];
 
     private ?string $group = null;
 
@@ -93,15 +107,19 @@ final class Slot implements Arrayable
     }
 
     /**
-     * @param  array<string, string>  $options
+     * @param  Closure(): array<string, string>|array<string, string>  $options
      */
-    public static function choice(string $key, array $options): self
+    public static function choice(string $key, Closure|array $options): self
     {
         return (new self($key, SlotKind::Choice))->options($options);
     }
 
-    /** The human name of the slot, used in summaries an operator reads. */
-    public function label(string $label): self
+    /**
+     * The human name of the slot, used in summaries an operator reads.
+     *
+     * @param  Closure(): string|string  $label
+     */
+    public function label(Closure|string $label): self
     {
         $this->label = $label;
 
@@ -115,16 +133,22 @@ final class Slot implements Arrayable
      * slot is asked differently after a complaint than after a greeting. Having
      * a default at all is what lets a form ask for five things without anyone
      * writing five questions first.
+     *
+     * @param  Closure(): string|string  $question
      */
-    public function question(string $question): self
+    public function question(Closure|string $question): self
     {
         $this->question = $question;
 
         return $this;
     }
 
-    /** Shown to the author in the editor, never to the visitor. */
-    public function hint(string $hint): self
+    /**
+     * Shown to the author in the editor, never to the visitor.
+     *
+     * @param  Closure(): string|string  $hint
+     */
+    public function hint(Closure|string $hint): self
     {
         $this->hint = $hint;
 
@@ -132,9 +156,9 @@ final class Slot implements Arrayable
     }
 
     /**
-     * @param  array<string, string>  $options
+     * @param  Closure(): array<string, string>|array<string, string>  $options
      */
-    public function options(array $options): self
+    public function options(Closure|array $options): self
     {
         $this->options = $options;
 
@@ -161,12 +185,19 @@ final class Slot implements Arrayable
 
     public function name(): string
     {
-        return $this->label;
+        return (string) value($this->label);
     }
 
     public function defaultQuestion(): string
     {
-        return $this->question ?? $this->label;
+        return (string) (value($this->question) ?? $this->name());
+    }
+
+    public function editorHint(): ?string
+    {
+        $hint = value($this->hint);
+
+        return $hint === null ? null : (string) $hint;
     }
 
     /**
@@ -174,7 +205,7 @@ final class Slot implements Arrayable
      */
     public function choices(): array
     {
-        return $this->options;
+        return (array) value($this->options);
     }
 
     /**
@@ -182,13 +213,15 @@ final class Slot implements Arrayable
      */
     public function toArray(): array
     {
+        $options = $this->choices();
+
         return array_filter([
             'value' => $this->key,
-            'label' => $this->label,
+            'label' => $this->name(),
             'kind' => $this->kind->value,
-            'question' => $this->question,
-            'hint' => $this->hint,
-            'options' => $this->options ?: null,
+            'question' => value($this->question) === null ? null : $this->defaultQuestion(),
+            'hint' => $this->editorHint(),
+            'options' => $options ?: null,
             'group' => $this->group,
         ], static fn (mixed $value): bool => $value !== null);
     }

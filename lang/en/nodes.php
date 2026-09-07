@@ -190,6 +190,54 @@ return [
             ],
         ],
 
+        'ai' => [
+            'label' => 'Answer with a model',
+            'exits' => ['answered', 'could not'],
+            'fields' => [
+                'provider' => [
+                    'label' => 'Model',
+                    'default_option' => 'The one this installation is set to',
+                    'hint' => 'Leave as it is unless this particular answer needs a different provider.',
+                ],
+                'instruction' => [
+                    'label' => 'How to answer',
+                    'hint' => 'The model is told this before it sees the question. It only ever answers from the material found for the message.',
+                ],
+                'candidates' => [
+                    'label' => 'How many articles to offer the model',
+                    'hint' => 'More material means a better chance of an answer and a larger, slower, costlier request.',
+                ],
+            ],
+        ],
+
+        'ai_task' => [
+            'label' => 'Extract with a model',
+            'exits' => ['extracted', 'could not'],
+            'fields' => [
+                'instruction' => [
+                    'label' => 'What to pull out',
+                    'placeholder' => 'Read the traveller count, the departure city and the month out of the message.',
+                    'hint' => 'Describe the values, not the format. The node asks for them by the names below.',
+                ],
+                'input' => [
+                    'label' => 'Read from',
+                    'hint' => 'May contain {{variables}}. Left empty, the message the visitor just sent is used.',
+                ],
+                'fields' => [
+                    'label' => 'Values to expect',
+                    'hint' => 'One name per value, as it will be read back: adults, city, month.',
+                ],
+                'into' => [
+                    'label' => 'Remember them as',
+                    'hint' => 'One variable per value, named trip_adults, trip_city and so on.',
+                ],
+                'provider' => [
+                    'label' => 'Model',
+                    'default_option' => 'The one this installation is set to',
+                ],
+            ],
+        ],
+
         'query' => [
             'label' => 'Look up data',
             'exits' => ['found', 'nothing found'],
@@ -556,7 +604,9 @@ return [
             'label' => 'Conversation',
             'fields' => [
                 'answer' => 'What the visitor just wrote',
+                'channel' => 'Channel',
                 'visitor' => 'Visitor name',
+                'bot' => 'Bot name',
             ],
         ],
     ],
@@ -572,6 +622,23 @@ return [
      * the same files as the rest of the panel.
      */
     'canvas' => [
+        'add_step' => 'Add step',
+        'add_note' => 'Add note',
+        'auto_arrange' => 'Auto-arrange',
+        'counts' => ':blocking blocking · :notices notices',
+        'check' => 'Check',
+        'save' => 'Save',
+        'delete' => 'Delete',
+        'restart' => 'Restart',
+        'send' => 'Send',
+        'sandbox_dirty' => 'The bot answers from the saved scenario. Save to try what is on the canvas now.',
+        'sandbox_intro' => 'Whatever you say enters this scenario at its start node, whatever the routing would have done with it.',
+        'another_name' => 'Another name…',
+        'no_branches' => 'This node has no branches yet, so it has nowhere to go.',
+        'values_placeholder' => 'value, value, value',
+        'foreign_kind' => 'Nothing in this installation provides [:kind]. Its settings are kept untouched and cannot be edited here.',
+        'picker_empty' => 'Nothing installed matches that.',
+        'picker_more' => 'More (:count)',
         'unsaved' => 'unsaved',
         'required' => 'required',
         'move_up' => 'Move up',

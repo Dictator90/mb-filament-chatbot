@@ -69,7 +69,7 @@ final class AiStep extends StepType
 
     public function label(): string
     {
-        return 'Answer with a model';
+        return __('chatbot::nodes.steps.ai.label');
     }
 
     public function icon(): string
@@ -92,7 +92,7 @@ final class AiStep extends StepType
      */
     public function pairLabels(): array
     {
-        return ['answered', 'could not'];
+        return array_values((array) __('chatbot::nodes.steps.ai.exits'));
     }
 
     /**
@@ -122,23 +122,23 @@ final class AiStep extends StepType
     {
         return [
             Field::select('provider')
-                ->label('Model')
+                ->label(__('chatbot::nodes.steps.ai.fields.provider.label'))
                 ->default('')
-                ->options(fn (): array => ['' => 'The one this installation is set to'] + $this->gateways->names())
-                ->hint('Leave as it is unless this particular answer needs a different provider.'),
+                ->options(fn (): array => ['' => __('chatbot::nodes.steps.ai.fields.provider.default_option')] + $this->gateways->names())
+                ->hint(__('chatbot::nodes.steps.ai.fields.provider.hint')),
 
             Field::textarea('instruction')
-                ->label('How to answer')
+                ->label(__('chatbot::nodes.steps.ai.fields.instruction.label'))
                 ->rows(5)
                 ->default((string) config('chatbot.ai.answer.instruction', ''))
-                ->hint('The model is told this before it sees the question. It only ever answers from the material found for the message.'),
+                ->hint(__('chatbot::nodes.steps.ai.fields.instruction.hint')),
 
             Field::number('candidates')
-                ->label('How many articles to offer the model')
+                ->label(__('chatbot::nodes.steps.ai.fields.candidates.label'))
                 ->default((int) config('chatbot.ai.answer.candidates', 5))
                 ->min(1)
                 ->max(20)
-                ->hint('More material means a better chance of an answer and a larger, slower, costlier request.'),
+                ->hint(__('chatbot::nodes.steps.ai.fields.candidates.hint')),
         ];
     }
 

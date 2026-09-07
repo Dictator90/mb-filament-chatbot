@@ -53,9 +53,20 @@ class ConversationsChartWidget extends ChartWidget
         'rgb(124, 58, 237)',
     ];
 
-    protected ?string $heading = 'Conversations per day';
+    /**
+     * Methods rather than the `$heading` and `$description` properties: a
+     * property is evaluated at class load, before a request has a locale, so a
+     * translated one would freeze the configured language into the class.
+     */
+    public function getHeading(): ?string
+    {
+        return __('chatbot::panel.widgets.conversations_chart.heading');
+    }
 
-    protected ?string $description = 'Threads somebody spoke in, by the channel they arrived on.';
+    public function getDescription(): ?string
+    {
+        return __('chatbot::panel.widgets.conversations_chart.description');
+    }
 
     protected ?string $maxHeight = '260px';
 

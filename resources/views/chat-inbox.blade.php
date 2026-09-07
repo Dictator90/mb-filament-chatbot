@@ -396,40 +396,40 @@
         @class(['chatbot-inbox', 'is-open' => $record !== null])
         wire:poll.visible.10s="poll"
     >
-        <aside class="chatbot-inbox__rail" aria-label="Conversations">
+        <aside class="chatbot-inbox__rail" aria-label="{{ __('chatbot::panel.inbox.conversations') }}">
             <div class="chatbot-inbox__head">
-                <h2>Conversations</h2>
+                <h2>{{ __('chatbot::panel.inbox.conversations') }}</h2>
                 <span class="chatbot-inbox__kicker">{{ $this->listSummary() }}</span>
             </div>
 
             <div class="chatbot-inbox__controls">
-                <label class="sr-only" for="chatbot-inbox-search">Search by name, username, phone or e-mail</label>
+                <label class="sr-only" for="chatbot-inbox-search">{{ __('chatbot::panel.inbox.search_label') }}</label>
                 <input
                     id="chatbot-inbox-search"
                     type="search"
                     wire:model.live.debounce.400ms="search"
-                    placeholder="Name, username, phone"
+                    placeholder="{{ __('chatbot::panel.inbox.search_placeholder') }}"
                     autocomplete="off"
                 >
 
-                <label class="sr-only" for="chatbot-inbox-status">Status</label>
+                <label class="sr-only" for="chatbot-inbox-status">{{ __('chatbot::panel.inbox.status') }}</label>
                 <select id="chatbot-inbox-status" wire:model.live="statusFilter">
-                    <option value="open">Open</option>
-                    <option value="closed">Closed</option>
-                    <option value="all">All</option>
+                    <option value="open">{{ __('chatbot::panel.inbox.status_open') }}</option>
+                    <option value="closed">{{ __('chatbot::panel.inbox.status_closed') }}</option>
+                    <option value="all">{{ __('chatbot::panel.inbox.status_all') }}</option>
                 </select>
 
-                <label class="sr-only" for="chatbot-inbox-owner">Assignee</label>
+                <label class="sr-only" for="chatbot-inbox-owner">{{ __('chatbot::panel.inbox.assignee') }}</label>
                 <select id="chatbot-inbox-owner" wire:model.live="ownerFilter">
-                    <option value="all">Anyone</option>
-                    <option value="mine">Mine</option>
-                    <option value="unassigned">Unassigned</option>
+                    <option value="all">{{ __('chatbot::panel.inbox.assignee_any') }}</option>
+                    <option value="mine">{{ __('chatbot::panel.inbox.assignee_mine') }}</option>
+                    <option value="unassigned">{{ __('chatbot::panel.inbox.assignee_unassigned') }}</option>
                 </select>
 
                 @if (count($channels) > 1)
-                    <label class="sr-only" for="chatbot-inbox-channel">Channel</label>
+                    <label class="sr-only" for="chatbot-inbox-channel">{{ __('chatbot::panel.inbox.channel') }}</label>
                     <select id="chatbot-inbox-channel" wire:model.live="channelFilter">
-                        <option value="">All channels</option>
+                        <option value="">{{ __('chatbot::panel.inbox.channel_all') }}</option>
                         @foreach ($channels as $value => $label)
                             <option value="{{ $value }}">{{ $label }}</option>
                         @endforeach
@@ -438,7 +438,7 @@
 
                 <label class="chatbot-inbox__toggle">
                     <input type="checkbox" wire:model.live="onlyUnread">
-                    <span>Unanswered only</span>
+                    <span>{{ __('chatbot::panel.inbox.only_unread') }}</span>
                 </label>
             </div>
 
@@ -460,7 +460,7 @@
                             <span class="chatbot-inbox__row-time">
                                 {{ $this->listTimestamp($conversation->last_message_at) }}
                                 @if ($conversation->hasUnread())
-                                    <span class="chatbot-inbox__dot" title="Waiting for an answer"></span>
+                                    <span class="chatbot-inbox__dot" title="{{ __('chatbot::panel.inbox.waiting_dot') }}"></span>
                                 @endif
                             </span>
                         </span>
@@ -478,11 +478,11 @@
                         </span>
                     </button>
                 @empty
-                    <p class="chatbot-inbox__empty">Nothing here yet.</p>
+                    <p class="chatbot-inbox__empty">{{ __('chatbot::panel.inbox.nothing_yet') }}</p>
                 @endforelse
 
                 @if ($this->listIsCapped())
-                    <p class="chatbot-inbox__empty">Showing the most recent conversations — narrow the search.</p>
+                    <p class="chatbot-inbox__empty">{{ __('chatbot::panel.inbox.capped') }}</p>
                 @endif
             </div>
         </aside>
@@ -490,8 +490,8 @@
         <section class="chatbot-inbox__stage" aria-live="polite">
             @if (! $record)
                 <div class="chatbot-inbox__empty">
-                    <h3>Pick a conversation</h3>
-                    <p>Everything people have written, on every channel, is on the left.</p>
+                    <h3>{{ __('chatbot::panel.inbox.pick_heading') }}</h3>
+                    <p>{{ __('chatbot::panel.inbox.pick_description') }}</p>
                 </div>
             @else
                 <header class="chatbot-inbox__stage-head">
@@ -528,7 +528,7 @@
 
                 @if ($this->botIsAnswering())
                     <div class="chatbot-inbox__banner">
-                        <span>The bot is answering this conversation. Your first reply takes it over.</span>
+                        <span>{{ __('chatbot::panel.inbox.bot_banner') }}</span>
                     </div>
                 @endif
 
@@ -550,15 +550,15 @@
                                 </time>
                                 @unless ($message->isIncoming())
                                     @if ($message->failed_at !== null)
-                                        <span>· not delivered: {{ $message->failure_reason }}</span>
+                                        <span>· {{ __('chatbot::panel.inbox.not_delivered', ['reason' => $message->failure_reason]) }}</span>
                                     @elseif (! $message->isDelivered())
-                                        <span>· sending…</span>
+                                        <span>· {{ __('chatbot::panel.inbox.sending') }}</span>
                                     @endif
                                 @endunless
                             </p>
                         </div>
                     @empty
-                        <p class="chatbot-inbox__empty">No messages yet.</p>
+                        <p class="chatbot-inbox__empty">{{ __('chatbot::panel.inbox.no_messages') }}</p>
                     @endforelse
                 </div>
 
@@ -584,13 +584,13 @@
                             wire:submit="sendReply"
                             x-data="{ get length() { return ($wire.composerBody ?? '').length } }"
                         >
-                            <label class="sr-only" for="chatbot-inbox-body">Your reply</label>
+                            <label class="sr-only" for="chatbot-inbox-body">{{ __('chatbot::panel.inbox.your_reply') }}</label>
                             <textarea
                                 id="chatbot-inbox-body"
                                 wire:model="composerBody"
                                 rows="3"
                                 maxlength="{{ $this->maxLength() }}"
-                                placeholder="Write a reply…"
+                                placeholder="{{ __('chatbot::panel.inbox.reply_placeholder') }}"
                                 x-on:keydown.enter="if (! $event.shiftKey) { $event.preventDefault(); $wire.sendReply() }"
                             ></textarea>
 
@@ -608,7 +608,7 @@
                                         icon="heroicon-o-bolt"
                                         x-on:click="open = ! open"
                                     >
-                                        Quick replies
+                                        {{ __('chatbot::panel.inbox.quick_replies') }}
                                     </x-filament::button>
 
                                     <div
@@ -628,7 +628,7 @@
                                                 <span>{{ str($reply->body)->limit(90) }}</span>
                                             </button>
                                         @empty
-                                            <p class="chatbot-inbox__quick-pick">No stock phrases yet.</p>
+                                            <p class="chatbot-inbox__quick-pick">{{ __('chatbot::panel.inbox.no_quick_replies') }}</p>
                                         @endforelse
                                     </div>
                                 </div>
@@ -644,7 +644,7 @@
                                     wire:loading.attr="disabled"
                                     wire:target="sendReply"
                                 >
-                                    Send
+                                    {{ __('chatbot::panel.inbox.send') }}
                                 </x-filament::button>
                             </div>
 
@@ -654,7 +654,7 @@
                         </form>
                     @else
                         <p class="chatbot-inbox__closed">
-                            This conversation is closed. Reopen it to reply, or wait for the next message.
+                            {{ __('chatbot::panel.inbox.closed_notice') }}
                         </p>
                     @endif
                 </div>

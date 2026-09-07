@@ -24,10 +24,10 @@ class RunInfolist
     public static function configure(Schema $schema): Schema
     {
         return $schema->components([
-            Section::make('Run')->schema([
+            Section::make(__('chatbot::panel.runs.heading'))->schema([
                 Grid::make(4)->schema([
                     TextEntry::make('scenario_slug')
-                        ->label('Scenario')
+                        ->label(__('chatbot::panel.runs.scenario'))
                         ->state(fn (Run $record): string => $record->scenario?->name ?? (string) $record->scenario_slug)
                         /*
                          * The slug beneath the name rather than instead of it:
@@ -36,50 +36,63 @@ class RunInfolist
                          * knowing which of them answered.
                          */
                         ->helperText(fn (Run $record): string => $record->scenario === null
-                            ? $record->scenario_slug.' — scenario deleted'
+                            ? __('chatbot::panel.runs.scenario_deleted_suffix', ['slug' => $record->scenario_slug])
                             : (string) $record->scenario_slug),
-                    TextEntry::make('channel')->badge()->color('gray'),
-                    TextEntry::make('outcome')->label('How it ended')->badge()->placeholder('—'),
+                    TextEntry::make('channel')
+                        ->label(__('chatbot::panel.attributes.channel'))
+                        ->badge()
+                        ->color('gray'),
+                    TextEntry::make('outcome')
+                        ->label(__('chatbot::panel.runs.outcome'))
+                        ->badge()
+                        ->placeholder('—'),
                     TextEntry::make('conversation_id')
-                        ->label('Conversation')
-                        ->state(fn (Run $record): string => $record->conversation?->title() ?? 'gone'),
+                        ->label(__('chatbot::panel.runs.conversation'))
+                        ->state(fn (Run $record): string => $record->conversation?->title()
+                            ?? __('chatbot::panel.runs.conversation_gone')),
                 ]),
                 Grid::make(4)->schema([
-                    TextEntry::make('started_at')->label('Started')->dateTime(),
+                    TextEntry::make('started_at')->label(__('chatbot::panel.runs.started'))->dateTime(),
                     TextEntry::make('ended_at')
-                        ->label('Ended')
+                        ->label(__('chatbot::panel.runs.ended'))
                         ->dateTime()
-                        ->placeholder('still running'),
-                    TextEntry::make('steps_count')->label('Steps'),
-                    TextEntry::make('said_count')->label('Replies sent'),
+                        ->placeholder(__('chatbot::panel.runs.still_running')),
+                    TextEntry::make('steps_count')->label(__('chatbot::panel.runs.steps')),
+                    TextEntry::make('said_count')->label(__('chatbot::panel.runs.replies_sent')),
                 ]),
             ]),
 
-            Section::make('Trace')
-                ->description('One row per node the conversation genuinely passed through.')
+            Section::make(__('chatbot::panel.runs.trace.heading'))
+                ->description(__('chatbot::panel.runs.trace.description'))
                 ->schema([
                     RepeatableEntry::make('steps')
                         ->hiddenLabel()
-                        ->placeholder('No steps recorded')
+                        ->placeholder(__('chatbot::panel.runs.trace.empty'))
                         ->schema([
                             Grid::make(5)->schema([
-                                TextEntry::make('seq')->label('#'),
-                                TextEntry::make('step_key')->label('Node')->weight('medium'),
+                                TextEntry::make('seq')->label(__('chatbot::panel.attributes.number')),
+                                TextEntry::make('step_key')
+                                    ->label(__('chatbot::panel.runs.trace.node'))
+                                    ->weight('medium'),
                                 TextEntry::make('step_type')
-                                    ->label('Kind')
+                                    ->label(__('chatbot::panel.runs.trace.kind'))
                                     ->badge()
                                     ->color('gray')
                                     ->placeholder('—'),
                                 TextEntry::make('outcome')
-                                    ->label('What happened')
+                                    ->label(__('chatbot::panel.runs.trace.what_happened'))
                                     ->badge()
                                     ->color(fn (RunStep $record): string => self::outcomeColor($record)),
-                                TextEntry::make('occurred_at')->label('When')->dateTime('H:i:s'),
+                                TextEntry::make('occurred_at')
+                                    ->label(__('chatbot::panel.runs.trace.when'))
+                                    ->dateTime('H:i:s'),
                             ]),
                             Grid::make(3)->schema([
-                                TextEntry::make('said')->label('Visitor wrote')->placeholder('—'),
+                                TextEntry::make('said')
+                                    ->label(__('chatbot::panel.runs.trace.visitor_wrote'))
+                                    ->placeholder('—'),
                                 TextEntry::make('payload')
-                                    ->label('Detail')
+                                    ->label(__('chatbot::panel.runs.trace.detail'))
                                     ->state(fn (RunStep $record): string => self::details($record))
                                     ->placeholder('—'),
                                 /*
@@ -92,7 +105,7 @@ class RunInfolist
                                  * asking the parent from every row — tidiness
                                  * bought with a query per step.
                                  */
-                                TextEntry::make('scenario_slug')->label('Scenario of the step'),
+                                TextEntry::make('scenario_slug')->label(__('chatbot::panel.runs.trace.step_scenario')),
                             ]),
                         ]),
                 ]),
@@ -133,7 +146,9 @@ class RunInfolist
         foreach ((array) $step->payload as $name => $value) {
             $lines[] = $name.': '.match (true) {
                 $value === null, $value === '' => '—',
-                is_bool($value) => $value ? 'yes' : 'no',
+                is_bool($value) => $value
+                    ? __('chatbot::panel.runs.trace.yes')
+                    : __('chatbot::panel.runs.trace.no'),
                 is_array($value) => json_encode($value, JSON_UNESCAPED_UNICODE) ?: '—',
                 default => (string) $value,
             };

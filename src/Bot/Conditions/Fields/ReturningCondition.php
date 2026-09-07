@@ -37,7 +37,7 @@ final class ReturningCondition extends ConditionField
 
     public function label(): string
     {
-        return 'Has written before';
+        return __('chatbot::nodes.conditions.returning.label');
     }
 
     public function evaluate(

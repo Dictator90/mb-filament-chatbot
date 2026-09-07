@@ -72,10 +72,7 @@
 
     var settings = {
         bot: data.bot || '',
-        title: data.title || 'Chat',
         greeting: data.greeting || '',
-        placeholder: data.placeholder || 'Write a message',
-        launcher: data.launcher || 'Chat with us',
         color: data.color || '#4f46e5',
         position: data.position === 'left' ? 'left' : 'right',
         prefix: data.prefix || 'chatbot',
@@ -87,6 +84,74 @@
             email: data.authEmail || '',
         },
     };
+
+    /*
+     * The widget's own wording, in three layers, and the order matters.
+     *
+     * `data-title`, `data-placeholder` and `data-launcher` on the script tag
+     * win over everything else. They are documented, sites already rely on
+     * them, and a server label that overrode them would silently rename a
+     * widget somebody had deliberately named.
+     *
+     * Under them come the labels the API sends with every transcript, in the
+     * application's own language. They cannot be compiled into this file: it is
+     * served as one static, byte-identical asset behind a shared cache, so a
+     * language baked in here would be handed to whoever asked for it second.
+     *
+     * The English below is only what is drawn between the page loading and the
+     * first poll answering, and only where the site named nothing. Dropping it
+     * would mean a launcher with no text on it in that moment, which reads as a
+     * broken widget rather than as one still loading.
+     */
+    var labels = {
+        title: 'Chat',
+        launcher: 'Chat with us',
+        placeholder: 'Write a message',
+        send: 'Send',
+        close: 'Close',
+        failed: 'That did not send. Try again in a moment.',
+    };
+
+    var pinned = {
+        title: data.title || null,
+        launcher: data.launcher || null,
+        placeholder: data.placeholder || null,
+    };
+
+    function label(name) {
+        return pinned[name] || labels[name];
+    }
+
+    /**
+     * Takes the labels the server sent and redraws whatever they changed.
+     *
+     * Written back to the elements rather than only into `labels`, because the
+     * chrome is already on the page by the time the first poll answers: a value
+     * kept in memory and never applied would be right in the variable and
+     * English on screen.
+     */
+    function applyLabels(sent) {
+        if (!sent) {
+            return;
+        }
+
+        Object.keys(labels).forEach(function (name) {
+            if (typeof sent[name] === 'string' && sent[name] !== '') {
+                labels[name] = sent[name];
+            }
+        });
+
+        if (!el.root) {
+            return;
+        }
+
+        el.launcher.textContent = label('launcher');
+        el.panel.setAttribute('aria-label', label('title'));
+        el.title.textContent = label('title');
+        el.close.setAttribute('aria-label', labels.close);
+        el.input.placeholder = label('placeholder');
+        el.send.textContent = labels.send;
+    }
 
     var POLL_OPEN = 5000;
     var POLL_IDLE = 45000;
@@ -175,24 +240,25 @@
         el.root.setAttribute('data-position', settings.position);
         el.root.style.setProperty('--' + settings.prefix + '-accent', settings.color);
 
-        el.launcher = element('button', 'launcher', settings.launcher);
+        el.launcher = element('button', 'launcher', label('launcher'));
         el.launcher.type = 'button';
         el.launcher.setAttribute('aria-expanded', 'false');
         el.launcher.addEventListener('click', toggle);
 
         el.panel = element('div', 'panel');
         el.panel.setAttribute('role', 'dialog');
-        el.panel.setAttribute('aria-label', settings.title);
+        el.panel.setAttribute('aria-label', label('title'));
         el.panel.hidden = true;
 
         var header = element('div', 'header');
-        header.appendChild(element('span', 'title', settings.title));
+        el.title = element('span', 'title', label('title'));
+        header.appendChild(el.title);
 
-        var close = element('button', 'close', '×');
-        close.type = 'button';
-        close.setAttribute('aria-label', 'Close');
-        close.addEventListener('click', toggle);
-        header.appendChild(close);
+        el.close = element('button', 'close', '×');
+        el.close.type = 'button';
+        el.close.setAttribute('aria-label', labels.close);
+        el.close.addEventListener('click', toggle);
+        header.appendChild(el.close);
 
         el.log = element('div', 'log');
         el.log.setAttribute('role', 'log');
@@ -203,14 +269,14 @@
         var form = element('form', 'composer');
         el.input = element('input', 'input');
         el.input.type = 'text';
-        el.input.placeholder = settings.placeholder;
+        el.input.placeholder = label('placeholder');
         el.input.autocomplete = 'off';
 
-        var send = element('button', 'send', 'Send');
-        send.type = 'submit';
+        el.send = element('button', 'send', labels.send);
+        el.send.type = 'submit';
 
         form.appendChild(el.input);
-        form.appendChild(send);
+        form.appendChild(el.send);
         form.addEventListener('submit', function (event) {
             event.preventDefault();
             submit(el.input.value);
@@ -257,6 +323,8 @@
                     state.token = payload.token;
                     writeToken(payload.token);
                 }
+
+                applyLabels(payload.labels);
 
                 if ((payload.messages || []).length) {
                     dropEchoes();
@@ -382,7 +450,7 @@
             .catch(function () {
                 var failed = element('div', 'message');
                 failed.setAttribute('data-from', 'system');
-                failed.appendChild(element('div', 'bubble', 'That did not send. Try again in a moment.'));
+                failed.appendChild(element('div', 'bubble', labels.failed));
                 el.log.appendChild(failed);
             })
             .then(function () {

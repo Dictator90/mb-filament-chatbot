@@ -83,7 +83,24 @@ class GraphConfig
             'dangling' => $this->graph->danglingKeys($scenario),
             'unreachable' => $this->graph->unreachableKeys($scenario),
             'canvas' => $this->canvas(),
+            'strings' => $this->strings(),
         ];
+    }
+
+    /**
+     * The canvas chrome's own wording — its buttons, placeholders and headings.
+     *
+     * Sent rather than translated in the bundle, because the bundle cannot be
+     * translated: `dist/` is built here and committed, a host has no build step
+     * for it, and anything compiled in would be whichever language the release
+     * happened to be cut in. The payload describing every node kind is already
+     * on its way to the same screen, so these ride along and cost no request.
+     *
+     * @return array<string, string>
+     */
+    protected function strings(): array
+    {
+        return (array) __('chatbot::nodes.canvas');
     }
 
     /**

@@ -24,7 +24,7 @@ class KnowledgeEntriesTable
             ->modifyQueryUsing(fn (Builder $query): Builder => $query->with('bot'))
             ->columns([
                 TextColumn::make('topic_key')
-                    ->label('Topic')
+                    ->label(__('chatbot::panel.knowledge.table.topic'))
                     /*
                      * The question sits under the key rather than in a column
                      * of its own: the key is what an import and a scenario
@@ -37,10 +37,11 @@ class KnowledgeEntriesTable
                     ->sortable()
                     ->wrap(),
                 TextColumn::make('category')
+                    ->label(__('chatbot::panel.attributes.category'))
                     ->placeholder('—')
                     ->sortable(),
                 TextColumn::make('mode')
-                    ->label('How to answer')
+                    ->label(__('chatbot::panel.knowledge.mode'))
                     ->badge()
                     /*
                      * The colour is spelled out here because KnowledgeMode
@@ -58,25 +59,25 @@ class KnowledgeEntriesTable
                         default => 'gray',
                     }),
                 IconColumn::make('is_active')
-                    ->label('Active')
+                    ->label(__('chatbot::panel.knowledge.table.active'))
                     ->boolean(),
                 TextColumn::make('bot.name')
-                    ->label('Bot')
-                    ->placeholder('every bot')
+                    ->label(__('chatbot::panel.knowledge.bot'))
+                    ->placeholder(__('chatbot::panel.knowledge.table.bot_placeholder'))
                     ->sortable(),
             ])
             ->defaultSort('topic_key')
             ->filters([
                 SelectFilter::make('mode')
-                    ->label('How to answer')
+                    ->label(__('chatbot::panel.knowledge.mode'))
                     ->options(KnowledgeMode::class),
-                TernaryFilter::make('is_active')->label('Active'),
+                TernaryFilter::make('is_active')->label(__('chatbot::panel.knowledge.table.active')),
             ])
             ->recordActions(ActionGroup::make([
                 EditAction::make(),
                 DeleteAction::make(),
             ]))
-            ->emptyStateHeading('No topics yet')
-            ->emptyStateDescription('A topic is a question the bot meets often — with an answer, or with an instruction not to give one.');
+            ->emptyStateHeading(__('chatbot::panel.knowledge.table.empty_heading'))
+            ->emptyStateDescription(__('chatbot::panel.knowledge.table.empty_description'));
     }
 }

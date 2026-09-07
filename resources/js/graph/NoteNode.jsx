@@ -1,6 +1,8 @@
 import { memo, useEffect, useRef, useState } from 'react';
 import { useReactFlow } from '@xyflow/react';
 
+import { text } from './types';
+
 /*
  * A sticky note pinned to the canvas.
  *
@@ -65,7 +67,7 @@ function NoteNode({ id, data, selected }) {
                     }}
                 />
             ) : (
-                <p className="chatbot-graph__note-text">{data.text || 'Double click to write a note'}</p>
+                <p className="chatbot-graph__note-text">{data.text || text('note_placeholder')}</p>
             )}
         </div>
     );

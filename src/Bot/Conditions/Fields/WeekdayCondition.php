@@ -29,7 +29,7 @@ final class WeekdayCondition extends ConditionField
 
     public function label(): string
     {
-        return 'Day of the week';
+        return __('chatbot::nodes.conditions.weekday.label');
     }
 
     public function kind(): ConditionKind
@@ -42,15 +42,7 @@ final class WeekdayCondition extends ConditionField
      */
     public function options(): ?array
     {
-        return [
-            'mon' => 'Monday',
-            'tue' => 'Tuesday',
-            'wed' => 'Wednesday',
-            'thu' => 'Thursday',
-            'fri' => 'Friday',
-            'sat' => 'Saturday',
-            'sun' => 'Sunday',
-        ];
+        return (array) __('chatbot::nodes.conditions.weekday.options');
     }
 
     public function evaluate(

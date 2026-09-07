@@ -37,12 +37,12 @@ class QuickReplyResource extends Resource
 
     public static function getModelLabel(): string
     {
-        return 'quick reply';
+        return __('chatbot::panel.quick_replies.label');
     }
 
     public static function getPluralModelLabel(): string
     {
-        return 'quick replies';
+        return __('chatbot::panel.quick_replies.plural');
     }
 
     public static function form(Schema $schema): Schema

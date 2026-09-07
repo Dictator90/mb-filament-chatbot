@@ -50,7 +50,11 @@ class SiteWidgetController
         $conversation = $this->conversation($request);
 
         if ($conversation === null) {
-            return response()->json(['messages' => [], 'choices' => []]);
+            return response()->json([
+                'messages' => [],
+                'choices' => [],
+                'labels' => $this->labels(),
+            ]);
         }
 
         $after = max(0, (int) $request->query('after', 0));
@@ -72,7 +76,38 @@ class SiteWidgetController
                 'at' => $message->created_at?->toIso8601String(),
             ])->all(),
             'choices' => $this->choices($conversation),
+            'labels' => $this->labels(),
         ]);
+    }
+
+    /**
+     * The wording of the widget's own chrome, in this application's language.
+     *
+     * Sent with the transcript rather than baked into `widget.js`, and that is
+     * forced rather than preferred. The script is one static file behind an
+     * ETag and a shared cache, byte-identical for every site and every visitor;
+     * a locale compiled into it would be handed to the second caller in
+     * whichever language the first one happened to warm the cache with. This
+     * endpoint already answers per request, so the labels cost nothing extra
+     * and are always the language the application is currently speaking.
+     *
+     * Returned on the empty branch too, because that is the branch a fresh
+     * visitor takes: the widget polls before anybody has typed, and labels
+     * withheld until a conversation exists would leave the launcher in the
+     * script's own fallback wording until the first message was sent.
+     *
+     * @return array<string, string>
+     */
+    private function labels(): array
+    {
+        return [
+            'title' => __('chatbot::widget.title'),
+            'launcher' => __('chatbot::widget.launcher'),
+            'placeholder' => __('chatbot::widget.placeholder'),
+            'send' => __('chatbot::widget.send'),
+            'close' => __('chatbot::widget.close'),
+            'failed' => __('chatbot::widget.failed'),
+        ];
     }
 
     /**

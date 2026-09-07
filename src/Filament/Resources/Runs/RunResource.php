@@ -45,12 +45,12 @@ class RunResource extends Resource
 
     public static function getModelLabel(): string
     {
-        return 'run';
+        return __('chatbot::panel.runs.label');
     }
 
     public static function getPluralModelLabel(): string
     {
-        return 'bot runs';
+        return __('chatbot::panel.runs.plural');
     }
 
     public static function canCreate(): bool

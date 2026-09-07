@@ -46,9 +46,15 @@ class BotForm
             Tabs::make('bot')
                 ->columnSpanFull()
                 ->tabs([
-                    Tab::make('Basics')->schema(self::basics()),
-                    Tab::make('AI')->schema(self::ai()),
-                    Tab::make('Widget')->schema(self::widget()),
+                    Tab::make('basics')
+                        ->label(__('chatbot::panel.bots.tabs.basics'))
+                        ->schema(self::basics()),
+                    Tab::make('ai')
+                        ->label(__('chatbot::panel.bots.tabs.ai'))
+                        ->schema(self::ai()),
+                    Tab::make('widget')
+                        ->label(__('chatbot::panel.bots.tabs.widget'))
+                        ->schema(self::widget()),
                 ]),
         ]);
     }
@@ -59,9 +65,10 @@ class BotForm
     protected static function basics(): array
     {
         return [
-            Section::make('Identity')->schema([
+            Section::make(__('chatbot::panel.bots.identity.heading'))->schema([
                 Grid::make(2)->schema([
                     TextInput::make('name')
+                        ->label(__('chatbot::panel.attributes.name'))
                         ->required()
                         ->maxLength(191)
                         ->live(onBlur: true)
@@ -84,35 +91,42 @@ class BotForm
                      * answers to that name, and the chat simply stops opening.
                      */
                     TextInput::make('slug')
+                        ->label(__('chatbot::panel.attributes.slug'))
                         ->required()
                         ->maxLength(191)
                         ->unique(ignoreRecord: true)
                         ->live(onBlur: true)
-                        ->helperText('Used by embed codes and by knowledge topics. Changing it silently detaches an embedded widget.'),
+                        ->helperText(__('chatbot::panel.bots.identity.slug')),
                 ]),
                 Toggle::make('is_active')
+                    ->label(__('chatbot::panel.attributes.is_active'))
                     ->default(true)
-                    ->helperText('A switched-off bot never answers; conversations go straight to a person.'),
+                    ->helperText(__('chatbot::panel.bots.identity.is_active')),
             ]),
 
-            Section::make('Voice')->schema([
+            Section::make(__('chatbot::panel.bots.voice.heading'))->schema([
                 Textarea::make('greeting')
+                    ->label(__('chatbot::panel.attributes.greeting'))
                     ->rows(3)
                     ->maxLength(2000)
-                    ->helperText('The first thing a visitor reads. Sent before any scenario runs.'),
+                    ->helperText(__('chatbot::panel.bots.voice.greeting')),
                 Textarea::make('prompt')
-                    ->label('System prompt')
+                    ->label(__('chatbot::panel.bots.voice.prompt'))
                     ->rows(6)
                     ->maxLength(8000)
-                    ->helperText('Given to the model on every turn. Ignored while the AI driver is "null".'),
+                    ->helperText(__('chatbot::panel.bots.voice.prompt_help')),
             ]),
 
-            Section::make('Working hours')
-                ->description('Both left empty means the bot answers around the clock. A window whose end is before its start crosses midnight.')
+            Section::make(__('chatbot::panel.bots.hours.heading'))
+                ->description(__('chatbot::panel.bots.hours.description'))
                 ->schema([
                     Grid::make(2)->schema([
-                        TimePicker::make('hours_from')->label('From')->seconds(false),
-                        TimePicker::make('hours_till')->label('Until')->seconds(false),
+                        TimePicker::make('hours_from')
+                            ->label(__('chatbot::panel.bots.hours.from'))
+                            ->seconds(false),
+                        TimePicker::make('hours_till')
+                            ->label(__('chatbot::panel.bots.hours.until'))
+                            ->seconds(false),
                     ]),
                 ]),
         ];
@@ -124,8 +138,8 @@ class BotForm
     protected static function ai(): array
     {
         return [
-            Section::make('Model')
-                ->description('Left empty, both fall back to the installation defaults, so rotating the whole installation to another provider stays a one-setting change.')
+            Section::make(__('chatbot::panel.bots.model.heading'))
+                ->description(__('chatbot::panel.bots.model.description'))
                 ->schema([
                     Grid::make(2)->schema([
                         /*
@@ -145,11 +159,13 @@ class BotForm
                          * from the only screen that picks one.
                          */
                         Select::make('ai_driver')
-                            ->label('AI driver')
+                            ->label(__('chatbot::panel.bots.model.driver'))
                             ->options(fn (): array => app(AiGatewayFactory::class)->names())
-                            ->placeholder('The one this installation is set to')
+                            ->placeholder(__('chatbot::panel.bots.model.driver_placeholder'))
                             ->live()
-                            ->helperText(fn (): string => 'Installation default: '.self::defaultDriverName().'.'),
+                            ->helperText(fn (): string => __('chatbot::panel.bots.model.driver_help', [
+                                'driver' => self::defaultDriverName(),
+                            ])),
                         /*
                          * Left as free text on purpose: model names are the one
                          * thing no registry here knows. They are a provider's
@@ -158,10 +174,10 @@ class BotForm
                          * the week after it is written.
                          */
                         TextInput::make('ai_model')
-                            ->label('AI model')
+                            ->label(__('chatbot::panel.bots.model.model'))
                             ->maxLength(191)
-                            ->placeholder('installation default')
-                            ->helperText('Whatever the chosen provider calls it, spelled its way — "gpt-4o-mini", "claude-sonnet-4". Empty uses the installation default.'),
+                            ->placeholder(__('chatbot::panel.bots.model.model_placeholder'))
+                            ->helperText(__('chatbot::panel.bots.model.model_help')),
                     ]),
 
                     /*
@@ -174,27 +190,25 @@ class BotForm
                      * budget and getting no model — three fields that all look
                      * accepted, and a bot that never uses any of them.
                      */
-                    Text::make(fn (): string => 'No model answers for this bot: the driver is "null". '
-                        .'Scenarios and the knowledge base still work, but the system prompt, the model name and the budgets below are not read by anything. '
-                        .'Pick a driver above, or set CHATBOT_AI_DRIVER for the whole installation.')
+                    Text::make(fn (): string => __('chatbot::panel.bots.model.disabled_notice'))
                         ->key('ai_disabled_notice')
                         ->color('warning')
                         ->visible(fn (Get $get): bool => self::effectiveDriver($get('ai_driver')) === 'null'),
                 ]),
 
-            Section::make('Monthly budget')
-                ->description('Reserved before a request to the model leaves, so two conversations arriving together cannot both spend the same remaining balance. Empty means no ceiling.')
+            Section::make(__('chatbot::panel.bots.budget.heading'))
+                ->description(__('chatbot::panel.bots.budget.description'))
                 ->schema([
                     Grid::make(2)->schema([
                         TextInput::make('monthly_token_budget')
-                            ->label('Tokens per month')
+                            ->label(__('chatbot::panel.bots.budget.tokens'))
                             ->numeric()
                             ->minValue(0),
                         TextInput::make('monthly_cost_budget')
-                            ->label('Cost per month')
+                            ->label(__('chatbot::panel.bots.budget.cost'))
                             ->numeric()
                             ->minValue(0)
-                            ->helperText('In millionths of a minor unit — the same scale the runtime bills in.'),
+                            ->helperText(__('chatbot::panel.bots.budget.cost_help')),
                     ]),
                 ]),
         ];
@@ -206,11 +220,11 @@ class BotForm
     protected static function widget(): array
     {
         return [
-            Section::make('Site widget')->schema([
+            Section::make(__('chatbot::panel.bots.widget.heading'))->schema([
                 Toggle::make('is_public_widget')
-                    ->label('Answers the public widget')
+                    ->label(__('chatbot::panel.bots.widget.is_public'))
                     ->live()
-                    ->helperText('The bot an embed code reaches when it names none.'),
+                    ->helperText(__('chatbot::panel.bots.widget.is_public_help')),
                 /*
                  * Origins are listed rather than free text because the list is
                  * what an empty value means here: no origin at all, not every
@@ -233,9 +247,10 @@ class BotForm
                  * list that fails closed is the installation's own.
                  */
                 TagsInput::make('allowed_origins')
+                    ->label(__('chatbot::panel.attributes.allowed_origins'))
                     ->placeholder('https://example.com')
                     ->live(onBlur: true)
-                    ->helperText('Narrows this bot to some of the allowed sites. Empty means every site the installation allows.'),
+                    ->helperText(__('chatbot::panel.bots.widget.origins_help')),
 
                 /*
                  * The embed code, with this installation's own URL and this
@@ -253,14 +268,14 @@ class BotForm
                  * on somebody else's page: it installs cleanly, looks right in
                  * the source, and fails where neither of us is watching.
                  */
-                Section::make('Embed code')->schema([
+                Section::make(__('chatbot::panel.bots.widget.embed_heading'))->schema([
                     Text::make(fn (Get $get): string => WidgetEmbed::snippet((string) $get('slug')))
                         ->key('widget_snippet')
                         ->fontFamily(FontFamily::Mono)
                         ->extraAttributes(['style' => 'white-space: pre-wrap; word-break: break-all;'])
                         ->copyable()
-                        ->copyMessage('Embed code copied')
-                        ->tooltip('Click to copy')
+                        ->copyMessage(__('chatbot::panel.bots.widget.copied'))
+                        ->tooltip(__('chatbot::panel.bots.widget.copy_tooltip'))
                         ->visible(fn (Get $get): bool => self::isEmbeddable($get)),
 
                     /*
@@ -275,9 +290,11 @@ class BotForm
                     Text::make(function (Get $get): string {
                         $origins = WidgetEmbed::allowedOrigins($get('allowed_origins') ?? []);
 
-                        return 'Paste it just before the closing </body> tag of every page the chat should appear on. '
-                            .'It answers only on the sites below, matched exactly on scheme, host and port: '
-                            .($origins === [] ? 'none — the sites this bot names are not among the allowed origins.' : implode(', ', $origins).'.');
+                        return __('chatbot::panel.bots.widget.snippet_hint', [
+                            'origins' => $origins === []
+                                ? __('chatbot::panel.bots.widget.snippet_hint_none')
+                                : implode(', ', $origins).'.',
+                        ]);
                     })
                         ->key('widget_snippet_hint')
                         ->visible(fn (Get $get): bool => self::isEmbeddable($get)),
@@ -329,20 +346,17 @@ class BotForm
     protected static function embedObstacle(Get $get): string
     {
         if (! $get('is_public_widget')) {
-            return 'This bot does not answer the public widget, so there is nothing to embed. '
-                .'Switch it on above and the code to paste appears here.';
+            return __('chatbot::panel.bots.widget.blocked_not_public');
         }
 
         if (blank($get('slug'))) {
-            return 'Give the bot a slug first: the embed code is how a site names which bot answers, and it names it by slug.';
+            return __('chatbot::panel.bots.widget.blocked_no_slug');
         }
 
         if (! config('chatbot.widget.enabled', true)) {
-            return 'The site widget is switched off for this whole installation (chatbot.widget.enabled), '
-                .'so every widget request is refused whatever is pasted onto a page.';
+            return __('chatbot::panel.bots.widget.blocked_disabled');
         }
 
-        return 'No site may embed the widget yet: CHATBOT_WIDGET_ORIGINS is empty, and an empty list blocks every origin '
-            .'rather than allowing all of them. List the sites that should carry the chat — scheme, host and port, comma separated — and the code appears here.';
+        return __('chatbot::panel.bots.widget.blocked_no_origins');
     }
 }

@@ -28,20 +28,23 @@ class QuickReplyForm
         return $schema->columns(1)->components([
             Grid::make(2)->schema([
                 TextInput::make('title')
+                    ->label(__('chatbot::panel.attributes.title'))
                     ->required()
                     ->maxLength(191)
-                    ->helperText('What the operator sees in the picker. Never shown to the visitor.'),
+                    ->helperText(__('chatbot::panel.quick_replies.title_help')),
                 TextInput::make('shortcut')
+                    ->label(__('chatbot::panel.attributes.shortcut'))
                     ->maxLength(64)
                     ->prefix('/')
-                    ->helperText('Type it in the reply box and press Tab.'),
+                    ->helperText(__('chatbot::panel.quick_replies.shortcut_help')),
             ]),
 
             Textarea::make('body')
+                ->label(__('chatbot::panel.attributes.body'))
                 ->required()
                 ->rows(5)
                 ->maxLength((int) config('chatbot.chat.max_message_length', 4000))
-                ->helperText('Dropped into the reply box, where it can still be edited before sending.'),
+                ->helperText(__('chatbot::panel.quick_replies.body_help')),
 
             Grid::make(2)->schema([
                 /*
@@ -55,10 +58,10 @@ class QuickReplyForm
                  * something that does not exist.
                  */
                 Select::make('user_id')
-                    ->label('Whose')
+                    ->label(__('chatbot::panel.quick_replies.owner'))
                     ->options(fn (): array => [
-                        (string) Filament::auth()->id() => 'Mine — only I see it',
-                        self::SHARED => 'Shared with everyone',
+                        (string) Filament::auth()->id() => __('chatbot::panel.quick_replies.owner_mine'),
+                        self::SHARED => __('chatbot::panel.quick_replies.owner_shared'),
                     ])
                     ->default(fn (): string => (string) Filament::auth()->id())
                     ->selectablePlaceholder(false)
@@ -70,14 +73,14 @@ class QuickReplyForm
                         ? null
                         : (int) $state),
                 TextInput::make('sort')
-                    ->label('Order')
+                    ->label(__('chatbot::panel.quick_replies.order'))
                     ->numeric()
                     ->default(0)
                     ->required(),
             ]),
 
             Toggle::make('is_active')
-                ->label('Offered in the chat')
+                ->label(__('chatbot::panel.quick_replies.offered'))
                 ->default(true),
         ]);
     }

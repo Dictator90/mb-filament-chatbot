@@ -35,7 +35,7 @@ final class ChannelCondition extends ConditionField
 
     public function label(): string
     {
-        return 'Channel';
+        return __('chatbot::nodes.conditions.channel.label');
     }
 
     public function kind(): ConditionKind

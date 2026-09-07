@@ -30,7 +30,7 @@ final class TimeCondition extends ConditionField
 
     public function label(): string
     {
-        return 'Time of day';
+        return __('chatbot::nodes.conditions.time.label');
     }
 
     public function kind(): ConditionKind
@@ -40,7 +40,7 @@ final class TimeCondition extends ConditionField
 
     public function hint(): ?string
     {
-        return '18:00';
+        return __('chatbot::nodes.conditions.time.hint');
     }
 
     public function evaluate(

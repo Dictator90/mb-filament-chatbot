@@ -22,12 +22,12 @@ class KnowledgeEntryForm
         return $schema->columns(1)->components([
             Grid::make(3)->schema([
                 Select::make('bot_id')
-                    ->label('Bot')
+                    ->label(__('chatbot::panel.knowledge.bot'))
                     ->relationship('bot', 'name')
                     ->searchable()
                     ->preload()
-                    ->placeholder('Every bot')
-                    ->helperText('Left empty, the topic is shared by every bot.'),
+                    ->placeholder(__('chatbot::panel.knowledge.bot_placeholder'))
+                    ->helperText(__('chatbot::panel.knowledge.bot_help')),
                 /*
                  * The key an import recognises a topic by. Editing it after
                  * the fact detaches the row from its source: the next import
@@ -35,32 +35,35 @@ class KnowledgeEntryForm
                  * orphan nobody updates again.
                  */
                 TextInput::make('topic_key')
-                    ->label('Topic key')
+                    ->label(__('chatbot::panel.knowledge.topic_key'))
                     ->required()
                     ->maxLength(191)
                     ->disabledOn('edit')
-                    ->helperText('Set once. An import recognises an existing topic by it.'),
+                    ->helperText(__('chatbot::panel.knowledge.topic_key_help')),
                 TextInput::make('category')
+                    ->label(__('chatbot::panel.attributes.category'))
                     ->maxLength(191),
             ]),
 
             Textarea::make('question')
+                ->label(__('chatbot::panel.attributes.question'))
                 ->required()
                 ->rows(2)
                 ->maxLength(2000)
-                ->helperText('The topic in the words of a heading: "Opening hours".'),
+                ->helperText(__('chatbot::panel.knowledge.question_help')),
 
             Grid::make(2)->schema([
                 Select::make('mode')
-                    ->label('How to answer')
+                    ->label(__('chatbot::panel.knowledge.mode'))
                     ->options(KnowledgeMode::class)
                     ->default(KnowledgeMode::Answer)
                     ->selectablePlaceholder(false)
                     ->required()
                     ->live(),
                 TextInput::make('priority')
+                    ->label(__('chatbot::panel.attributes.priority'))
                     ->maxLength(32)
-                    ->helperText('How urgently a person is needed when this topic hands over.'),
+                    ->helperText(__('chatbot::panel.knowledge.priority_help')),
             ]),
 
             /*
@@ -77,11 +80,12 @@ class KnowledgeEntryForm
              * what it is, a refusal.
              */
             Textarea::make('answer')
+                ->label(__('chatbot::panel.attributes.answer'))
                 ->rows(5)
                 ->maxLength(8000)
                 ->visible(fn (Get $get): bool => self::modeOf($get) !== KnowledgeMode::Handoff)
                 ->required(fn (Get $get): bool => self::modeOf($get) === KnowledgeMode::Answer)
-                ->helperText('Sent to the visitor word for word.'),
+                ->helperText(__('chatbot::panel.knowledge.answer_help')),
 
             /*
              * Shown, and required, only for the mode that needs it: a topic
@@ -90,18 +94,19 @@ class KnowledgeEntryForm
              * that ignored them.
              */
             Select::make('scenario_slug')
-                ->label('Scenario to start')
+                ->label(__('chatbot::panel.knowledge.scenario'))
                 ->options(fn (): array => Scenario::query()->orderBy('name')->pluck('name', 'slug')->all())
                 ->searchable()
                 ->visible(fn (Get $get): bool => self::modeOf($get) === KnowledgeMode::Scenario)
                 ->required(fn (Get $get): bool => self::modeOf($get) === KnowledgeMode::Scenario)
-                ->helperText('A switched-off scenario is not a target — the conversation goes to a person instead.'),
+                ->helperText(__('chatbot::panel.knowledge.scenario_help')),
 
             Repeater::make('keywords')
+                ->label(__('chatbot::panel.attributes.keywords'))
                 ->simple(TextInput::make('value')->required())
-                ->addActionLabel('Add a keyword')
+                ->addActionLabel(__('chatbot::panel.knowledge.add_keyword'))
                 ->defaultItems(0)
-                ->helperText('Words that pick this topic out of a message.'),
+                ->helperText(__('chatbot::panel.knowledge.keywords_help')),
 
             /*
              * Phrasings are not more keywords, and the two are separated
@@ -111,15 +116,16 @@ class KnowledgeEntryForm
              * letter, and no amount of matching will connect them.
              */
             Repeater::make('variants')
-                ->label('How visitors phrase it')
+                ->label(__('chatbot::panel.knowledge.variants'))
                 ->simple(TextInput::make('value')->required())
-                ->addActionLabel('Add a phrasing')
+                ->addActionLabel(__('chatbot::panel.knowledge.add_variant'))
                 ->defaultItems(0)
-                ->helperText('The same question as people actually write it. Each counts as a second question for the topic.'),
+                ->helperText(__('chatbot::panel.knowledge.variants_help')),
 
             Toggle::make('is_active')
+                ->label(__('chatbot::panel.attributes.is_active'))
                 ->default(true)
-                ->helperText('A switched-off topic is never offered to the bot, as if it were not in the base at all.'),
+                ->helperText(__('chatbot::panel.knowledge.is_active_help')),
         ]);
     }
 

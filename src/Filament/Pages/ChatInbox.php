@@ -100,7 +100,7 @@ class ChatInbox extends Page
 
     public static function getNavigationLabel(): string
     {
-        return 'Chat';
+        return __('chatbot::panel.inbox.title');
     }
 
     /**
@@ -127,7 +127,7 @@ class ChatInbox extends Page
 
     public function getTitle(): string|Htmlable
     {
-        return 'Chat';
+        return __('chatbot::panel.inbox.title');
     }
 
     /**
@@ -216,7 +216,7 @@ class ChatInbox extends Page
 
     public static function getNavigationBadgeTooltip(): ?string
     {
-        return 'Conversations waiting for an answer';
+        return __('chatbot::panel.inbox.badge_tooltip');
     }
 
     public function mount(): void
@@ -445,13 +445,13 @@ class ChatInbox extends Page
         $limit = (int) config('chatbot.chat.max_message_length', 4000);
 
         if ($body === '') {
-            $this->addError('composerBody', 'Write something before sending.');
+            $this->addError('composerBody', __('chatbot::panel.inbox.empty_body'));
 
             return;
         }
 
         if (mb_strlen($body) > $limit) {
-            $this->addError('composerBody', "The channel will not accept more than {$limit} characters.");
+            $this->addError('composerBody', __('chatbot::panel.inbox.too_long', ['limit' => $limit]));
 
             return;
         }
@@ -459,7 +459,7 @@ class ChatInbox extends Page
         try {
             app(OperatorReply::class)->send($conversation, $body, Filament::auth()->user());
         } catch (InvalidArgumentException) {
-            $this->addError('composerBody', 'Write something before sending.');
+            $this->addError('composerBody', __('chatbot::panel.inbox.empty_body'));
 
             return;
         }
@@ -505,7 +505,9 @@ class ChatInbox extends Page
     public function assignmentAction(): Action
     {
         return Action::make('assignment')
-            ->label(fn (): string => $this->isMine() ? 'Release' : 'Take it')
+            ->label(fn (): string => $this->isMine()
+                ? __('chatbot::panel.inbox.release')
+                : __('chatbot::panel.inbox.take'))
             ->icon(fn (): Heroicon => $this->isMine() ? Heroicon::OutlinedArrowUturnLeft : Heroicon::OutlinedHandRaised)
             ->color('gray')
             ->authorize(fn (): bool => $this->canUpdateActive())
@@ -533,7 +535,9 @@ class ChatInbox extends Page
     public function statusAction(): Action
     {
         return Action::make('status')
-            ->label(fn (): string => $this->isOpen() ? 'Close' : 'Reopen')
+            ->label(fn (): string => $this->isOpen()
+                ? __('chatbot::panel.inbox.close')
+                : __('chatbot::panel.inbox.reopen'))
             ->icon(fn (): Heroicon => $this->isOpen() ? Heroicon::OutlinedArchiveBox : Heroicon::OutlinedArchiveBoxArrowDown)
             ->color('gray')
             ->authorize(fn (): bool => $this->canUpdateActive())
@@ -567,11 +571,11 @@ class ChatInbox extends Page
     public function returnToBotAction(): Action
     {
         return Action::make('returnToBot')
-            ->label('Give back to the bot')
+            ->label(__('chatbot::panel.inbox.return_to_bot'))
             ->icon(Heroicon::OutlinedCpuChip)
             ->color('gray')
             ->requiresConfirmation()
-            ->modalDescription('The bot will answer this person again from its scenarios.')
+            ->modalDescription(__('chatbot::panel.inbox.return_to_bot_description'))
             ->authorize(fn (): bool => $this->canUpdateActive())
             ->action(function (): void {
                 $conversation = $this->activeConversation;
@@ -634,9 +638,9 @@ class ChatInbox extends Page
     public function ownerLabel(Conversation $conversation): ?string
     {
         return match (true) {
-            $conversation->assigned_to_id === null => 'free',
-            $conversation->assigned_to_id === Filament::auth()->id() => 'yours',
-            default => 'taken',
+            $conversation->assigned_to_id === null => __('chatbot::panel.inbox.owner_free'),
+            $conversation->assigned_to_id === Filament::auth()->id() => __('chatbot::panel.inbox.owner_mine'),
+            default => __('chatbot::panel.inbox.owner_taken'),
         };
     }
 
@@ -658,9 +662,9 @@ class ChatInbox extends Page
         $excerpt = str((string) $message->body)->squish()->limit(70)->value();
 
         return match ($message->author) {
-            MessageAuthor::Operator => 'You: '.$excerpt,
-            MessageAuthor::Bot => 'Bot: '.$excerpt,
-            MessageAuthor::System => 'System: '.$excerpt,
+            MessageAuthor::Operator => __('chatbot::panel.inbox.preview_you', ['excerpt' => $excerpt]),
+            MessageAuthor::Bot => __('chatbot::panel.inbox.preview_bot', ['excerpt' => $excerpt]),
+            MessageAuthor::System => __('chatbot::panel.inbox.preview_system', ['excerpt' => $excerpt]),
             default => $excerpt,
         };
     }
@@ -677,9 +681,9 @@ class ChatInbox extends Page
     {
         return match ($message->author) {
             MessageAuthor::Visitor => $conversation->title(),
-            MessageAuthor::Bot => $conversation->bot?->name ?? 'Bot',
-            MessageAuthor::Operator => 'Operator',
-            default => 'System',
+            MessageAuthor::Bot => $conversation->bot?->name ?? __('chatbot::panel.inbox.author_bot'),
+            MessageAuthor::Operator => __('chatbot::panel.inbox.author_operator'),
+            default => __('chatbot::panel.inbox.author_system'),
         };
     }
 
@@ -703,7 +707,7 @@ class ChatInbox extends Page
 
         return match (true) {
             $at->isToday() => $at->format('H:i'),
-            $at->isYesterday() => 'yesterday',
+            $at->isYesterday() => __('chatbot::panel.inbox.yesterday'),
             $at->isCurrentYear() => $at->format('d M'),
             default => $at->format('d M Y'),
         };
@@ -739,11 +743,11 @@ class ChatInbox extends Page
             ->filter(fn (Conversation $conversation): bool => $conversation->hasUnread())
             ->count();
 
-        $line = trans_choice('{0}no conversations|{1}:count conversation|[2,*]:count conversations', $total, [
-            'count' => $total,
-        ]);
+        $line = trans_choice('chatbot::panel.inbox.summary', $total, ['count' => $total]);
 
-        return $unread === 0 ? $line : $line.' · '.$unread.' waiting';
+        return $unread === 0
+            ? $line
+            : $line.' · '.__('chatbot::panel.inbox.summary_waiting', ['count' => $unread]);
     }
 
     private function canUpdateActive(): bool

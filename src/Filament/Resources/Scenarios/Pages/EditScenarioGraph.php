@@ -61,7 +61,7 @@ class EditScenarioGraph extends Page
     public function getBreadcrumbs(): array
     {
         return [
-            ScenarioResource::getUrl('index') => 'Scenarios',
+            ScenarioResource::getUrl('index') => __('chatbot::panel.scenarios.graph.breadcrumb'),
             $this->scenario()->name,
         ];
     }
@@ -106,7 +106,7 @@ class EditScenarioGraph extends Page
         $issues = app(ScenarioGraph::class)->issues($fresh);
 
         Notification::make()
-            ->title('Scenario saved')
+            ->title(__('chatbot::panel.scenarios.graph.saved'))
             ->success()
             ->send();
 
@@ -249,11 +249,11 @@ class EditScenarioGraph extends Page
     protected function publishAction(): Action
     {
         return Action::make('publish')
-            ->label('Publish')
+            ->label(__('chatbot::panel.scenarios.graph.publish'))
             ->icon('heroicon-o-rocket-launch')
             ->requiresConfirmation()
-            ->modalHeading('Publish this scenario')
-            ->modalDescription('The live version is what conversations already in progress keep using. New conversations start on the version you publish.')
+            ->modalHeading(__('chatbot::panel.scenarios.graph.publish_heading'))
+            ->modalDescription(__('chatbot::panel.scenarios.graph.publish_description'))
             ->action(function (): void {
                 try {
                     $version = app(ScenarioVersions::class)->publish(
@@ -269,7 +269,7 @@ class EditScenarioGraph extends Page
                      * already marked — so the message points there.
                      */
                     Notification::make()
-                        ->title('Not ready to publish')
+                        ->title(__('chatbot::panel.scenarios.graph.not_ready'))
                         ->body($exception->getMessage())
                         ->danger()
                         ->persistent()
@@ -279,7 +279,7 @@ class EditScenarioGraph extends Page
                 }
 
                 Notification::make()
-                    ->title("Published version {$version->number}")
+                    ->title(__('chatbot::panel.scenarios.graph.published', ['number' => $version->number]))
                     ->success()
                     ->send();
             });

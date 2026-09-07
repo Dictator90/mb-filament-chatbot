@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 
-import { allTypes, basicTypes, colorOf, labelOf, nextTypes } from './types';
+import { allTypes, basicTypes, colorOf, labelOf, nextTypes, text } from './types';
 
 /*
  * The list of node kinds, opened from the toolbar, from a right click on the
@@ -98,7 +98,7 @@ export default function StepPicker({ at = null, suggestedFor = null, onPick, onC
                 ref={search}
                 type="search"
                 className="chatbot-graph__picker-search"
-                placeholder="Find a node kind"
+                placeholder={text('find_kind')}
                 value={query}
                 onChange={(event) => setQuery(event.target.value)}
             />
@@ -108,13 +108,13 @@ export default function StepPicker({ at = null, suggestedFor = null, onPick, onC
                     found.length > 0 ? (
                         found.map((type) => <Row key={type.value} type={type} onPick={onPick} />)
                     ) : (
-                        <p className="chatbot-graph__picker-empty">Nothing installed matches that.</p>
+                        <p className="chatbot-graph__picker-empty">{text('picker_empty')}</p>
                     )
                 ) : (
                     <>
                         {groups.suggested.length > 0 ? (
                             <>
-                                <p className="chatbot-graph__picker-group">Usually next</p>
+                                <p className="chatbot-graph__picker-group">{text('usually_next')}</p>
                                 {groups.suggested.map((type) => (
                                     <Row key={type.value} type={type} onPick={onPick} />
                                 ))}
@@ -123,7 +123,7 @@ export default function StepPicker({ at = null, suggestedFor = null, onPick, onC
 
                         {groups.basic.length > 0 ? (
                             <>
-                                <p className="chatbot-graph__picker-group">Basics</p>
+                                <p className="chatbot-graph__picker-group">{text('basics')}</p>
                                 {groups.basic.map((type) => (
                                     <Row key={type.value} type={type} onPick={onPick} />
                                 ))}
@@ -133,7 +133,7 @@ export default function StepPicker({ at = null, suggestedFor = null, onPick, onC
                         {groups.rest.length > 0 ? (
                             expanded ? (
                                 <>
-                                    <p className="chatbot-graph__picker-group">Everything else</p>
+                                    <p className="chatbot-graph__picker-group">{text('everything_else')}</p>
                                     {groups.rest.map((type) => (
                                         <Row key={type.value} type={type} onPick={onPick} />
                                     ))}
@@ -144,7 +144,7 @@ export default function StepPicker({ at = null, suggestedFor = null, onPick, onC
                                     className="chatbot-graph__picker-more"
                                     onClick={() => setExpanded(true)}
                                 >
-                                    More ({groups.rest.length})
+                                    {text('picker_more', { count: groups.rest.length })}
                                 </button>
                             )
                         ) : null}

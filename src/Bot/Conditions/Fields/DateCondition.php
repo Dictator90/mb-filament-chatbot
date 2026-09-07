@@ -35,7 +35,7 @@ final class DateCondition extends ConditionField
 
     public function label(): string
     {
-        return 'Date';
+        return __('chatbot::nodes.conditions.date.label');
     }
 
     public function kind(): ConditionKind
@@ -45,7 +45,7 @@ final class DateCondition extends ConditionField
 
     public function hint(): ?string
     {
-        return '2026-12-31';
+        return __('chatbot::nodes.conditions.date.hint');
     }
 
     public function evaluate(

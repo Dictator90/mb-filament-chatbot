@@ -28,36 +28,40 @@ class QuickRepliesTable
             ->modifyQueryUsing(fn (Builder $query): Builder => $query->availableTo(Filament::auth()->id()))
             ->columns([
                 TextColumn::make('title')
+                    ->label(__('chatbot::panel.attributes.title'))
                     ->description(fn (QuickReply $record): string => str($record->body)->limit(90)->value())
                     ->searchable()
                     ->wrap(),
                 TextColumn::make('shortcut')
+                    ->label(__('chatbot::panel.attributes.shortcut'))
                     ->formatStateUsing(fn (?string $state): ?string => $state === null ? null : '/'.ltrim($state, '/'))
                     ->placeholder('—')
                     ->badge()
                     ->color('gray'),
                 TextColumn::make('user_id')
-                    ->label('Whose')
-                    ->state(fn (QuickReply $record): string => $record->user_id === null ? 'shared' : 'mine')
+                    ->label(__('chatbot::panel.quick_replies.owner'))
+                    ->state(fn (QuickReply $record): string => $record->user_id === null
+                        ? __('chatbot::panel.quick_replies.table.shared')
+                        : __('chatbot::panel.quick_replies.table.mine'))
                     ->badge()
                     ->color(fn (QuickReply $record): string => $record->user_id === null ? 'success' : 'gray'),
                 TextColumn::make('sort')
-                    ->label('Order')
+                    ->label(__('chatbot::panel.quick_replies.order'))
                     ->alignEnd()
                     ->sortable(),
                 IconColumn::make('is_active')
-                    ->label('In chat')
+                    ->label(__('chatbot::panel.quick_replies.table.in_chat'))
                     ->boolean(),
             ])
             ->defaultSort('sort')
             ->filters([
-                TernaryFilter::make('is_active')->label('Offered in the chat'),
+                TernaryFilter::make('is_active')->label(__('chatbot::panel.quick_replies.offered')),
             ])
             ->recordActions(ActionGroup::make([
                 EditAction::make(),
                 DeleteAction::make(),
             ]))
-            ->emptyStateHeading('No quick replies yet')
-            ->emptyStateDescription('Save the sentence you type most often — in the chat it drops in with one key.');
+            ->emptyStateHeading(__('chatbot::panel.quick_replies.table.empty_heading'))
+            ->emptyStateDescription(__('chatbot::panel.quick_replies.table.empty_description'));
     }
 }

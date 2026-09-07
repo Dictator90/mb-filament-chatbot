@@ -30,7 +30,7 @@ class EditScenario extends EditRecord
     {
         return [
             Action::make('graph')
-                ->label('Graph')
+                ->label(__('chatbot::panel.scenarios.table.graph'))
                 ->icon(Heroicon::OutlinedShare)
                 ->url(fn (Scenario $record): string => ScenarioResource::getUrl('graph', ['record' => $record])),
             DeleteAction::make(),

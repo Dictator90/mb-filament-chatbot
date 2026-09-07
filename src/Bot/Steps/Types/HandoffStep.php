@@ -35,7 +35,7 @@ final class HandoffStep extends StepType
 
     public function label(): string
     {
-        return 'Hand to a person';
+        return __('chatbot::nodes.steps.handoff.label');
     }
 
     public function icon(): string

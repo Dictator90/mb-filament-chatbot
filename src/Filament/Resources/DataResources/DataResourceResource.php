@@ -41,12 +41,12 @@ class DataResourceResource extends Resource
 
     public static function getModelLabel(): string
     {
-        return 'data resource';
+        return __('chatbot::panel.data_resources.label');
     }
 
     public static function getPluralModelLabel(): string
     {
-        return 'data resources';
+        return __('chatbot::panel.data_resources.plural');
     }
 
     public static function form(Schema $schema): Schema

@@ -17,7 +17,7 @@ import StepNode from './StepNode';
 import StepPicker from './StepPicker';
 import { arrange } from './layout';
 import { IN_HANDLE, handleIndex, newNode, problemsByKey, pruneEdges, toFlow, toPayload } from './model';
-import { colorOf, describe } from './types';
+import { colorOf, describe, text } from './types';
 
 /*
  * The canvas.
@@ -680,33 +680,33 @@ function Canvas({ config, graph, sandbox: opening, wire }) {
                     onClick={(event) => openPicker(event.clientX, event.clientY)}
                     className="chatbot-graph__button"
                 >
-                    Add step
+                    {text('add_step')}
                 </button>
                 <button type="button" onClick={addNote} className="chatbot-graph__button">
-                    Add note
+                    {text('add_note')}
                 </button>
                 <button type="button" onClick={autoArrange} className="chatbot-graph__button">
-                    Auto-arrange
+                    {text('auto_arrange')}
                 </button>
 
                 <span className="chatbot-graph__spacer" />
 
                 <span className={`chatbot-graph__count ${blocking > 0 ? 'is-blocking' : ''}`}>
-                    {blocking} blocking · {notices} notices
+                    {text('counts', { blocking, notices })}
                 </span>
 
-                {dirty ? <span className="chatbot-graph__count is-dirty">unsaved</span> : null}
+                {dirty ? <span className="chatbot-graph__count is-dirty">{text('unsaved')}</span> : null}
 
                 <button
                     type="button"
                     onClick={() => setTrying((open) => !open)}
                     className={`chatbot-graph__button ${trying ? 'is-active' : ''}`}
                 >
-                    Try it
+                    {text('try_it')}
                 </button>
 
                 <button type="button" onClick={check} disabled={busy} className="chatbot-graph__button">
-                    Check
+                    {text('check')}
                 </button>
                 <button
                     type="button"
@@ -714,7 +714,7 @@ function Canvas({ config, graph, sandbox: opening, wire }) {
                     disabled={busy}
                     className="chatbot-graph__button is-primary"
                 >
-                    Save
+                    {text('save')}
                 </button>
             </div>
 

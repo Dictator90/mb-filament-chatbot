@@ -27,37 +27,39 @@ class BotsTable
             ->modifyQueryUsing(fn (Builder $query): Builder => $query->withCount('scenarios'))
             ->columns([
                 TextColumn::make('name')
+                    ->label(__('chatbot::panel.attributes.name'))
                     ->searchable()
                     ->sortable(),
                 TextColumn::make('slug')
+                    ->label(__('chatbot::panel.attributes.slug'))
                     ->badge()
                     ->color('gray')
                     ->searchable(),
                 IconColumn::make('is_active')
-                    ->label('Active')
+                    ->label(__('chatbot::panel.bots.table.active'))
                     ->boolean(),
                 IconColumn::make('is_public_widget')
-                    ->label('Public widget')
+                    ->label(__('chatbot::panel.bots.table.public_widget'))
                     ->boolean(),
                 TextColumn::make('scenarios_count')
-                    ->label('Scenarios')
+                    ->label(__('chatbot::panel.bots.table.scenarios'))
                     ->alignEnd()
                     ->sortable(),
                 TextColumn::make('updated_at')
-                    ->label('Updated')
+                    ->label(__('chatbot::panel.bots.table.updated'))
                     ->dateTime()
                     ->sortable(),
             ])
             ->defaultSort('name')
             ->filters([
-                TernaryFilter::make('is_active')->label('Active'),
-                TernaryFilter::make('is_public_widget')->label('Public widget'),
+                TernaryFilter::make('is_active')->label(__('chatbot::panel.bots.table.active')),
+                TernaryFilter::make('is_public_widget')->label(__('chatbot::panel.bots.table.public_widget')),
             ])
             ->recordActions(ActionGroup::make([
                 EditAction::make(),
                 DeleteAction::make(),
             ]))
-            ->emptyStateHeading('No bots yet')
-            ->emptyStateDescription('A bot holds the greeting, the working hours and the budget every scenario runs under.');
+            ->emptyStateHeading(__('chatbot::panel.bots.table.empty_heading'))
+            ->emptyStateDescription(__('chatbot::panel.bots.table.empty_description'));
     }
 }

@@ -40,12 +40,12 @@ class KnowledgeEntryResource extends Resource
 
     public static function getModelLabel(): string
     {
-        return 'knowledge topic';
+        return __('chatbot::panel.knowledge.label');
     }
 
     public static function getPluralModelLabel(): string
     {
-        return 'knowledge base';
+        return __('chatbot::panel.knowledge.plural');
     }
 
     public static function form(Schema $schema): Schema

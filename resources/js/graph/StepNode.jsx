@@ -2,7 +2,7 @@ import { memo, useEffect } from 'react';
 import { Handle, Position, useUpdateNodeInternals } from '@xyflow/react';
 
 import { IN_HANDLE, outHandle } from './model';
-import { colorOf, describe, fieldsOf, iconSvgOf, labelOf, outputLabels, speaks } from './types';
+import { colorOf, describe, fieldsOf, iconSvgOf, labelOf, outputLabels, speaks, text } from './types';
 
 /*
  * One node on the canvas.
@@ -137,7 +137,9 @@ function StepNode({ id, data, selected }) {
                 <Glyph type={data.type} color={color} icon={iconSvgOf(data.type)} />
 
                 <div className="chatbot-graph__node-title">
-                    <span className="chatbot-graph__node-kind">{described ? described.label : 'Unknown kind'}</span>
+                    <span className="chatbot-graph__node-kind">
+                        {described ? described.label : text('unknown_kind')}
+                    </span>
                     <span className="chatbot-graph__node-key">{data.key}</span>
                 </div>
 
@@ -150,7 +152,7 @@ function StepNode({ id, data, selected }) {
                 {data.visit ? (
                     <span
                         className="chatbot-graph__visit"
-                        title={`Step ${data.visit} of the sandbox conversation`}
+                        title={text('sandbox_step', { number: data.visit })}
                     >
                         {data.visit}
                     </span>

@@ -28,7 +28,7 @@ final class MonthCondition extends ConditionField
 
     public function label(): string
     {
-        return 'Month';
+        return __('chatbot::nodes.conditions.month.label');
     }
 
     public function kind(): ConditionKind
@@ -38,7 +38,7 @@ final class MonthCondition extends ConditionField
 
     public function hint(): ?string
     {
-        return '1 to 12';
+        return __('chatbot::nodes.conditions.month.hint');
     }
 
     public function evaluate(

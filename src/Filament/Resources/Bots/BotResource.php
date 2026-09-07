@@ -39,12 +39,12 @@ class BotResource extends Resource
 
     public static function getModelLabel(): string
     {
-        return 'bot';
+        return __('chatbot::panel.bots.label');
     }
 
     public static function getPluralModelLabel(): string
     {
-        return 'bots';
+        return __('chatbot::panel.bots.plural');
     }
 
     public static function form(Schema $schema): Schema

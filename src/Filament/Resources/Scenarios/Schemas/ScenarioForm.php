@@ -21,7 +21,7 @@ class ScenarioForm
     public static function configure(Schema $schema): Schema
     {
         return $schema->columns(1)->components([
-            Section::make('Scenario')->schema([
+            Section::make(__('chatbot::panel.scenarios.heading'))->schema([
                 Grid::make(2)->schema([
                     /*
                      * An empty bot is a scenario every bot may run, not a
@@ -31,21 +31,23 @@ class ScenarioForm
                      * would have someone attach them one bot at a time.
                      */
                     Select::make('bot_id')
-                        ->label('Bot')
+                        ->label(__('chatbot::panel.scenarios.bot'))
                         ->relationship('bot', 'name')
                         ->searchable()
                         ->preload()
-                        ->placeholder('Every bot')
-                        ->helperText('Left empty, the scenario is available to every bot.'),
+                        ->placeholder(__('chatbot::panel.scenarios.bot_placeholder'))
+                        ->helperText(__('chatbot::panel.scenarios.bot_help')),
                     TextInput::make('priority')
+                        ->label(__('chatbot::panel.attributes.priority'))
                         ->numeric()
                         ->default(0)
                         ->required()
-                        ->helperText('Tried highest first when several scenarios fit the same opening line.'),
+                        ->helperText(__('chatbot::panel.scenarios.priority_help')),
                 ]),
 
                 Grid::make(2)->schema([
                     TextInput::make('name')
+                        ->label(__('chatbot::panel.attributes.name'))
                         ->required()
                         ->maxLength(191)
                         ->live(onBlur: true)
@@ -62,19 +64,22 @@ class ScenarioForm
                      * stops matching the scenario it describes.
                      */
                     TextInput::make('slug')
+                        ->label(__('chatbot::panel.attributes.slug'))
                         ->required()
                         ->maxLength(191)
-                        ->helperText('Knowledge topics and past runs refer to a scenario by this. Renaming it orphans both silently.'),
+                        ->helperText(__('chatbot::panel.scenarios.slug_help')),
                 ]),
 
                 Toggle::make('is_active')
+                    ->label(__('chatbot::panel.attributes.is_active'))
                     ->default(true)
-                    ->helperText('A switched-off scenario is never picked, and a topic pointing at it hands the conversation to a person.'),
+                    ->helperText(__('chatbot::panel.scenarios.is_active_help')),
 
                 Textarea::make('description')
+                    ->label(__('chatbot::panel.attributes.description'))
                     ->rows(3)
                     ->maxLength(2000)
-                    ->helperText('For whoever edits the scenario next. Never shown to a visitor.'),
+                    ->helperText(__('chatbot::panel.scenarios.description_help')),
             ]),
 
             /*
@@ -84,29 +89,29 @@ class ScenarioForm
              * person, and mixing it into the description would get it written
              * as prose — which routes nothing.
              */
-            Section::make('Invocation contract')
-                ->description('Read by the routing model when AI routing is on. With AI off the bot falls back to the keywords on the start node, so a scenario has to make sense without any of this.')
+            Section::make(__('chatbot::panel.scenarios.invocation.heading'))
+                ->description(__('chatbot::panel.scenarios.invocation.description'))
                 ->schema([
                     Textarea::make('invocation.purpose')
-                        ->label('Purpose')
+                        ->label(__('chatbot::panel.scenarios.invocation.purpose'))
                         ->rows(2)
-                        ->helperText('What this scenario is for, in one sentence.'),
+                        ->helperText(__('chatbot::panel.scenarios.invocation.purpose_help')),
                     Textarea::make('invocation.useWhen')
-                        ->label('Use when')
+                        ->label(__('chatbot::panel.scenarios.invocation.use_when'))
                         ->rows(2)
-                        ->helperText('The kind of message that belongs here.'),
+                        ->helperText(__('chatbot::panel.scenarios.invocation.use_when_help')),
                     Repeater::make('invocation.doNotUseWhen')
-                        ->label('Do not use when')
+                        ->label(__('chatbot::panel.scenarios.invocation.do_not_use_when'))
                         ->simple(TextInput::make('value')->required())
-                        ->addActionLabel('Add an exception')
+                        ->addActionLabel(__('chatbot::panel.scenarios.invocation.add_exception'))
                         ->defaultItems(0)
-                        ->helperText('The near misses. A router with no exceptions listed picks the nearest scenario, and the nearest is often the wrong one.'),
+                        ->helperText(__('chatbot::panel.scenarios.invocation.do_not_use_when_help')),
                     Repeater::make('invocation.examples')
-                        ->label('Examples')
+                        ->label(__('chatbot::panel.scenarios.invocation.examples'))
                         ->simple(TextInput::make('value')->required())
-                        ->addActionLabel('Add an example')
+                        ->addActionLabel(__('chatbot::panel.scenarios.invocation.add_example'))
                         ->defaultItems(0)
-                        ->helperText('Real openings, as visitors write them.'),
+                        ->helperText(__('chatbot::panel.scenarios.invocation.examples_help')),
                 ]),
         ]);
     }

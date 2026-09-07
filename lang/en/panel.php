@@ -13,6 +13,51 @@ declare(strict_types=1);
  */
 return [
 
+    /**
+     * The column names, in one map rather than beside each field.
+     *
+     * Filament names an unlabelled field after its column — "Is active",
+     * "Topic key" — and that fallback is what kept half of this panel English
+     * while every helper text beside it was translated. It also cannot be
+     * translated in place: the name is derived from the attribute, so the only
+     * way to say it in another language is to write the label out.
+     *
+     * Shared rather than repeated per screen because the same column carries
+     * the same meaning wherever it appears — a slug is a slug on the bot list
+     * and on the scenario list — and two spellings of one word is exactly the
+     * kind of difference nobody notices until a customer reads both screens in
+     * one sitting. A column that genuinely means something else on one screen
+     * gets its own key there instead; `runs.scenario` and `runs.conversation`
+     * are the two that do.
+     */
+    'attributes' => [
+        'name' => 'Name',
+        'slug' => 'Slug',
+        'title' => 'Title',
+        'label' => 'Label',
+        'key' => 'Key',
+        'greeting' => 'Greeting',
+        'prompt' => 'Prompt',
+        'description' => 'Description',
+        'question' => 'Question',
+        'answer' => 'Answer',
+        'category' => 'Section',
+        'keywords' => 'Keywords',
+        'priority' => 'Priority',
+        'shortcut' => 'Shortcut',
+        'body' => 'Text',
+        'channel' => 'Channel',
+        'model' => 'Model',
+        'column' => 'Column',
+        'source' => 'Source',
+        'operator' => 'Comparison',
+        'sensitive' => 'Sensitive',
+        'sortable' => 'Sortable',
+        'is_active' => 'Active',
+        'allowed_origins' => 'Sites this bot answers on',
+        'number' => '#',
+    ],
+
     'bots' => [
         'label' => 'bot',
         'plural' => 'bots',
@@ -355,9 +400,14 @@ return [
         ],
         'conversations_chart' => [
             'heading' => 'Conversations per day',
+            'description' => 'Threads somebody spoke in, by the channel they arrived on.',
         ],
         'outcomes' => [
             'heading' => 'Where runs end',
+            'description' => 'Finished scenario runs over the last :days days, busiest scenarios first.',
+            'finished' => 'Finished',
+            'handed_off' => 'Handed to a person',
+            'broken' => 'Broken',
         ],
     ],
 

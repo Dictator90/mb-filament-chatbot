@@ -1,6 +1,6 @@
 import { useState } from 'react';
 
-import { describe, fieldsOf, labelOf, speaks } from './types';
+import { describe, fieldsOf, labelOf, speaks, text } from './types';
 
 /*
  * The properties of the selected node, drawn from the descriptors the server
@@ -54,7 +54,7 @@ function Labelled({ field, children }) {
         <label className="chatbot-graph__field">
             <span className="chatbot-graph__field-label">
                 {field.label || field.name}
-                {field.required ? <em className="chatbot-graph__required">required</em> : null}
+                {field.required ? <em className="chatbot-graph__required">{text('required')}</em> : null}
             </span>
             {children}
             {field.hint ? <span className="chatbot-graph__hint">{field.hint}</span> : null}
@@ -65,18 +65,23 @@ function Labelled({ field, children }) {
 function Reorder({ index, length, onMove, onRemove }) {
     return (
         <div className="chatbot-graph__row-tools">
-            <button type="button" onClick={() => onMove(index, index - 1)} disabled={index === 0} title="Move up">
+            <button
+                type="button"
+                onClick={() => onMove(index, index - 1)}
+                disabled={index === 0}
+                title={text('move_up')}
+            >
                 ↑
             </button>
             <button
                 type="button"
                 onClick={() => onMove(index, index + 1)}
                 disabled={index === length - 1}
-                title="Move down"
+                title={text('move_down')}
             >
                 ↓
             </button>
-            <button type="button" onClick={() => onRemove(index)} title="Remove">
+            <button type="button" onClick={() => onRemove(index)} title={text('remove')}>
                 ×
             </button>
         </div>
@@ -191,7 +196,7 @@ function KeyValueWidget({ value, onChange }) {
                 <div className="chatbot-graph__pair" key={index}>
                     <input
                         type="text"
-                        placeholder="key"
+                        placeholder={text('key_placeholder')}
                         value={row.key}
                         onChange={(event) =>
                             publish(rows.map((each, at) => (at === index ? { ...each, key: event.target.value } : each)))
@@ -199,7 +204,7 @@ function KeyValueWidget({ value, onChange }) {
                     />
                     <input
                         type="text"
-                        placeholder="value"
+                        placeholder={text('value_placeholder')}
                         value={row.value ?? ''}
                         onChange={(event) =>
                             publish(
@@ -209,7 +214,7 @@ function KeyValueWidget({ value, onChange }) {
                     />
                     <button
                         type="button"
-                        title="Remove"
+                        title={text('remove')}
                         onClick={() => publish(rows.filter((each, at) => at !== index))}
                     >
                         ×
@@ -280,13 +285,13 @@ function VariableWidget({ value, variables, onChange }) {
                         ))}
                     </optgroup>
                 ))}
-                <option value={CUSTOM_VARIABLE}>Another name…</option>
+                <option value={CUSTOM_VARIABLE}>{text('another_name')}</option>
             </select>
 
             {custom ? (
                 <input
                     type="text"
-                    placeholder="variable name"
+                    placeholder={text('variable_placeholder')}
                     value={value ?? ''}
                     onChange={(event) => onChange(event.target.value || null)}
                 />
@@ -404,10 +409,10 @@ function visible(field, config) {
 function WordsEditor({ option, onChange }) {
     return (
         <div className="chatbot-graph__branch-detail">
-            <span className="chatbot-graph__field-label">Words</span>
+            <span className="chatbot-graph__field-label">{text('words')}</span>
             <ListWidget
                 value={option.words}
-                placeholder="word or phrase"
+                placeholder={text('word_placeholder')}
                 onChange={(words) => onChange({ ...option, words })}
             />
         </div>
@@ -434,7 +439,7 @@ function ConditionEditor({ option, config, onChange }) {
 
     return (
         <div className="chatbot-graph__branch-detail">
-            <span className="chatbot-graph__field-label">When</span>
+            <span className="chatbot-graph__field-label">{text('when')}</span>
 
             <select
                 value={when.field ?? ''}
@@ -517,7 +522,9 @@ function ConditionEditor({ option, config, onChange }) {
                     <input
                         type={chosen?.kind === 'number' && when.operator !== 'one_of' ? 'number' : 'text'}
                         placeholder={
-                            when.operator === 'one_of' ? 'value, value, value' : chosen?.hint || 'value'
+                            when.operator === 'one_of'
+                                ? text('values_placeholder')
+                                : chosen?.hint || text('value_placeholder')
                         }
                         value={Array.isArray(when.value) ? when.value.join(', ') : (when.value ?? '')}
                         onChange={(event) => set({ value: event.target.value })}
@@ -579,18 +586,16 @@ function BranchEditor({ node, config, onChange }) {
 
     return (
         <section className="chatbot-graph__section">
-            <h3 className="chatbot-graph__section-title">Branches</h3>
+            <h3 className="chatbot-graph__section-title">{text('branches')}</h3>
 
-            {options.length === 0 ? (
-                <p className="chatbot-graph__empty">This node has no branches yet, so it has nowhere to go.</p>
-            ) : null}
+            {options.length === 0 ? <p className="chatbot-graph__empty">{text('no_branches')}</p> : null}
 
             {options.map((option, index) => (
                 <div className="chatbot-graph__branch" key={index}>
                     <div className="chatbot-graph__branch-head">
                         <input
                             type="text"
-                            placeholder="Branch label"
+                            placeholder={text('branch_placeholder')}
                             value={option.label ?? ''}
                             onChange={(event) => update(index, { ...option, label: event.target.value })}
                         />
@@ -619,9 +624,11 @@ function BranchEditor({ node, config, onChange }) {
             <button
                 type="button"
                 className="chatbot-graph__add"
-                onClick={() => publish([...options, { label: `Branch ${options.length + 1}` }])}
+                onClick={() =>
+                    publish([...options, { label: text('branch_default', { number: options.length + 1 }) }])
+                }
             >
-                Add branch
+                {text('add_branch')}
             </button>
         </section>
     );
@@ -654,21 +661,18 @@ export default function SideForm({ node, config, onChange, onRename, onDelete })
                         className="chatbot-graph__key-input"
                         type="text"
                         value={data.key}
-                        title="The key this node is known by, in transitions and in the run journal"
+                        title={text('node_key_hint')}
                         onChange={(event) => onRename(event.target.value)}
                     />
                 </div>
 
                 <button type="button" className="chatbot-graph__danger" onClick={onDelete}>
-                    Delete
+                    {text('delete')}
                 </button>
             </header>
 
             {described ? null : (
-                <p className="chatbot-graph__warning">
-                    Nothing in this installation provides <code>{data.type}</code>. Its settings are kept untouched and
-                    cannot be edited here.
-                </p>
+                <p className="chatbot-graph__warning">{text('foreign_kind', { kind: data.type })}</p>
             )}
 
             {data.problem ? (
@@ -678,11 +682,11 @@ export default function SideForm({ node, config, onChange, onRename, onDelete })
             {speaks(data.type) ? (
                 <section className="chatbot-graph__section">
                     <label className="chatbot-graph__field">
-                        <span className="chatbot-graph__field-label">Message</span>
+                        <span className="chatbot-graph__field-label">{text('message')}</span>
                         <textarea
                             rows={4}
                             value={data.body || ''}
-                            placeholder="What the bot says here"
+                            placeholder={text('message_placeholder')}
                             onChange={(event) => onChange({ body: event.target.value })}
                         />
                     </label>

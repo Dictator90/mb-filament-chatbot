@@ -36,7 +36,7 @@ final class TurnsCondition extends ConditionField
 
     public function label(): string
     {
-        return 'Messages from the visitor';
+        return __('chatbot::nodes.conditions.turns.label');
     }
 
     public function kind(): ConditionKind

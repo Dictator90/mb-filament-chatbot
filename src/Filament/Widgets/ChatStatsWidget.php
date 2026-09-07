@@ -41,7 +41,20 @@ class ChatStatsWidget extends StatsOverviewWidget
      */
     protected const int WINDOW_DAYS = 30;
 
-    protected ?string $heading = 'Chat';
+    /**
+     * A method rather than the `$heading` property, and every widget here does
+     * the same.
+     *
+     * A property is evaluated where it is written, which is before a request
+     * has a locale — so `__()` in one would be resolved once, at class load,
+     * against whatever the configuration said. The result reads perfectly on
+     * the developer's machine and is the wrong language on an installation
+     * that picks one per request.
+     */
+    public function getHeading(): ?string
+    {
+        return __('chatbot::panel.widgets.stats.heading');
+    }
 
     /**
      * Every number on the widget, in one place and held for a few seconds.
@@ -228,15 +241,20 @@ class ChatStatsWidget extends StatsOverviewWidget
         $previous = (int) $counters['previous_conversations'];
         $change = $current - $previous;
 
-        $stat = Stat::make('Conversations', number_format($current))
+        $stat = Stat::make(__('chatbot::panel.widgets.stats.conversations'), number_format($current))
             ->icon(Heroicon::OutlinedChatBubbleLeftRight);
 
         if ($previous === 0) {
-            return $stat->description('Started in the last '.self::WINDOW_DAYS.' days');
+            return $stat->description(__('chatbot::panel.widgets.stats.conversations_first', [
+                'days' => self::WINDOW_DAYS,
+            ]));
         }
 
         return $stat
-            ->description(sprintf('%+d against the previous %d days', $change, self::WINDOW_DAYS))
+            ->description(__('chatbot::panel.widgets.stats.conversations_change', [
+                'change' => sprintf('%+d', $change),
+                'days' => self::WINDOW_DAYS,
+            ]))
             ->descriptionIcon($change < 0 ? Heroicon::ArrowTrendingDown : Heroicon::ArrowTrendingUp)
             ->descriptionColor($change < 0 ? 'danger' : 'success');
     }
@@ -256,15 +274,20 @@ class ChatStatsWidget extends StatsOverviewWidget
         $handedOff = (int) $counters['runs_handed_off'];
 
         if ($finished === 0) {
-            return Stat::make('Handed to a person', '—')
-                ->description('The bot has not finished a scenario in '.self::WINDOW_DAYS.' days')
+            return Stat::make(__('chatbot::panel.widgets.stats.handed_off'), '—')
+                ->description(__('chatbot::panel.widgets.stats.handed_off_none', [
+                    'days' => self::WINDOW_DAYS,
+                ]))
                 ->icon(Heroicon::OutlinedUserGroup);
         }
 
         $share = (int) round($handedOff / $finished * 100);
 
-        return Stat::make('Handed to a person', $share.'%')
-            ->description(sprintf('%d of %d finished runs called somebody', $handedOff, $finished))
+        return Stat::make(__('chatbot::panel.widgets.stats.handed_off'), $share.'%')
+            ->description(__('chatbot::panel.widgets.stats.handed_off_share', [
+                'handed' => $handedOff,
+                'finished' => $finished,
+            ]))
             ->icon(Heroicon::OutlinedUserGroup)
             ->color($share >= 50 ? 'warning' : 'success');
     }
@@ -284,8 +307,10 @@ class ChatStatsWidget extends StatsOverviewWidget
         $waiting = (int) $counters['waiting'];
         $mine = (int) $counters['waiting_for_me'];
 
-        return Stat::make('Waiting for an answer', number_format($waiting))
-            ->description($waiting === 0 ? 'Nothing unanswered' : $mine.' yours or unassigned')
+        return Stat::make(__('chatbot::panel.widgets.stats.waiting'), number_format($waiting))
+            ->description($waiting === 0
+                ? __('chatbot::panel.widgets.stats.waiting_none')
+                : __('chatbot::panel.widgets.stats.waiting_mine', ['count' => $mine]))
             ->icon(Heroicon::OutlinedClock)
             ->color($waiting === 0 ? 'success' : 'warning');
     }
@@ -307,10 +332,13 @@ class ChatStatsWidget extends StatsOverviewWidget
         $calls = (int) $counters['calls'];
 
         $description = $cost > 0
-            ? sprintf('%s spent · %s calls', number_format($cost / 1000000, 2), number_format($calls))
-            : sprintf('%s calls · no cost reported', number_format($calls));
+            ? __('chatbot::panel.widgets.stats.tokens_spent', [
+                'cost' => number_format($cost / 1000000, 2),
+                'calls' => number_format($calls),
+            ])
+            : __('chatbot::panel.widgets.stats.tokens_no_cost', ['calls' => number_format($calls)]);
 
-        return Stat::make('Tokens this period', number_format((int) $counters['tokens']))
+        return Stat::make(__('chatbot::panel.widgets.stats.tokens'), number_format((int) $counters['tokens']))
             ->description($description)
             ->icon(Heroicon::OutlinedBanknotes);
     }

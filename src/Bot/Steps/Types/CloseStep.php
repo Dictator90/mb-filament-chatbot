@@ -35,7 +35,7 @@ final class CloseStep extends StepType
 
     public function label(): string
     {
-        return 'Close';
+        return __('chatbot::nodes.steps.close.label');
     }
 
     public function icon(): string
