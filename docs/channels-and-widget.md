@@ -199,31 +199,123 @@ deliberately and escape accordingly.
 
 ## The site widget
 
-One script tag on any page:
+A widget is a record you create in the panel, under **Widgets**. It names the
+bot that answers, the sites it may be embedded on, and how it looks. The panel
+hands you the tag; you paste it before `</body>`:
 
 ```html
 <script src="https://app.example.com/chatbot/widget.js" async
-        data-bot="support"
-        data-title="Support"
-        data-launcher="Chat with us"
-        data-color="#4f46e5"></script>
+        data-widget="main-site"></script>
 ```
+
+### One bot, several widgets
+
+That is the reason a widget is its own record rather than a tab on the bot.
+
+A bot is a personality: what it knows, which scenarios it walks, which model
+thinks for it. A widget is a placement: where it is embedded, what colour it is,
+what the launcher says. The same support bot belongs on your main site in your
+blue and on a partner's portal in theirs, with a different launcher label and a
+different list of sites allowed to embed it — one bot, two widgets.
+
+It also decides what travels onto somebody else's page. The tag carries an
+opaque widget key and not the bot's name, so **which bot answers is a setting on
+your side**: you can point a widget at a different bot without asking anybody to
+edit their website.
+
+### What the empty values mean
+
+Three settings look unset and are not. Each empty is a decision the runtime
+acts on.
+
+- **No bot** — every conversation from this widget goes straight to a person.
+  That is how a small support desk runs, not an unfinished configuration. A
+  widget whose bot has been switched off behaves the same way.
+- **Widget switched off** — the tag stays on the page and the chat stops
+  opening. A message that still arrives is not thrown away: the conversation
+  opens and goes to a person. Losing what somebody typed over a configuration
+  mistake they had no part in is worse than answering slowly.
+- **No sites listed** — the widget belongs wherever the installation allows.
+  This list *narrows* [the installation-wide allow-list](#the-origin-allow-list),
+  it does not replace it; that list is the guard that fails closed.
 
 ### Attributes
 
+Everything except `data-widget` is optional, and everything optional overrides
+the widget's own settings. That direction is deliberate: the tag is written by
+whoever maintains the page it sits on, so a colour chosen in the panel never
+silently repaints a widget a site owner has already matched to their design —
+and every embed written before widgets existed keeps working exactly as it does
+today.
+
 | Attribute | Default | What it does |
 | --- | --- | --- |
-| `data-bot` | — | the bot's slug; picks which bot answers |
-| `data-title` | `Chat` | the panel's heading |
-| `data-greeting` | — | a line shown before the first message |
-| `data-placeholder` | `Write a message` | the input's placeholder |
-| `data-launcher` | `Chat with us` | the closed launcher's label |
-| `data-color` | `#4f46e5` | the accent colour |
-| `data-position` | `right` | `left` or `right` |
+| `data-widget` | — | the widget's key; everything else follows from it |
+| `data-bot` | — | **older spelling**, still honoured: a bot's slug resolves to that bot's first widget |
+| `data-title` | from the widget | the panel's heading |
+| `data-greeting` | from the widget | a line shown before the first message |
+| `data-placeholder` | from the widget | the input's placeholder |
+| `data-launcher` | from the widget | the closed launcher's label |
+| `data-color` | from the widget | the accent colour |
+| `data-position` | from the widget | `left` or `right` |
 | `data-prefix` | `chatbot` | prefix for both the localStorage keys and the CSS class names, so two widgets on one page do not collide |
 | `data-auth-id` | — | your own id for this person |
 | `data-auth-sig` | — | HMAC-SHA256 of that id under the shared secret |
 | `data-auth-name`, `data-auth-phone`, `data-auth-email` | — | contact details, accepted only with a valid signature |
+
+### How it looks
+
+Colours, corner radii, panel width, the launcher's shape, the bot's face and the
+bubble style are set on the widget and fetched by the script before it draws
+anything — its own endpoint rather than a field on the first history call,
+because the launcher is on screen before any conversation exists and it is the
+launcher that carries the colour.
+
+The theme is asked for and applied, never awaited. A widget that waited would be
+absent for as long as the request takes — on a slow connection, long enough for
+a visitor to decide the site has no chat — and if the request never answered it
+would never appear at all.
+
+**Bubble styles.** Four, and only two of them are about corner radius:
+
+| Style | What it does |
+| --- | --- |
+| `rounded` | plain rounded corners, every message on its own |
+| `grouped` | consecutive messages from one speaker pulled into a block, inner corners cut |
+| `ios` | the same grouping, plus a tail on the last bubble of a run |
+| `square` | the same arrangement as `rounded` with the corners taken off |
+
+`grouped` and `ios` are one arrangement written once, differing in the tail
+alone. The grouping is what does the work — it is what shows a reader where one
+turn ends and the next begins — so the tail on top of it is a matter of taste.
+
+**The launcher** is either a `pill` carrying its label or a bare `circle`. The
+circle hides the words rather than dropping them, so the button still announces
+itself to a screen reader, which cannot see that it is a speech bubble.
+
+Which style a message belongs to is decided on the server and written onto the
+element, not left to CSS sibling selectors. Messages arrive one at a time from a
+poll, and a rule that styled a bubble by what follows it would restyle the one
+already on screen the moment the next arrived — a corner changing shape under a
+message somebody had finished reading.
+
+**Every value is checked before it is used.** A theme is written by whoever can
+edit a widget and rendered inside a `style` attribute on a customer's page, so
+colours are hex only — `var(--x)`, `url(...)` and `calc()` are all valid CSS in
+that position and each is a way out of the property it was written into — sizes
+are clamped, and an avatar is accepted only as an absolute `https` address. A
+relative path there would point at the customer's own server and resolve to
+their 404 page.
+
+### The preview
+
+The widget's form shows a live preview beside it, and what it draws is the real
+`widget.js` on a stand-in page. Only the server is faked.
+
+That is worth stating because the alternative is tempting and wrong: a preview
+that drew its own approximation of a widget would be a second implementation of
+how the widget looks, and it would drift from the first. A preview that lies is
+worse than no preview.
 
 The file is vanilla, unbundled, and one file. It runs on somebody else's site
 next to whatever framework they already load, and every dependency it carried
@@ -281,7 +373,7 @@ $signature = hash_hmac('sha256', (string) $user->id, config('chatbot.widget.iden
 
 ```blade
 <script src="{{ url('/chatbot/widget.js') }}" async
-        data-bot="support"
+        data-widget="main-site"
         data-auth-id="{{ $user->id }}"
         data-auth-sig="{{ $signature }}"
         data-auth-name="{{ $user->name }}"
@@ -333,6 +425,13 @@ open conversations here and spend this installation's model budget having them
 answered — and it would look exactly like ordinary traffic in the panel. A
 package cannot know which sites are yours, so the only safe thing it can assume
 is none.
+
+**Two lists, and they combine rather than compete.** This one says which sites
+may reach the widget endpoints at all and fails closed. A widget's own list of
+sites narrows it further — which of those pages carry *this* widget — and an
+empty one narrows nothing. One application serving a shop and a helpdesk from a
+single panel is the ordinary case, and without the second list the shop's widget
+would answer on the helpdesk's pages to anybody who copied the tag across.
 
 Matching is exact on scheme, host and port together. Not a host comparison and
 not a suffix match: `https://shop.example.com` and `http://shop.example.com` are

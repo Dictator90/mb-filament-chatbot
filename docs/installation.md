@@ -96,17 +96,22 @@ The plugin registers six resources:
 
 | Resource | What it manages |
 | --- | --- |
-| `BotResource` | Bots: the entry point a channel talks to |
+| `BotResource` | Bots: the personality a conversation is answered by |
+| `WidgetResource` | Widgets: where a bot is embedded, and how it looks there |
 | `ScenarioResource` | Scenarios and the canvas editor |
 | `KnowledgeEntryResource` | Knowledge base topics |
 | `QuickReplyResource` | Canned replies for operators |
 | `DataResourceResource` | Declared read access to your models |
 | `RunResource` | The journal of what the bot did, turn by turn |
 
+Two pages come with them and are registered the same way: the **chat desk**,
+where a person answers, and the **sandbox**, where a scenario can be tried
+before anybody meets it.
+
 They are listed by hand rather than discovered. Filament's `discoverResources()`
 derives a namespace from a directory, which works for an application's own
 `app/Filament` tree and not for a vendor package — the host would have to know
-the vendor path. Listing them also means a host that wants five of the six can
+the vendor path. Listing them also means a host that wants six of the seven can
 extend `ChatbotPlugin` and override `resources()`.
 
 Where they appear in the menu comes from configuration:

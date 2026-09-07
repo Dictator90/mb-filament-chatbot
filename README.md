@@ -311,14 +311,28 @@ final class HasUnpaidInvoice extends ConditionField
 
 ## The site widget
 
-One script tag on any page:
+Create a widget in the panel — it names the bot that answers, the sites it may
+be embedded on, and how it looks — then paste the tag it gives you before
+`</body>`:
 
 ```html
 <script src="https://app.example.com/chatbot/widget.js" async
-        data-bot="support"
-        data-title="Support"
-        data-color="#4f46e5"></script>
+        data-widget="main-site"></script>
 ```
+
+A widget is its own record rather than a setting on the bot, because the two
+change for different reasons. A bot is a personality; a widget is a placement.
+The same support bot belongs on your main site in your blue and on a partner's
+portal in theirs, with different colours and a different list of allowed sites —
+one bot, two widgets. The tag also carries an opaque key rather than the bot's
+name, so which bot answers stays a setting on your side: you can point a widget
+somewhere else without asking anybody to edit their website.
+
+Colours, corner radii, width, launcher shape, the bot's face and one of four
+bubble styles are set in the panel, with a live preview beside the form — and
+that preview runs the real widget on a stand-in page rather than drawing its own
+idea of one, because an approximation would be a second implementation and would
+drift.
 
 Vanilla, unbundled, no dependencies — it runs next to whatever the site already
 loads, and it can be read by whoever has to approve putting it there.
@@ -328,7 +342,8 @@ who the visitor is comes from a signature your application issued, and
 everything else is decoration. And it will not answer a page whose origin is not
 in `chatbot.widget.origins` — an empty list blocks every site rather than
 allowing all of them, because the reverse default turns one forgotten setting
-into an endpoint anyone can embed and bill to your model budget.
+into an endpoint anyone can embed and bill to your model budget. A widget's own
+list of sites narrows that further; an empty one narrows nothing.
 
 ## AI
 

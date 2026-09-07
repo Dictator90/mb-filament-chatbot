@@ -3,6 +3,8 @@
 declare(strict_types=1);
 
 use MB\FilamentChatbot\Bot\Steps\StepType;
+use MB\FilamentChatbot\Channels\WidgetTheme;
+use MB\FilamentChatbot\Http\WidgetEmbed;
 use MB\FilamentChatbot\Registry\ChatbotRegistry;
 
 /**
@@ -124,6 +126,67 @@ it('documents every slot and condition the package registers', function (): void
             "`{$condition}`",
             $page,
             "docs/slots-and-conditions.md never mentions the [{$condition}] condition",
+        );
+    }
+});
+
+/**
+ * Every choice the widget form offers is described somewhere.
+ *
+ * A bubble style, a launcher shape or a corner of the screen is picked from a
+ * list, and a list entry nobody wrote about gets chosen by guessing — or, more
+ * often, never chosen at all, because nobody can tell what it does without
+ * setting it and looking. The vocabulary is closed and small precisely so that
+ * describing all of it is cheap.
+ */
+it('documents every appearance choice a widget offers', function (): void {
+    $page = docPage('channels-and-widget');
+
+    foreach (WidgetTheme::STYLES as $style) {
+        $this->assertStringContainsString(
+            "`{$style}`",
+            $page,
+            "docs/channels-and-widget.md never mentions the [{$style}] bubble style",
+        );
+    }
+
+    foreach (WidgetTheme::LAUNCHERS as $launcher) {
+        $this->assertStringContainsString(
+            $launcher,
+            $page,
+            "docs/channels-and-widget.md never mentions the [{$launcher}] launcher",
+        );
+    }
+});
+
+/**
+ * The embed the documentation shows is the embed the panel hands out.
+ *
+ * `data-bot` still works and is still described, but it is the older spelling
+ * kept for pages this application cannot edit. A sample that led with it would
+ * teach every new reader the compatibility path, and the widget key — which is
+ * the thing that lets a bot be re-pointed without touching somebody's website —
+ * would look optional.
+ */
+it('shows the embed that the panel actually produces', function (): void {
+    $shown = WidgetEmbed::snippet('main-site');
+
+    expect($shown)->toContain('data-widget="main-site"')
+        ->and($shown)->not->toContain('data-bot');
+
+    foreach (['channels-and-widget'] as $slug) {
+        $this->assertStringContainsString(
+            'data-widget',
+            docPage($slug),
+            "docs/{$slug}.md does not show the embed the panel produces",
+        );
+    }
+
+    foreach (['README.md', 'ru.README.md'] as $readme) {
+        $this->assertStringContainsString(
+            'data-widget',
+            (string) file_get_contents(dirname(__DIR__, 2).'/'.$readme),
+            "{$readme} still shows an embed nobody is given any more",
         );
     }
 });
