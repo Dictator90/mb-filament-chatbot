@@ -223,6 +223,28 @@ final class QueryStep extends StepType
     }
 
     /**
+     * The result's name, and the count that rides beside a list.
+     *
+     * The per-field names a single record spreads into — `booking_status`,
+     * `booking_date` — are not enumerated here, because they depend on which
+     * fields the resource declares returnable and would go stale the moment
+     * somebody edits the declaration. The list says what this node names on its
+     * own; `docs/data-resources.md` says what a record spreads into.
+     *
+     * @return list<string>
+     */
+    public function writes(Step $step): array
+    {
+        $into = trim((string) $step->setting('into', ''));
+
+        if ($into === '') {
+            return [];
+        }
+
+        return [$into, $into.'_count'];
+    }
+
+    /**
      * Writes the result under names a later message can read back.
      *
      * The three shapes are stored differently because they are read

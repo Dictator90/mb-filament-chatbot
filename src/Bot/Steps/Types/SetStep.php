@@ -75,6 +75,16 @@ final class SetStep extends StepType
         ];
     }
 
+    /**
+     * @return list<string>
+     */
+    public function writes(Step $step): array
+    {
+        $name = trim((string) $step->setting('name', ''));
+
+        return $name === '' ? [] : [$name];
+    }
+
     public function run(StepContext $context): StepResult
     {
         $name = trim((string) $context->setting('name'));

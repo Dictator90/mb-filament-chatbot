@@ -239,6 +239,23 @@ final class CollectStep extends StepType
         return [];
     }
 
+    /**
+     * The answer's name, which is the slot's own unless the node renamed it.
+     *
+     * Left to the base class this would list nothing at all for the common
+     * case, where the author picked a slot and did not fill in a name — and
+     * that is exactly the node whose variable an author cannot guess.
+     *
+     * @return list<string>
+     */
+    public function writes(Step $step): array
+    {
+        $into = trim((string) $step->setting('into', ''));
+        $name = $into === '' ? trim((string) $step->setting('slot', '')) : $into;
+
+        return $name === '' ? [] : [$name];
+    }
+
     private function slot(StepContext $context): ?Slot
     {
         return Chatbot::slot((string) $context->setting('slot', ''));

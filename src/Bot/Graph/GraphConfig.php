@@ -61,6 +61,7 @@ class GraphConfig
     public function __construct(
         protected readonly ChatbotRegistry $registry,
         protected readonly ScenarioGraph $graph,
+        protected readonly ScenarioVariables $scenarioVariables,
     ) {}
 
     /**
@@ -75,7 +76,7 @@ class GraphConfig
             'defaults' => $this->defaults(),
             'slots' => $this->slots(),
             'conditions' => $this->conditions(),
-            'variables' => $this->variables(),
+            'variables' => $this->variables($scenario),
             'dataResources' => $this->dataResources(),
             'capabilities' => $this->capabilities(),
             'scenarios' => $this->scenarios($scenario),
@@ -237,11 +238,27 @@ class GraphConfig
      * variable to a node placed above the step that fills it — where it renders
      * as a gap in a sentence the visitor still receives.
      *
+     * The scenario's own names come first, and they are most of the list. A
+     * registered source publishes what the installation knows about the person;
+     * everything the conversation learns is named by a node on this canvas, and
+     * until this group existed the editor could show the smaller half only.
+     *
      * @return list<array{key: string, label: string, available_after: list<string>, fields: list<array{name: string, label: string}>}>
      */
-    protected function variables(): array
+    protected function variables(Scenario $scenario): array
     {
         $sources = [];
+
+        $collected = $this->scenarioVariables->forScenario($scenario);
+
+        if ($collected !== []) {
+            $sources[] = [
+                'key' => '__scenario',
+                'label' => __('chatbot::nodes.canvas.scenario_variables'),
+                'available_after' => [],
+                'fields' => $collected,
+            ];
+        }
 
         foreach ($this->registry->variableSources() as $source) {
             /** @var VariableSource $source */

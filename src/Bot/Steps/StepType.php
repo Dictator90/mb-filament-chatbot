@@ -213,6 +213,33 @@ abstract class StepType
     }
 
     /**
+     * The variable names this node fills in, so the author can read them back.
+     *
+     * The one thing a scenario author cannot see anywhere else. A node collects
+     * an answer, and three nodes later a message has to name it — but the name
+     * lives in a settings field of a node that may be off screen, and the
+     * message is a plain textarea that accepts anything at all. Get the name
+     * wrong and nothing reports a fault: `{{nmae}}` substitutes to an empty
+     * string and the sentence reaches a customer with a hole in it.
+     *
+     * The default answers `into`, which is what nearly every node writing a
+     * single value calls its setting. A node of the host's own that follows the
+     * same convention appears in the list without a line of code, and one that
+     * does not says so by overriding.
+     *
+     * Names only, no braces. What surrounds them is template syntax, and that
+     * belongs to whatever renders the list.
+     *
+     * @return list<string>
+     */
+    public function writes(Step $step): array
+    {
+        $into = trim((string) $step->setting('into', ''));
+
+        return $into === '' ? [] : [$into];
+    }
+
+    /**
      * The external things this node depends on, frozen into a published version.
      *
      * Without them a released scenario changes behaviour silently when someone

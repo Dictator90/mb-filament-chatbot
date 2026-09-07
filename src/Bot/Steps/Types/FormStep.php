@@ -111,6 +111,32 @@ final class FormStep extends StepType
         ];
     }
 
+    /**
+     * One name per slot the form asks for, under the slot's own key.
+     *
+     * The node with the widest gap between what it does and what it says it
+     * does. An author picks four slots from a multiple select and gets four
+     * variables they were never shown a name for — and the message on the next
+     * node, where those names have to be typed by hand, is the first place the
+     * mistake shows, as a missing word in a sentence a customer is reading.
+     *
+     * @return list<string>
+     */
+    public function writes(Step $step): array
+    {
+        $names = [];
+
+        foreach ((array) $step->setting('slots', []) as $key) {
+            $key = trim((string) $key);
+
+            if ($key !== '') {
+                $names[] = $key;
+            }
+        }
+
+        return $names;
+    }
+
     public function run(StepContext $context): StepResult
     {
         return $this->askNextOrFinish($context, []);

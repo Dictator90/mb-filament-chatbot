@@ -690,5 +690,9 @@ return [
         'say_to_start' => 'Say something to start.',
         'say_placeholder' => 'Say something to the bot',
         'walked' => 'Nodes it walked',
+        'scenario_variables' => 'Collected by this scenario',
+        'variables_heading' => 'Variables you can use',
+        'variables_hint' => 'Click one to paste it where you were typing. In a message they are written {{ name }} — a name that matches nothing prints as an empty gap.',
+        'variables_empty' => 'Nothing in this scenario names a value yet. A form, a collect or a set node does.',
     ],
 ];

@@ -496,6 +496,39 @@
     gap: 0.25rem;
 }
 
+.chatbot-graph__variable-group {
+    margin-bottom: 0.5rem;
+}
+
+.chatbot-graph__variable-source {
+    display: block;
+    margin-bottom: 0.25rem;
+    font-size: 0.6875rem;
+    color: var(--chatbot-muted);
+}
+
+.chatbot-graph__variable-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.25rem;
+}
+
+.chatbot-graph__chip {
+    padding: 0.15rem 0.4rem;
+    border: 1px solid var(--chatbot-border);
+    border-radius: 0.375rem;
+    background: var(--chatbot-raised);
+    color: var(--chatbot-text);
+    cursor: pointer;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 0.6875rem;
+}
+
+.chatbot-graph__chip.is-pasted {
+    border-color: var(--chatbot-accent);
+    color: var(--chatbot-accent);
+}
+
 .chatbot-graph__branch {
     padding: 0.5rem;
     margin-bottom: 0.5rem;

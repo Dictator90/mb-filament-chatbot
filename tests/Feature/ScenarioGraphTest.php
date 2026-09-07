@@ -280,6 +280,44 @@ it('hands the editor every registered kind in a box that survives the trip', fun
 });
 
 /**
+ * The names a scenario collects are the ones nobody can look up.
+ *
+ * A form node takes four slots from a select and fills four variables under
+ * names it never shows; the next node's message is a free textarea, and
+ * `{{nmae}}` substitutes to an empty string. Nothing throws, nothing is logged,
+ * and the first report of the mistake is a customer reading a sentence with a
+ * hole in it. So the editor is handed what the scenario itself names, and each
+ * name says which node fills it.
+ */
+it('tells the editor which variables the scenario itself fills in', function (): void {
+    $scenario = Scenario::query()->where('bot_id', $this->bot->getKey())->firstOrFail();
+
+    $this->graph->apply($scenario, graphOf(
+        nodes: [
+            ['key' => 'start', 'type' => 'start', 'config' => ['trigger' => 'fallback']],
+            ['key' => 'who', 'type' => 'form', 'config' => ['slots' => ['name', 'phone']]],
+            ['key' => 'why', 'type' => 'collect', 'config' => ['slot' => 'email']],
+            ['key' => 'mark', 'type' => 'set', 'config' => ['name' => 'interest', 'value' => 'tour']],
+        ],
+        edges: [
+            ['from' => 'start', 'slot' => 0, 'to' => 'who'],
+            ['from' => 'who', 'slot' => 0, 'to' => 'why'],
+            ['from' => 'why', 'slot' => 0, 'to' => 'mark'],
+        ],
+    ));
+
+    $groups = app(GraphConfig::class)->forScenario($scenario->refresh())['variables'];
+    $collected = collect($groups)->firstWhere('key', '__scenario');
+
+    expect($collected)->not->toBeNull();
+
+    $names = array_column($collected['fields'], 'name');
+
+    expect($names)->toContain('name', 'phone', 'email', 'interest')
+        ->and(collect($collected['fields'])->firstWhere('name', 'email')['label'])->toContain('why');
+});
+
+/**
  * The canvas is arranged by configuration, not by the bundle.
  *
  * Every distance and the direction of the layout live in `chatbot.canvas`, and

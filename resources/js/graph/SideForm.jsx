@@ -634,6 +634,118 @@ function BranchEditor({ node, config, onChange }) {
     );
 }
 
+/**
+ * Types a value into a controlled field the way a person would.
+ *
+ * Assigning `element.value` is not enough, and the failure is silent: React
+ * tracks the value it rendered, sees no change event, and the next re-render
+ * puts the old text back — the variable appears in the box and vanishes on the
+ * following keystroke. Going through the prototype's own setter and firing a
+ * bubbling `input` is what React's event system listens for, so the state
+ * behind the field moves with the box.
+ */
+function typeInto(element, next, caret) {
+    const prototype = element instanceof HTMLTextAreaElement
+        ? HTMLTextAreaElement.prototype
+        : HTMLInputElement.prototype;
+
+    const setter = Object.getOwnPropertyDescriptor(prototype, 'value')?.set;
+
+    if (!setter) {
+        return;
+    }
+
+    setter.call(element, next);
+    element.dispatchEvent(new Event('input', { bubbles: true }));
+    element.focus();
+    element.setSelectionRange(caret, caret);
+}
+
+/**
+ * Every name this scenario can put in a sentence, and where each comes from.
+ *
+ * The plainest gap in the editor. A form node collects four answers and shows
+ * the author no name for any of them; the message on the next node is a free
+ * textarea; and a name that matches nothing substitutes to an empty string, so
+ * the first report of a wrong guess is a customer reading a sentence with a
+ * hole in it. The names were always on the server — the palette only says them
+ * out loud.
+ *
+ * Clicking pastes at the caret of whatever field the author was last typing in,
+ * captured on mousedown because pressing a button moves focus before the click
+ * lands. With nothing focused it copies instead, which is the honest fallback:
+ * picking a field to paste into would put text somewhere nobody was looking.
+ */
+function VariablePalette({ config }) {
+    const groups = Array.isArray(config.variables) ? config.variables : [];
+    const [pasted, setPasted] = useState(null);
+    const [target, setTarget] = useState(null);
+
+    function remember() {
+        const active = document.activeElement;
+        const editable = active instanceof HTMLTextAreaElement
+            || (active instanceof HTMLInputElement && active.type === 'text');
+
+        setTarget(editable ? active : null);
+    }
+
+    function paste(name) {
+        const token = `{{${name}}}`;
+
+        setPasted(name);
+
+        if (!target || !target.isConnected) {
+            navigator.clipboard?.writeText(token);
+
+            return;
+        }
+
+        const start = target.selectionStart ?? target.value.length;
+        const end = target.selectionEnd ?? start;
+
+        typeInto(
+            target,
+            target.value.slice(0, start) + token + target.value.slice(end),
+            start + token.length,
+        );
+    }
+
+    return (
+        <section className="chatbot-graph__section chatbot-graph__variables">
+            <span className="chatbot-graph__field-label">{text('variables_heading')}</span>
+
+            {groups.length === 0 ? (
+                <p className="chatbot-graph__hint">{text('variables_empty')}</p>
+            ) : (
+                <>
+                    {groups.map((group) => (
+                        <div className="chatbot-graph__variable-group" key={group.key}>
+                            <span className="chatbot-graph__variable-source">{group.label}</span>
+
+                            <div className="chatbot-graph__variable-chips">
+                                {(group.fields || []).map((field) => (
+                                    <button
+                                        type="button"
+                                        key={field.name}
+                                        title={field.label}
+                                        className={`chatbot-graph__chip${pasted === field.name ? ' is-pasted' : ''}`}
+                                        onMouseDown={remember}
+                                        onClick={() => paste(field.name)}
+                                    >
+                                        {`{{${field.name}}}`}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+                    ))}
+
+                    <p className="chatbot-graph__hint">{text('variables_hint')}</p>
+                </>
+            )}
+        </section>
+    );
+}
+
 export default function SideForm({ node, config, onChange, onRename, onDelete }) {
     if (!node) {
         return (
@@ -712,6 +824,8 @@ export default function SideForm({ node, config, onChange, onRename, onDelete })
             ) : null}
 
             {branching ? <BranchEditor node={node} config={config} onChange={onChange} /> : null}
+
+            <VariablePalette config={config} />
         </aside>
     );
 }

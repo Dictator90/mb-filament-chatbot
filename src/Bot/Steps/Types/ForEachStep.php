@@ -117,6 +117,26 @@ final class ForEachStep extends StepType
     }
 
     /**
+     * The entry and, when the author asked for one, its position.
+     *
+     * @return list<string>
+     */
+    public function writes(Step $step): array
+    {
+        $names = [];
+
+        foreach (['item', 'index'] as $setting) {
+            $name = trim((string) $step->setting($setting, ''));
+
+            if ($name !== '') {
+                $names[] = $name;
+            }
+        }
+
+        return $names;
+    }
+
+    /**
      * Hands out the next entry, or leaves through "done".
      *
      * The position is kept on the conversation and cleared as soon as the loop
