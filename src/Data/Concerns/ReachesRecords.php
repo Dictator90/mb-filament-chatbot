@@ -53,6 +53,22 @@ trait ReachesRecords
             $field = (string) ($scope['field'] ?? '');
             $source = (string) ($scope['source'] ?? '');
 
+            /*
+             * A scope reaching through a relation is refused here rather than
+             * ignored, and that asymmetry with the reader is deliberate. The
+             * reader can express it — `whereHas` narrows a read — but a write
+             * addresses one row by key and has nowhere to put the condition, so
+             * carrying on would apply a weaker scope than the declaration says
+             * and change a record the conversation was never allowed to see.
+             * Refusing costs a resource that can be read but not written; the
+             * alternative costs somebody else's row.
+             */
+            if (trim((string) ($scope['relation'] ?? '')) !== '') {
+                throw new RuntimeException(
+                    "The data resource [{$resource->key}] is scoped through a relation, which cannot be applied to a write.",
+                );
+            }
+
             if ($field === '' || $source === '') {
                 continue;
             }

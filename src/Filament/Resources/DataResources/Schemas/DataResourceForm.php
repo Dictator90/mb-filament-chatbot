@@ -14,11 +14,27 @@ use Filament\Schemas\Components\Grid;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Schema;
+use MB\FilamentChatbot\Data\HostModels;
 use MB\FilamentChatbot\Enums\DataFilterOperator;
 use MB\FilamentChatbot\Enums\DataQueryMode;
 
 class DataResourceForm
 {
+    /**
+     * A list of column names as a select's options.
+     *
+     * Keyed by the name itself rather than by position: the value stored is the
+     * column name, and a positional key would rewrite every declaration the day
+     * a migration adds a column in the middle.
+     *
+     * @param  list<string>  $columns
+     * @return array<string, string>
+     */
+    private static function columnOptions(array $columns): array
+    {
+        return array_combine($columns, $columns) ?: [];
+    }
+
     public static function configure(Schema $schema): Schema
     {
         return $schema->columns(1)->components([
@@ -44,11 +60,29 @@ class DataResourceForm
                         ->maxLength(191),
                 ]),
 
-                TextInput::make('model')
+                /*
+                 * Chosen from what the installation has, not typed.
+                 *
+                 * It was a text box, and `App\Models\Oder` saves perfectly:
+                 * nothing fails until a conversation months later, as a refused
+                 * read the visitor sees as a bot that stopped answering. The
+                 * list is a convenience and never a boundary — what may be read
+                 * is the declaration's own business, checked on every query —
+                 * so a value already stored stays selectable even when
+                 * discovery has not heard of it.
+                 *
+                 * Live, because the column and relation lists below are read
+                 * off whatever is chosen here.
+                 */
+                Select::make('model')
                     ->label(__('chatbot::panel.data_resources.model'))
                     ->required()
-                    ->maxLength(255)
-                    ->placeholder('App\\Models\\Order')
+                    ->searchable()
+                    ->live()
+                    ->options(fn (Get $get): array => HostModels::including(
+                        HostModels::options(),
+                        $get('model'),
+                    ))
                     ->helperText(__('chatbot::panel.data_resources.model_help')),
 
                 Textarea::make('description')
@@ -133,10 +167,22 @@ class DataResourceForm
                         ->itemLabel(fn (array $state): ?string => $state['name'] ?? null)
                         ->schema([
                             Grid::make(2)->schema([
-                                TextInput::make('name')
+                                /*
+                                 * The model's own columns, read from the
+                                 * schema. A list somebody maintains is wrong
+                                 * the first time a migration adds a column;
+                                 * this one cannot be. An accessor or a virtual
+                                 * column typed before is kept, because it is
+                                 * legitimate and the schema does not know it.
+                                 */
+                                Select::make('name')
                                     ->label(__('chatbot::panel.data_resources.fields.column'))
                                     ->required()
-                                    ->maxLength(191),
+                                    ->searchable()
+                                    ->options(fn (Get $get): array => HostModels::including(
+                                        self::columnOptions(HostModels::columns($get('../../model'))),
+                                        $get('name'),
+                                    )),
                                 TextInput::make('label')
                                     ->label(__('chatbot::panel.attributes.label'))
                                     ->maxLength(191)
@@ -219,11 +265,41 @@ class DataResourceForm
                         ->defaultItems(0)
                         ->itemLabel(fn (array $state): ?string => $state['field'] ?? null)
                         ->schema([
+                            /*
+                             * The relation comes first because the column list
+                             * below depends on it: a scope may narrow on this
+                             * model's own column, or — for a child table with no
+                             * owner column of its own — on a column of the model
+                             * it belongs to.
+                             *
+                             * Offered from declared return types, and nothing is
+                             * called to find them. Invoking every public method
+                             * of a host model to see what comes back is how a
+                             * form ends up charging a card because somebody
+                             * named their method `pay()`.
+                             */
+                            Select::make('relation')
+                                ->label(__('chatbot::panel.data_resources.scopes.relation'))
+                                ->live()
+                                ->searchable()
+                                ->placeholder(__('chatbot::panel.data_resources.scopes.relation_none'))
+                                ->options(fn (Get $get): array => HostModels::including(
+                                    HostModels::relations($get('../../model')),
+                                    $get('relation'),
+                                ))
+                                ->helperText(__('chatbot::panel.data_resources.scopes.relation_help')),
+
                             Grid::make(3)->schema([
-                                TextInput::make('field')
+                                Select::make('field')
                                     ->label(__('chatbot::panel.data_resources.scopes.column'))
                                     ->required()
-                                    ->maxLength(191),
+                                    ->searchable()
+                                    ->options(fn (Get $get): array => HostModels::including(
+                                        self::columnOptions(filled($get('relation'))
+                                            ? HostModels::relatedColumns($get('../../model'), $get('relation'))
+                                            : HostModels::columns($get('../../model'))),
+                                        $get('field'),
+                                    )),
                                 /*
                                  * A source that resolves to nothing refuses the
                                  * query rather than dropping the condition.

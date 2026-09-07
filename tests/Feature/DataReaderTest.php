@@ -9,6 +9,7 @@ use MB\FilamentChatbot\Data\RuntimeContext;
 use MB\FilamentChatbot\Enums\DataQueryMode;
 use MB\FilamentChatbot\Models\Conversation;
 use MB\FilamentChatbot\Models\DataResource;
+use Workbench\App\Models\DemoLine;
 use Workbench\App\Models\DemoRecord;
 use Workbench\App\Models\User;
 
@@ -359,6 +360,89 @@ it('defuses like wildcards arriving in a filter value', function (): void {
     );
 
     expect($result->ok())->toBeTrue()
+        ->and($result->rows())->toBe([]);
+});
+
+/**
+ * A child table is scoped through its parent, because it has nothing else.
+ *
+ * The case every normalised application meets on its second resource: a booking
+ * belongs to a customer through its order and carries no customer column.
+ * Without this the table has two possible declarations — unreachable, or
+ * unscoped, which is the whole table — and the second is the one an author
+ * reaches for when the first stops them getting their work done.
+ *
+ * The other record is what makes the assertion mean anything: a scope has to be
+ * shown keeping somebody else's rows out, not merely letting the right ones
+ * through.
+ */
+it('narrows a child resource through a scope on its parent', function (): void {
+    $mine = DemoRecord::create(['name' => 'Mine', 'owner_id' => 7]);
+    $theirs = DemoRecord::create(['name' => 'Theirs', 'owner_id' => 99]);
+
+    DemoLine::create(['demo_record_id' => $mine->getKey(), 'title' => 'Ours']);
+    DemoLine::create(['demo_record_id' => $theirs->getKey(), 'title' => 'Somebody else']);
+
+    DataResource::factory()->create([
+        'key' => 'demo-lines',
+        'model' => DemoLine::class,
+        'modes' => [DataQueryMode::List->value],
+        'fields' => [['name' => 'title', 'returned_by_default' => true]],
+        'scopes' => [[
+            'relation' => 'record',
+            'field' => 'owner_id',
+            'operator' => 'equals',
+            'source' => 'conversation.contact_id',
+        ]],
+    ]);
+
+    $result = reader()->read(
+        new DataQuery(resource: 'demo-lines', mode: DataQueryMode::List),
+        RuntimeContext::forConversation(Conversation::factory()->create([
+            'contact_type' => DemoRecord::class,
+            'contact_id' => 7,
+        ])),
+    );
+
+    expect($result->ok())->toBeTrue()
+        ->and($result->count())->toBe(1)
+        ->and($result->first()['title'])->toBe('Ours');
+});
+
+/**
+ * A relation the model has not got refuses the read instead of widening it.
+ *
+ * The failure guarded here is a typo in a config file — `recrods` where the host
+ * meant `record` — and only two outcomes are available to it: no rows, or every
+ * row. Anything that swallowed the exception would choose the second.
+ */
+it('refuses a read whose scope names a relation the model has not got', function (): void {
+    DemoLine::create([
+        'demo_record_id' => DemoRecord::create(['name' => 'Mine', 'owner_id' => 7])->getKey(),
+        'title' => 'Ours',
+    ]);
+
+    DataResource::factory()->create([
+        'key' => 'demo-lines',
+        'model' => DemoLine::class,
+        'modes' => [DataQueryMode::List->value],
+        'fields' => [['name' => 'title', 'returned_by_default' => true]],
+        'scopes' => [[
+            'relation' => 'recrods',
+            'field' => 'owner_id',
+            'source' => 'conversation.contact_id',
+        ]],
+    ]);
+
+    $result = reader()->read(
+        new DataQuery(resource: 'demo-lines', mode: DataQueryMode::List),
+        RuntimeContext::forConversation(Conversation::factory()->create([
+            'contact_type' => DemoRecord::class,
+            'contact_id' => 7,
+        ])),
+    );
+
+    expect($result->ok())->toBeFalse()
         ->and($result->rows())->toBe([]);
 });
 

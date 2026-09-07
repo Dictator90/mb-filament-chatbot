@@ -326,6 +326,35 @@ in the first case and silently wrong in the other two.
 The resolved value is never shown to the model and never shown to the scenario
 author: **a scope that can be read is a scope that can be argued with.**
 
+### A scope may reach through a relation
+
+In a normalised schema it usually has to. A booking belongs to a customer
+through its order and carries no customer column of its own, so without this the
+table has only two possible declarations — unreachable, or unscoped, which is
+the whole table:
+
+```php
+'scopes' => [
+    ['relation' => 'order', 'field' => 'customer_id', 'operator' => 'equals', 'source' => 'conversation.contact_id'],
+],
+```
+
+The condition becomes a `whereHas` on that relation. Not a join: a join
+multiplies rows when the relation is a has-many, and the limit applied afterwards
+would return five copies of two records — a wrong answer that reads as a short
+one.
+
+The relation name is declared in the same reviewed file as the model class and
+trusted exactly as far. A name Eloquent does not know throws, and the read is
+refused rather than widened.
+
+**A resource scoped this way can be read but not written.** `mutate` and
+[`link`]({{ site.baseurl }}/nodes#link) address one row by its key and have
+nowhere to put a condition about a related table; carrying on would apply a
+weaker scope than the declaration states and change a record the conversation
+was never allowed to see. So they refuse, out loud, naming the resource. That
+costs a resource which is read-only; the alternative costs somebody else's row.
+
 ### An unknown scope source refuses the read
 
 `resolve()` returns `null` for an unknown prefix, a known prefix with nothing

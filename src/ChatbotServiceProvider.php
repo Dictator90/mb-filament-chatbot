@@ -61,6 +61,7 @@ use MB\FilamentChatbot\Console\Commands\DemoConversationCommand;
 use MB\FilamentChatbot\Console\Commands\DoctorCommand;
 use MB\FilamentChatbot\Console\Commands\RunQualityChecksCommand;
 use MB\FilamentChatbot\Console\Commands\SeedDemoDataCommand;
+use MB\FilamentChatbot\Console\Commands\SyncDataResourcesCommand;
 use MB\FilamentChatbot\Knowledge\KnowledgeBaseSource;
 use MB\FilamentChatbot\Policies\Policies;
 use MB\FilamentChatbot\Registry\ChatbotRegistry;
@@ -200,6 +201,7 @@ class ChatbotServiceProvider extends ServiceProvider
             DemoConversationCommand::class,
             DoctorCommand::class,
             RunQualityChecksCommand::class,
+            SyncDataResourcesCommand::class,
         ]);
     }
 

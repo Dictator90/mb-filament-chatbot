@@ -234,6 +234,15 @@ class DataReader
      * source name silently converts a per-customer resource into a full table
      * read, with every row it returns looking exactly like a correct answer.
      *
+     * **A scope may name a relation, and in a normalised schema it usually has
+     * to.** A booking belongs to a customer through its order and carries no
+     * customer column of its own; without this such a resource could not be
+     * scoped at all, leaving two options — a table nobody can reach, or one
+     * declared unscoped, which is the whole table. The relation name is
+     * declared in the same reviewed file as the model class and trusted exactly
+     * as far: a name Eloquent does not know throws, the read is refused, and a
+     * refusal is the safe end of that mistake.
+     *
      * @param  Builder<Model>  $builder
      *
      * @throws DataQueryException
@@ -261,8 +270,10 @@ class DataReader
                 );
             }
 
+            $relation = trim((string) ($scope['relation'] ?? ''));
+
             if (in_array($operator, DataFilterOperator::valueless(), true)) {
-                $this->compare($builder, $field, $operator, null);
+                $this->restrict($builder, $relation, $field, $operator, null);
 
                 continue;
             }
@@ -277,8 +288,35 @@ class DataReader
                 );
             }
 
-            $this->compare($builder, $field, $operator, $value);
+            $this->restrict($builder, $relation, $field, $operator, $value);
         }
+    }
+
+    /**
+     * One scope condition, on this table or on a related one.
+     *
+     * `whereHas` and not a join: a join multiplies rows when the relation is a
+     * has-many, and a limit applied afterwards would then return five copies of
+     * two records — a wrong answer that reads as a short one.
+     *
+     * @param  Builder<Model>  $builder
+     */
+    protected function restrict(
+        Builder $builder,
+        string $relation,
+        string $field,
+        DataFilterOperator $operator,
+        mixed $value,
+    ): void {
+        if ($relation === '') {
+            $this->compare($builder, $field, $operator, $value);
+
+            return;
+        }
+
+        $builder->whereHas($relation, function (Builder $related) use ($field, $operator, $value): void {
+            $this->compare($related, $field, $operator, $value);
+        });
     }
 
     /**

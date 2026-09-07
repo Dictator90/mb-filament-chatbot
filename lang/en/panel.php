@@ -380,6 +380,9 @@ return [
             'description' => 'Applied to every query of this resource, whatever the mode or the filters. The value is fetched from server state at query time and is never shown to the model or to the scenario author — a scope that can be read is a scope that can be argued with.',
             'add' => 'Add a condition',
             'column' => 'Column',
+            'relation' => 'Through a relation',
+            'relation_none' => 'A column of this model',
+            'relation_help' => 'For a table with no owner column of its own — a booking belongs to a customer through its order. Readable but not writable: a write addresses one row by key and has nowhere to put a condition about another table.',
             'source_help' => 'actor.*, tenant.* or conversation.*. An unresolvable source refuses the query.',
         ],
         'table' => [

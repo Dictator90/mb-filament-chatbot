@@ -224,6 +224,18 @@ return [
         'enabled' => true,
         'max_limit' => 100,
         'default_limit' => 10,
+
+        /*
+         * Which models the resource form offers in its dropdown. Empty reads
+         * the conventional app/Models.
+         *
+         * A convenience and never a boundary: what may actually be read is the
+         * declaration's own business, checked by the reader on every query.
+         * Name models here when yours do not live in app/Models, or when
+         * offering three of them reads better than offering ninety.
+         */
+        'models' => [],
+
         'resources' => [],
     ],
 
