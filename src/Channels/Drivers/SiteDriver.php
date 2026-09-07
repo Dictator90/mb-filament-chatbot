@@ -14,8 +14,8 @@ use MB\FilamentChatbot\Models\Message;
  *
  * The only channel that delivers by doing nothing. There is no server to call:
  * the browser asks for the transcript and gets whatever has been written since
- * it last asked, so the moment the row exists the message is as delivered as it
- * is ever going to be.
+ * it last asked — which also means this driver is never what knows whether a
+ * message arrived. The fetch is.
  *
  * It is still a driver, and still goes through the outbox, because the
  * alternative is a special case in every place that sends. "Everything is
@@ -46,7 +46,15 @@ final class SiteDriver implements ChannelDriver
     }
 
     /**
-     * Marks the message deliverable, with no external id.
+     * Accepts the message without claiming it has landed.
+     *
+     * **Accepted rather than sent, and the difference is the whole point.** This
+     * runs in a queued job, and a job says nothing about the visitor: run a
+     * worker and every message is stamped delivered the instant it is written,
+     * run none and nothing is ever stamped at all — the operator's screen said
+     * "sending…" under a message the visitor had answered. What actually
+     * delivers a message here is the widget asking for the transcript, so the
+     * stamp belongs to that request and this one leaves the column alone.
      *
      * A null id rather than a made-up one. The column is what a channel's own
      * identifier goes in, and filling it with something this package invented
@@ -55,7 +63,7 @@ final class SiteDriver implements ChannelDriver
      */
     public function send(Conversation $conversation, Message $message): DeliveryResult
     {
-        return DeliveryResult::sent();
+        return DeliveryResult::accepted();
     }
 
     public function supportsButtons(): bool

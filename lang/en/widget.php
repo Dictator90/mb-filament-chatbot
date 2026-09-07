@@ -30,6 +30,19 @@ return [
     'remove' => 'Remove',
 
     /*
+     * What each tick beside the visitor's own message means.
+     *
+     * A tick is a character, and a character on its own says nothing to anybody
+     * not looking at it — so the mark carries one of these as its accessible
+     * name. Sent is a message the widget has drawn and the server has not
+     * confirmed yet, delivered is one the server has, read is one somebody at
+     * the desk has opened the thread on.
+     */
+    'receipt_sent' => 'Sent',
+    'receipt_delivered' => 'Delivered',
+    'receipt_read' => 'Read',
+
+    /*
      * Why a file was not accepted, said to the visitor.
      *
      * Sent from the server for the same reason every other label here is, and

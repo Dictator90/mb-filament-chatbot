@@ -225,6 +225,31 @@
 }
 
 /*
+ * The delivery tick, inside the visitor's own bubble.
+ *
+ * Drawn in `currentColor` at a lower opacity rather than in a colour of its
+ * own, so that it keeps its contrast against whatever accent the site owner
+ * chose. A fixed grey would be invisible on half the palettes this widget is
+ * embedded with, and no `--chatbot-*` variable could be right for a pale accent
+ * and a dark one at once.
+ *
+ * Read differs by weight and opacity and not by hue: the step from two ticks to
+ * two filled ticks has to survive being looked at by somebody who cannot
+ * separate one colour from another.
+ */
+.chatbot__receipt {
+    margin-inline-start: 6px;
+    font-size: 11px;
+    letter-spacing: -0.12em;
+    opacity: 0.6;
+}
+
+.chatbot__receipt[data-stage="read"] {
+    opacity: 1;
+    font-weight: 700;
+}
+
+/*
  * ------------------------------------------------------------------
  * Bubble styles
  * ------------------------------------------------------------------

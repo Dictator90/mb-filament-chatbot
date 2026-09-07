@@ -165,6 +165,11 @@ class WidgetForm
                             ->default(WidgetFeatures::defaults()['attachments'])
                             ->helperText(__('chatbot::panel.site_widgets.features.attachments_help'))
                             ->live(),
+                        Toggle::make('features.receipts')
+                            ->label(__('chatbot::panel.site_widgets.features.receipts'))
+                            ->default(WidgetFeatures::defaults()['receipts'])
+                            ->helperText(__('chatbot::panel.site_widgets.features.receipts_help'))
+                            ->live(),
                     ]),
                 ]),
         ];

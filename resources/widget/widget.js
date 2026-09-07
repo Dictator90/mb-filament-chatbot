@@ -132,6 +132,9 @@
         emoji: 'Emoji',
         attach: 'Attach a file',
         remove: 'Remove',
+        receipt_sent: 'Sent',
+        receipt_delivered: 'Delivered',
+        receipt_read: 'Read',
     };
 
     /*
@@ -189,6 +192,14 @@
         features: {
             emoji: true,
             attachments: false,
+            /*
+             * Ticks start on, unlike the paper clip. They say nothing except how
+             * far the visitor's own message has got, which is the one thing in
+             * this application they are entitled to know all of — and a widget
+             * that drew them and then had them withdrawn a moment later would
+             * have shown a state it then took away.
+             */
+            receipts: true,
         },
     };
 
@@ -267,6 +278,10 @@
 
         el.emoji.hidden = !theme.features.emoji;
         el.attach.hidden = !theme.features.attachments;
+
+        el.log.querySelectorAll('.' + settings.prefix + '__receipt').forEach(function (mark) {
+            mark.hidden = !theme.features.receipts;
+        });
 
         if (!theme.features.emoji) {
             el.emojiPad.hidden = true;
@@ -690,8 +705,20 @@
                 state.choices = payload.choices || [];
                 renderChoices();
 
+                applyReceipts(payload.read_through);
+
                 if (payload.messages && payload.messages.length && !state.open) {
                     el.launcher.setAttribute('data-unread', 'yes');
+                }
+
+                /*
+                 * Something arrived while the panel was open, which means the
+                 * visitor is looking at it. Reported here as well as on opening,
+                 * or the desk would keep showing a thread as unanswered-and-
+                 * unseen through a whole conversation somebody read live.
+                 */
+                if (payload.messages && payload.messages.length && state.open) {
+                    markRead();
                 }
             })
             .catch(function () {
@@ -739,6 +766,20 @@
             bubble.appendChild(attachment(file));
         });
 
+        /*
+         * The mark goes on the visitor's own messages and on nothing else. What
+         * the bot or an operator said has no stage worth showing the person
+         * reading it — they are reading it, which is the end of the ladder.
+         *
+         * The moment it was written is kept on the row rather than only used
+         * here, because the stage is recomputed on every poll from one watermark
+         * and the comparison needs the message's own time back.
+         */
+        if (from === 'visitor') {
+            row.setAttribute('data-at', message.at || '');
+            bubble.appendChild(receipt(tracked ? 'delivered' : 'sent'));
+        }
+
         row.appendChild(bubble);
 
         if (!tracked) {
@@ -748,6 +789,64 @@
         el.log.appendChild(row);
         markRuns();
         el.log.scrollTop = el.log.scrollHeight;
+    }
+
+    /**
+     * The tick beside one of the visitor's own messages.
+     *
+     * `role="img"` with a name on it. A tick is a convention for people looking
+     * at the screen and silence for everybody else: left as a bare character it
+     * is read out as punctuation, or skipped, and the whole state disappears for
+     * the reader who cannot see it.
+     *
+     * Hidden rather than absent when the placement has receipts switched off, so
+     * that turning them on repaints what is already on screen instead of only
+     * the messages sent afterwards.
+     */
+    function receipt(stage) {
+        var mark = element('span', 'receipt', stage === 'sent' ? '✓' : '✓✓');
+
+        mark.setAttribute('data-stage', stage);
+        mark.setAttribute('role', 'img');
+        mark.setAttribute('aria-label', labels['receipt_' + stage]);
+        mark.hidden = !theme.features.receipts;
+
+        return mark;
+    }
+
+    /**
+     * Raises the visitor's own messages to "read" as far as the desk has got.
+     *
+     * Driven by one watermark rather than by a stage per message, because the
+     * poll only ever asks for what is newer than the last id the widget holds:
+     * a message already on screen is never sent again, so a per-message stage
+     * would be frozen at whatever it was when it arrived.
+     *
+     * **Nothing here ever lowers a stage.** A message that has been read stays
+     * read: a later poll that answered with no watermark — a truncated payload,
+     * a response from before the operator opened the thread — would otherwise
+     * pull the ticks back in front of the visitor, and a state that goes
+     * backwards reads as the message having been un-received.
+     */
+    function applyReceipts(readThrough) {
+        var boundary = readThrough ? Date.parse(readThrough) : NaN;
+
+        el.log.querySelectorAll('[data-from="visitor"][data-at]').forEach(function (row) {
+            var mark = row.querySelector('.' + settings.prefix + '__receipt');
+
+            if (!mark || mark.getAttribute('data-stage') === 'read') {
+                return;
+            }
+
+            var written = Date.parse(row.getAttribute('data-at'));
+
+            if (isNaN(boundary) || isNaN(written) || written > boundary) {
+                return;
+            }
+
+            mark.setAttribute('data-stage', 'read');
+            mark.setAttribute('aria-label', labels.receipt_read);
+        });
     }
 
     /**

@@ -22,6 +22,12 @@ use MB\FilamentChatbot\Models\Widget;
  * application taking a file from an anonymous stranger and keeping it. The
  * second is a decision an installation makes on purpose, and a widget created
  * before this setting existed must not quietly start doing it.
+ *
+ * Delivery ticks follow emoji rather than attachments, and on purpose: they tell
+ * the visitor nothing about the installation, only how far their own message has
+ * got — which is the one conversation they are entitled to know everything
+ * about. The switch exists because a desk that answers in a day would rather not
+ * advertise the exact minute somebody opened the thread and said nothing.
  */
 final class WidgetFeatures
 {
@@ -31,6 +37,7 @@ final class WidgetFeatures
     private const DEFAULTS = [
         'emoji' => true,
         'attachments' => false,
+        'receipts' => true,
     ];
 
     /**
@@ -75,6 +82,14 @@ final class WidgetFeatures
     public function attachments(): bool
     {
         return $this->values['attachments'];
+    }
+
+    /**
+     * Whether the visitor sees how far their own messages have got.
+     */
+    public function receipts(): bool
+    {
+        return $this->values['receipts'];
     }
 
     /**

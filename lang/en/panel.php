@@ -141,6 +141,8 @@ return [
             'emoji_help' => 'A short list beside the message box. Nothing a visitor could not already have typed.',
             'attachments' => 'Files from visitors',
             'attachments_help' => 'Off unless you turn it on. This is the application taking a file from an anonymous stranger and keeping it: only listed types are accepted, the size ceiling is in the config, and nothing is ever stored where a link alone would open it.',
+            'receipts' => 'Delivery ticks',
+            'receipts_help' => 'One tick sent, two delivered, two filled in read — beside the visitor\'s own messages, and about their own conversation only. Turn it off where you would rather not show the minute somebody opened the thread and said nothing.',
         ],
         'colours' => [
             'heading' => 'Colours',
@@ -450,7 +452,21 @@ return [
         'bot_banner' => 'The bot is answering this conversation. Your first reply takes it over.',
         'no_messages' => 'No messages yet.',
         'not_delivered' => 'not delivered: :reason',
-        'sending' => 'sending…',
+
+        /*
+         * The three stages, spelled out for whoever is not looking at the ticks.
+         *
+         * `sending…` used to live here and was removed rather than reworded: on
+         * the site channel it was printed under messages the visitor had already
+         * read, because it was drawn from a column a queued job fills in and
+         * nobody was running a worker.
+         */
+        'receipt' => [
+            'sent' => 'Sent',
+            'delivered' => 'Delivered',
+            'read' => 'Read',
+            'failed' => 'Not delivered',
+        ],
         'your_reply' => 'Your reply',
         'reply_placeholder' => 'Write a reply…',
         'quick_replies' => 'Quick replies',

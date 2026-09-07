@@ -109,22 +109,61 @@ class Outbox
     }
 
     /**
+     * Records that the visitor's own browser has now been given these messages.
+     *
+     * The site widget is the one channel where delivery is a fact about a
+     * request rather than about a job, so this is where the stamp is put: the
+     * transcript endpoint has just handed these rows to the person they were
+     * written for, and nothing later in the day will know that better.
+     *
+     * **Only the rows that are not stamped yet, and only when there are any.**
+     * The endpoint behind this is a poll — every few seconds, per open widget,
+     * all day. Stamping whatever the poll returned would be a write per message
+     * per poll, and a `where delivered_at is null` left to the database would
+     * still be a statement per poll on a thread where nothing has changed. The
+     * filter is done over the collection already in memory, so a poll that
+     * brings nothing new writes nothing at all.
+     *
+     * @param  iterable<Message>  $messages
+     */
+    public function confirmFetched(iterable $messages): void
+    {
+        $ids = [];
+
+        foreach ($messages as $message) {
+            if ($this->isDeliverable($message)) {
+                $ids[] = $message->getKey();
+            }
+        }
+
+        if ($ids === []) {
+            return;
+        }
+
+        Message::query()->whereKey($ids)->update(['delivered_at' => now()]);
+    }
+
+    /**
      * Stamps the outcome on the message.
      *
      * A success clears the previous failure, because the row states the current
      * situation rather than a history: a message that went out on the second
      * attempt is delivered, and leaving the first attempt's reason on it would
      * have operators chasing a problem that fixed itself.
+     *
+     * `delivered_at` is written only when the outcome is itself proof of
+     * arrival. An accepted message — the site widget's — has to wait for the
+     * browser that will fetch it, and a timestamp written here would be this
+     * application asserting something only that browser can know.
      */
     private function record(Message $message, DeliveryResult $result): DeliveryResult
     {
         if ($result->ok()) {
-            $message->forceFill([
-                'delivered_at' => now(),
+            $message->forceFill(array_merge([
                 'failed_at' => null,
                 'failure_reason' => null,
                 'external_id' => $message->external_id ?? $result->externalId(),
-            ])->save();
+            ], $result->delivered() ? ['delivered_at' => now()] : []))->save();
 
             return $result;
         }

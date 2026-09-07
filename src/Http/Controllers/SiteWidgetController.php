@@ -11,6 +11,7 @@ use Illuminate\Validation\ValidationException;
 use MB\FilamentChatbot\Channels\Drivers\SiteDriver;
 use MB\FilamentChatbot\Channels\InboundMessage;
 use MB\FilamentChatbot\Channels\MessageRouter;
+use MB\FilamentChatbot\Channels\Outbox;
 use MB\FilamentChatbot\Channels\WidgetFeatures;
 use MB\FilamentChatbot\Channels\WidgetResolver;
 use MB\FilamentChatbot\Channels\WidgetTheme;
@@ -43,6 +44,7 @@ class SiteWidgetController
     public function __construct(
         private readonly MessageRouter $router,
         private readonly WidgetResolver $widgets,
+        private readonly Outbox $outbox,
     ) {}
 
     /**
@@ -123,9 +125,29 @@ class SiteWidgetController
             ->limit((int) config('chatbot.chat.history_limit', 50))
             ->get();
 
+        /*
+         * Handing the transcript over *is* the delivery on this channel, so the
+         * stamp goes on here and nowhere else. It is written once per message —
+         * see the note on `confirmFetched` — and never on a poll that found
+         * nothing, which is nearly all of them.
+         */
+        $this->outbox->confirmFetched($messages);
+
         return response()->json([
             'conversation' => $conversation->getKey(),
             'status' => $conversation->status->value,
+            /*
+             * How far the operator has read, as one moment rather than as a flag
+             * on every message.
+             *
+             * The widget only ever asks for what is newer than the last id it
+             * holds, so a per-message stage would be correct once and then frozen
+             * — a visitor's message would show two ticks for the rest of the
+             * conversation however long ago somebody read it. A watermark
+             * re-answers the question for every bubble already on screen, and it
+             * is the same value the desk's own unread badge is computed from.
+             */
+            'read_through' => $conversation->agent_read_at?->toIso8601String(),
             'messages' => $messages->map(fn (Message $message): array => [
                 'id' => $message->getKey(),
                 'body' => (string) $message->body,
@@ -169,6 +191,15 @@ class SiteWidgetController
             'emoji' => __('chatbot::widget.emoji'),
             'attach' => __('chatbot::widget.attach'),
             'remove' => __('chatbot::widget.remove'),
+            /*
+             * The three stages, named. A tick is a convention people read at a
+             * glance and nothing whatsoever to a screen reader, so the mark the
+             * widget draws carries one of these as its accessible name and would
+             * otherwise be an unlabelled character in the corner of a bubble.
+             */
+            'receipt_sent' => __('chatbot::widget.receipt_sent'),
+            'receipt_delivered' => __('chatbot::widget.receipt_delivered'),
+            'receipt_read' => __('chatbot::widget.receipt_read'),
         ];
     }
 

@@ -222,14 +222,14 @@ it('answers for each widget separately about emoji and about files', function ()
         ->assertOk()
         ->json('features');
 
-    expect($answer)->toBe(['emoji' => true, 'attachments' => true]);
+    expect($answer)->toBe(['emoji' => true, 'attachments' => true, 'receipts' => true]);
 
     $answer = test()->withHeaders(['Origin' => 'https://shop.example.com'])
         ->getJson('/chatbot/site/theme?widget='.$quiet->key)
         ->assertOk()
         ->json('features');
 
-    expect($answer)->toBe(['emoji' => false, 'attachments' => false]);
+    expect($answer)->toBe(['emoji' => false, 'attachments' => false, 'receipts' => true]);
 
     test()->withHeaders([
         'Origin' => 'https://shop.example.com',

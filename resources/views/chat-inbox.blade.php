@@ -21,6 +21,7 @@
             --ci-in: rgb(244 244 245);
             --ci-out: rgb(224 231 255);
             --ci-bot: rgb(237 233 254);
+            --ci-accent: rgb(67 56 202);
 
             display: grid;
             grid-template-columns: minmax(0, 20rem) minmax(0, 1fr);
@@ -48,6 +49,7 @@
             --ci-in: rgb(39 39 42);
             --ci-out: rgb(49 46 129);
             --ci-bot: rgb(59 45 95);
+            --ci-accent: rgb(165 180 252);
         }
 
         @media (max-width: 64rem) {
@@ -296,6 +298,25 @@
         .chatbot-inbox__bubble-text {
             white-space: pre-wrap;
             overflow-wrap: anywhere;
+        }
+
+        /*
+            The three stages differ by weight and opacity rather than by hue.
+            A red-green pair would carry the whole meaning in the one channel
+            about a twelfth of men cannot separate, and the difference between
+            "delivered" and "read" is the one an operator checks before deciding
+            whether to chase somebody.
+        */
+        .chatbot-inbox__receipt {
+            margin-inline-start: 0.35rem;
+            letter-spacing: -0.12em;
+            opacity: 0.65;
+        }
+
+        .chatbot-inbox__receipt[data-stage="read"] {
+            opacity: 1;
+            font-weight: 700;
+            color: var(--ci-accent);
         }
 
         .chatbot-inbox__files {
@@ -666,11 +687,33 @@
                                 <time datetime="{{ $message->created_at?->toIso8601String() }}">
                                     {{ $message->created_at?->format('d M H:i') }}
                                 </time>
+                                {{--
+                                    A failure stays a sentence with the reason in
+                                    it; everything else is the tick every
+                                    messenger draws. The stage is asked for with
+                                    the conversation in hand rather than through
+                                    the message's own relation: the same bubble
+                                    loop runs fifty times, and a lazy `->conversation`
+                                    here would be fifty queries for one timestamp.
+
+                                    `role="img"` with a name on it, because ticks
+                                    are a convention for people looking at them
+                                    and nothing at all to anybody else — an
+                                    unlabelled ✓✓ is read out as punctuation or
+                                    skipped entirely.
+                                --}}
                                 @unless ($message->isIncoming())
-                                    @if ($message->failed_at !== null)
+                                    @php($stage = $message->deliveryStage($record))
+                                    @if ($stage === \MB\FilamentChatbot\Enums\MessageDelivery::Failed)
                                         <span>· {{ __('chatbot::panel.inbox.not_delivered', ['reason' => $message->failure_reason]) }}</span>
-                                    @elseif (! $message->isDelivered())
-                                        <span>· {{ __('chatbot::panel.inbox.sending') }}</span>
+                                    @else
+                                        <span
+                                            class="chatbot-inbox__receipt"
+                                            data-stage="{{ $stage->value }}"
+                                            role="img"
+                                            aria-label="{{ $stage->label() }}"
+                                            title="{{ $stage->label() }}"
+                                        >{{ $stage === \MB\FilamentChatbot\Enums\MessageDelivery::Sent ? '✓' : '✓✓' }}</span>
                                     @endif
                                 @endunless
                             </p>
