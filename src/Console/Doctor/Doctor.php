@@ -64,7 +64,7 @@ final class Doctor
      * @param  list<string>  $only  keys to run, or an empty list for all of them
      * @return list<array{key: string, title: string, findings: list<DoctorFinding>}>
      */
-    public function run(array $only = []): array
+    public function run(array $only = [], bool $offline = false): array
     {
         $report = [];
 
@@ -74,6 +74,7 @@ final class Doctor
             }
 
             $check = app($class);
+            $check->offline = $offline;
 
             $report[] = [
                 'key' => $class::key(),

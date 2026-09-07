@@ -20,6 +20,17 @@ use Throwable;
 abstract class DoctorCheck
 {
     /**
+     * Whether this run is allowed to leave the machine.
+     *
+     * A check that can only answer its question by asking somebody else — is
+     * this key accepted, does this endpoint answer at all — reads this and says
+     * plainly what it could not verify when the answer is no. Set by the runner
+     * rather than passed into `run()`, so a host's own check may ignore it
+     * without changing its signature.
+     */
+    public bool $offline = false;
+
+    /**
      * A stable key, used to name the check in scripts and in bug reports.
      */
     abstract public static function key(): string;

@@ -75,11 +75,36 @@ final class OpenAiGateway implements AiGateway
         if (! $response->successful()) {
             return AiReply::declined(
                 $response->status() >= 500 ? AiFailure::Unavailable : AiFailure::Refused,
-                'The provider answered with status '.$response->status().'.',
+                $this->complaint($response),
             );
         }
 
         return $this->read($prompt, $response);
+    }
+
+    /**
+     * The provider's own words about why it said no, with the status behind them.
+     *
+     * A status code alone sends whoever is debugging to a search engine. The
+     * sentence beside it usually names the fix outright — "this model is no
+     * longer available to new users", "user location is not supported", "you
+     * exceeded your current quota" — and those three have entirely different
+     * answers that a bare 404 or 400 cannot distinguish.
+     *
+     * Two shapes are read because providers disagree about one: OpenAI answers
+     * `{"error": {...}}` and Google's compatibility endpoint answers
+     * `[{"error": {...}}]`, wrapped in a list. Reading only the first would have
+     * dropped the message in exactly the case this was written for.
+     */
+    private function complaint(Response $response): string
+    {
+        $body = $response->json();
+        $error = $body['error'] ?? ($body[0]['error'] ?? null);
+        $said = is_array($error) ? trim((string) ($error['message'] ?? '')) : '';
+
+        return $said === ''
+            ? 'The provider answered with status '.$response->status().'.'
+            : $said.' (status '.$response->status().')';
     }
 
     /**

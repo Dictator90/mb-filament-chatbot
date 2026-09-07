@@ -8,6 +8,7 @@ use Filament\Actions\Action;
 use Filament\Facades\Filament;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\Page;
+use Filament\Support\Enums\Width;
 use Illuminate\Contracts\Support\Htmlable;
 use MB\FilamentChatbot\Bot\Graph\GraphConfig;
 use MB\FilamentChatbot\Bot\Graph\ScenarioGraph;
@@ -64,6 +65,20 @@ class EditScenarioGraph extends Page
             ScenarioResource::getUrl('index') => __('chatbot::panel.scenarios.graph.breadcrumb'),
             $this->scenario()->name,
         ];
+    }
+
+    /**
+     * The canvas takes the whole window.
+     *
+     * Filament's default caps a page at a reading width, which is right for a
+     * form and wrong for a drawing: the graph is the one screen here whose
+     * usable area *is* the point. Capped, a scenario of any size spends the
+     * session being panned through a slot in the middle of a wide monitor, with
+     * empty margins on both sides of it.
+     */
+    public function getMaxContentWidth(): Width|string|null
+    {
+        return Width::Full;
     }
 
     /**

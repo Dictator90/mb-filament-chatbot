@@ -27,6 +27,7 @@ class DoctorCommand extends Command
 {
     protected $signature = 'chatbot:doctor
                             {--check=* : Run only these checks, by key}
+                            {--offline : Do not call any outside service; say what could not be verified}
                             {--strict : Treat warnings as failures too}';
 
     protected $description = 'Check the chatbot installation and report anything that would break quietly';
@@ -36,7 +37,7 @@ class DoctorCommand extends Command
         /** @var list<string> $only */
         $only = (array) $this->option('check');
 
-        $report = $doctor->run($only);
+        $report = $doctor->run($only, (bool) $this->option('offline'));
 
         if ($report === []) {
             $this->components->error('No checks matched. Run without --check to see the full list.');

@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+use Illuminate\Support\Facades\Http;
+use MB\FilamentChatbot\Models\Bot;
 use MB\FilamentChatbot\Models\Scenario;
 use MB\FilamentChatbot\Models\Step;
 
@@ -80,4 +82,60 @@ it('lets a warning through unless the run asked for strictness', function (): vo
         ->assertExitCode(0);
 
     $this->artisan('chatbot:doctor --check=scenarios --strict')->assertExitCode(1);
+});
+
+/**
+ * A key that is present and a key that is accepted are different facts.
+ *
+ * The gateway's own `isAvailable()` answers the first, and is right to: nodes
+ * consult it before every single call, so it checks two strings and never makes
+ * a request. Reused here it made this report say a gateway "can be reached" on
+ * the strength of a non-empty key — and it said exactly that about a real
+ * installation whose provider answered every request with "user location is not
+ * supported". The doctor passed; the bot took its "could not" branch for every
+ * question anybody asked, which reads as scenarios written badly.
+ *
+ * Telling those two facts apart is the whole reason this command exists, so it
+ * asks the provider for real, and repeats what the provider said.
+ */
+it('asks the provider rather than trusting that a key is filled in', function (): void {
+    Http::fake(['*' => Http::response(
+        ['error' => ['message' => 'User location is not supported for the API use.']],
+        400,
+    )]);
+
+    config([
+        'chatbot.ai.default' => 'openai',
+        'chatbot.ai.drivers.openai.api_key' => 'looks-real-enough',
+        'chatbot.ai.drivers.openai.base_url' => 'https://provider.example.test/v1',
+    ]);
+
+    Bot::factory()->create(['is_active' => true, 'ai_driver' => 'openai']);
+
+    $this->artisan('chatbot:doctor --check=ai')
+        ->expectsOutputToContain('WARN')
+        ->expectsOutputToContain('User location is not supported')
+        ->assertExitCode(0);
+});
+
+/**
+ * A pipeline with no outbound access must still be able to run the doctor — and
+ * must not be told a provider answered when nothing was asked of it.
+ */
+it('says plainly what it did not verify when it may not leave the machine', function (): void {
+    Http::fake(['*' => Http::response([], 500)]);
+
+    config([
+        'chatbot.ai.default' => 'openai',
+        'chatbot.ai.drivers.openai.api_key' => 'looks-real-enough',
+        'chatbot.ai.drivers.openai.base_url' => 'https://provider.example.test/v1',
+    ]);
+
+    Bot::factory()->create(['is_active' => true, 'ai_driver' => 'openai']);
+
+    $this->artisan('chatbot:doctor --check=ai --offline')
+        ->expectsOutputToContain('Nothing was asked of the provider')
+        ->assertExitCode(0);
+
+    Http::assertNothingSent();
 });
