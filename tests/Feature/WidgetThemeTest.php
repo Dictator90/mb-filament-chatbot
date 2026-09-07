@@ -54,9 +54,58 @@ it('clamps a size to something a panel can still be seen through', function (): 
 
 it('falls back to the first choice when a style is not one it offers', function (): void {
     expect(WidgetTheme::make(['bubbles' => 'ios'])->flags()['bubbles'])->toBe('ios')
+        ->and(WidgetTheme::make(['bubbles' => 'grouped'])->flags()['bubbles'])->toBe('grouped')
         ->and(WidgetTheme::make(['bubbles' => 'whatever'])->flags()['bubbles'])->toBe('rounded')
         ->and(WidgetTheme::make(['position' => 'left'])->flags()['position'])->toBe('left')
         ->and(WidgetTheme::make(['launcher' => 'circle'])->flags()['launcher'])->toBe('circle');
+});
+
+/**
+ * `grouped` and `ios` are one arrangement and differ in one thing: the tail.
+ *
+ * The grouping rules are written once for both, and this is what keeps them
+ * that way. Copied instead, a change made to one and not the other would show
+ * up as two styles that are meant to be identical and quietly are not —
+ * invisible unless somebody happens to switch between them on the same
+ * transcript.
+ *
+ * Read from the stylesheet rather than exercised, because the difference is
+ * entirely CSS and the suite has no browser. What can be checked is the shape
+ * of the file: every grouping rule names both styles, and every tail rule names
+ * only `ios`.
+ */
+it('groups the same way with a tail and without one', function (): void {
+    $css = (string) file_get_contents(dirname(__DIR__, 2).'/resources/widget/widget.css');
+
+    $rules = array_values(array_filter(
+        explode('}', $css),
+        static fn (string $rule): bool => str_contains($rule, 'data-run=') && str_contains($rule, 'data-bubbles='),
+    ));
+
+    expect($rules)->not->toBeEmpty();
+
+    foreach ($rules as $rule) {
+        $selector = trim(explode('{', $rule)[0]);
+
+        /*
+         * The squared-off 6px corner counts as part of the tail even though it
+         * carries no mask: it exists only because the tail grows out of that
+         * corner, and a style with no tail wants the corner left round.
+         */
+        $isTail = str_contains($rule, 'mask-image')
+            || str_contains($selector, '::after')
+            || str_contains($rule, 'radius: 6px')
+            || str_contains($rule, 'position: relative');
+
+        if ($isTail) {
+            expect($selector)->not->toContain('data-bubbles="grouped"');
+
+            continue;
+        }
+
+        expect($selector)->toContain('data-bubbles="grouped"')
+            ->and($selector)->toContain('data-bubbles="ios"');
+    }
 });
 
 /**

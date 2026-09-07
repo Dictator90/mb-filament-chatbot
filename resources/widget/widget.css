@@ -246,35 +246,51 @@
 }
 
 /*
- * The iOS arrangement: a big even radius, consecutive messages pulled together
- * into one block, and the corner nearest the speaker squared off on the last
- * bubble of a run so it reads as a tail.
+ * Grouping, shared by the two styles that do it.
+ *
+ * `grouped` and `ios` are the same arrangement — a big even radius, consecutive
+ * messages from one speaker pulled into a block with their inner corners cut —
+ * and they differ in exactly one thing: whether the last bubble of a run grows a
+ * tail. Written once for both rather than copied, because a change made to one
+ * copy and not the other would show up as two styles that are supposed to be
+ * identical and quietly are not.
  */
+.chatbot__root[data-bubbles="grouped"] .chatbot__bubble,
 .chatbot__root[data-bubbles="ios"] .chatbot__bubble {
     border-radius: 18px;
     padding: 8px 14px;
 }
 
+.chatbot__root[data-bubbles="grouped"] .chatbot__message[data-run="middle"],
+.chatbot__root[data-bubbles="grouped"] .chatbot__message[data-run="last"],
 .chatbot__root[data-bubbles="ios"] .chatbot__message[data-run="middle"],
 .chatbot__root[data-bubbles="ios"] .chatbot__message[data-run="last"] {
     margin-top: -8px;
 }
 
+.chatbot__root[data-bubbles="grouped"] .chatbot__message[data-from="visitor"][data-run="first"] .chatbot__bubble,
+.chatbot__root[data-bubbles="grouped"] .chatbot__message[data-from="visitor"][data-run="middle"] .chatbot__bubble,
 .chatbot__root[data-bubbles="ios"] .chatbot__message[data-from="visitor"][data-run="first"] .chatbot__bubble,
 .chatbot__root[data-bubbles="ios"] .chatbot__message[data-from="visitor"][data-run="middle"] .chatbot__bubble {
     border-bottom-right-radius: 5px;
 }
 
+.chatbot__root[data-bubbles="grouped"] .chatbot__message[data-from="visitor"][data-run="middle"] .chatbot__bubble,
+.chatbot__root[data-bubbles="grouped"] .chatbot__message[data-from="visitor"][data-run="last"] .chatbot__bubble,
 .chatbot__root[data-bubbles="ios"] .chatbot__message[data-from="visitor"][data-run="middle"] .chatbot__bubble,
 .chatbot__root[data-bubbles="ios"] .chatbot__message[data-from="visitor"][data-run="last"] .chatbot__bubble {
     border-top-right-radius: 5px;
 }
 
+.chatbot__root[data-bubbles="grouped"] .chatbot__message[data-from="agent"][data-run="first"] .chatbot__bubble,
+.chatbot__root[data-bubbles="grouped"] .chatbot__message[data-from="agent"][data-run="middle"] .chatbot__bubble,
 .chatbot__root[data-bubbles="ios"] .chatbot__message[data-from="agent"][data-run="first"] .chatbot__bubble,
 .chatbot__root[data-bubbles="ios"] .chatbot__message[data-from="agent"][data-run="middle"] .chatbot__bubble {
     border-bottom-left-radius: 5px;
 }
 
+.chatbot__root[data-bubbles="grouped"] .chatbot__message[data-from="agent"][data-run="middle"] .chatbot__bubble,
+.chatbot__root[data-bubbles="grouped"] .chatbot__message[data-from="agent"][data-run="last"] .chatbot__bubble,
 .chatbot__root[data-bubbles="ios"] .chatbot__message[data-from="agent"][data-run="middle"] .chatbot__bubble,
 .chatbot__root[data-bubbles="ios"] .chatbot__message[data-from="agent"][data-run="last"] .chatbot__bubble {
     border-top-left-radius: 5px;

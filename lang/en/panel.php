@@ -156,6 +156,7 @@ return [
             'position' => 'Corner',
             'bubbles_options' => [
                 'rounded' => 'Rounded',
+                'grouped' => 'Grouped, no tail',
                 'ios' => 'Grouped, with a tail',
                 'square' => 'Square',
             ],

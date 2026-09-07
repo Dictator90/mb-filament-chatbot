@@ -32,11 +32,17 @@ final class WidgetTheme
     /**
      * The bubble shapes on offer.
      *
-     * `ios` is not a radius but an arrangement — tight grouping and a tail on
-     * the last bubble of a run — so it is a named style rather than a number
-     * somebody could arrive at by turning a corner dial up.
+     * Only `rounded` and `square` are a matter of corner radius. `grouped` and
+     * `ios` are arrangements — consecutive messages from one speaker pulled into
+     * a block with their inner corners cut — which is why they are named styles
+     * rather than numbers somebody could arrive at by turning a corner dial up.
+     *
+     * `grouped` and `ios` differ in one thing: whether the last bubble of a run
+     * grows a tail. Both are offered because the grouping is what does the work
+     * — it is what shows where one turn ends — and a tail on top of it is a
+     * matter of taste that a shop matching its own design should get to settle.
      */
-    public const STYLES = ['rounded', 'ios', 'square'];
+    public const STYLES = ['rounded', 'grouped', 'ios', 'square'];
 
     public const LAUNCHERS = ['pill', 'circle'];
 
