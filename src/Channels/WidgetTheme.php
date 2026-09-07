@@ -89,6 +89,34 @@ final class WidgetTheme
     }
 
     /**
+     * Every value filled in, with anything unset resolved to its default.
+     *
+     * What a form has to show. A stored theme holds only what somebody changed,
+     * so a screen bound straight to it draws seven empty colour boxes and one
+     * filled one — and an empty box does not read as "the default", it reads as
+     * "nothing", which is a colour the widget will never be. Somebody looking at
+     * it cannot tell what the panel background currently is, and the preview
+     * beside it is showing them a colour the form claims is not set.
+     *
+     * @return array<string, mixed>
+     */
+    public static function defaults(): array
+    {
+        return self::make()->toArray();
+    }
+
+    /**
+     * The stored values, resolved against the defaults.
+     *
+     * @param  array<string, mixed>|null  $stored
+     * @return array<string, mixed>
+     */
+    public static function resolved(?array $stored): array
+    {
+        return self::make($stored)->toArray();
+    }
+
+    /**
      * The values a bot has, ready to be written back into its settings bag.
      *
      * @return array<string, mixed>

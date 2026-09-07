@@ -27,6 +27,44 @@ it('lists the widgets that exist', function (): void {
 });
 
 /**
+ * Every appearance setting arrives on screen filled in, not only the ones
+ * somebody has already changed.
+ *
+ * A stored theme holds what was set and nothing else, so a form bound straight
+ * to it draws one filled colour box and seven empty ones. An empty box does not
+ * read as "the default" — it reads as "not set", which is a state this widget is
+ * never in, and it leaves no way to learn what the panel background currently
+ * is. The preview beside it is drawing that very background, so the screen
+ * disagrees with itself.
+ *
+ * Both pages, because they fill from different places: an existing widget keeps
+ * what it stored and gains the rest, a new one starts from the whole set.
+ */
+it('fills the appearance form with the values the widget actually uses', function (): void {
+    $widget = Widget::factory()->create(['theme' => ['accent' => '#0ea5e9']]);
+
+    $stored = Livewire::test(EditWidget::class, ['record' => $widget->getKey()])
+        ->get('data')['theme'] ?? [];
+
+    expect($stored['accent'])->toBe('#0ea5e9')
+        ->and($stored['surface'])->toBe('#ffffff')
+        ->and($stored['agent'])->toBe('#f1f5f9')
+        /*
+         * By value and not by type: the number survives a round trip through
+         * Livewire's state as a float, which is Livewire's business and not a
+         * thing this test has an opinion about.
+         */
+        ->and($stored['width'])->toEqual(360)
+        ->and($stored['bubbles'])->toBe('rounded');
+
+    $fresh = Livewire::test(CreateWidget::class)->get('data')['theme'] ?? [];
+
+    expect($fresh['accent'])->toBe('#4f46e5')
+        ->and($fresh['surface'])->toBe('#ffffff')
+        ->and($fresh['radius'])->toEqual(16);
+});
+
+/**
  * The key is filled in from the name once and never touched again.
  *
  * Both halves matter, and the second is the one with teeth. The key is what a
