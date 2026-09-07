@@ -33,6 +33,9 @@ class QuickReplyResource extends Resource
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedBookmarkSquare;
 
+    /** Under `chatbot/`, for the reason `HasChatbotNavigation` sets out. */
+    protected static ?string $slug = 'chatbot/quick-replies';
+
     protected static function chatbotNavigationOffset(): int
     {
         return 4;

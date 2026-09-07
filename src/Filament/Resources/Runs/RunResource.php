@@ -38,6 +38,9 @@ class RunResource extends Resource
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedMapPin;
 
+    /** Under `chatbot/`, for the reason `HasChatbotNavigation` sets out. */
+    protected static ?string $slug = 'chatbot/runs';
+
     protected static function chatbotNavigationOffset(): int
     {
         return 6;

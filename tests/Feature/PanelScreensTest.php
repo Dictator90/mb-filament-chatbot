@@ -172,6 +172,29 @@ it('themes the canvas by Filament class, never by the system colour scheme', fun
 });
 
 /**
+ * Not one screen of this package takes an address at the top level of the
+ * host's panel.
+ *
+ * Found by installing into an application that already had a page class called
+ * `ChatInbox`. Filament derives a page's address from its class name, both
+ * asked for `/chat-inbox`, and the later registration won: the host's own inbox
+ * became unreachable and its menu item opened the package's screen instead.
+ * Nothing was logged and nothing failed — the route list was the only place
+ * that said so.
+ *
+ * So every screen lives under `chatbot/`, and this holds the rule for the ones
+ * written later. That is the point of having it: the collision cannot announce
+ * itself in this package's own suite, where there is nothing to collide with.
+ */
+it('claims no address outside its own prefix', function (): void {
+    $plugin = new ChatbotPlugin;
+
+    foreach ([...$plugin->resources(), ...$plugin->pages()] as $screen) {
+        expect($screen::getSlug())->toStartWith('chatbot/');
+    }
+});
+
+/**
  * The host decides where this block of screens sits in its own menu, in one
  * setting. Six literals in six classes would mean six overrides to move the
  * menu, and the one somebody missed would split it across two groups named

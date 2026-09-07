@@ -37,6 +37,9 @@ class DataResourceResource extends Resource
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedCircleStack;
 
+    /** Under `chatbot/`, for the reason `HasChatbotNavigation` sets out. */
+    protected static ?string $slug = 'chatbot/data-resources';
+
     protected static function chatbotNavigationOffset(): int
     {
         return 5;

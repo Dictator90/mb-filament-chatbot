@@ -47,6 +47,9 @@ class Sandbox extends Page
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedBeaker;
 
+    /** Under `chatbot/`, for the reason `HasChatbotNavigation` sets out. */
+    protected static ?string $slug = 'chatbot/sandbox';
+
     /**
      * The bot under test, in the address bar so that a link to this screen is a
      * link to the conversation somebody was having, not to an empty page.

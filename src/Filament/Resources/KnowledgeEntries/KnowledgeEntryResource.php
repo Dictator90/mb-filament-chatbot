@@ -36,6 +36,9 @@ class KnowledgeEntryResource extends Resource
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedBookOpen;
 
+    /** Under `chatbot/`, for the reason `HasChatbotNavigation` sets out. */
+    protected static ?string $slug = 'chatbot/knowledge-entries';
+
     protected static function chatbotNavigationOffset(): int
     {
         return 3;

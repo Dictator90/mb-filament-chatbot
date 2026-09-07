@@ -42,6 +42,9 @@ class WidgetResource extends Resource
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedChatBubbleOvalLeftEllipsis;
 
+    /** Under `chatbot/`, for the reason `HasChatbotNavigation` sets out. */
+    protected static ?string $slug = 'chatbot/widgets';
+
     protected static function chatbotNavigationOffset(): int
     {
         return 1;

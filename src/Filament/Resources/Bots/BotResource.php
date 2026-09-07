@@ -45,6 +45,9 @@ class BotResource extends Resource
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedCpuChip;
 
+    /** Under `chatbot/`, for the reason `HasChatbotNavigation` sets out. */
+    protected static ?string $slug = 'chatbot/bots';
+
     protected static function chatbotNavigationOffset(): int
     {
         return 0;

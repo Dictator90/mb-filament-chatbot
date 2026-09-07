@@ -36,6 +36,9 @@ class ScenarioResource extends Resource
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedRectangleGroup;
 
+    /** Under `chatbot/`, for the reason `HasChatbotNavigation` sets out. */
+    protected static ?string $slug = 'chatbot/scenarios';
+
     protected static function chatbotNavigationOffset(): int
     {
         return 2;

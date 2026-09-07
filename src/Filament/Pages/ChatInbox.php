@@ -89,6 +89,13 @@ class ChatInbox extends Page
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedChatBubbleLeftRight;
 
     /**
+     * Under `chatbot/`, for the reason `HasChatbotNavigation` sets out — and
+     * this is the screen that found it. An application with its own `ChatInbox`
+     * page lost it to this one the moment the plugin was registered.
+     */
+    protected static ?string $slug = 'chatbot/inbox';
+
+    /**
      * How many conversations the list may hold.
      *
      * A ceiling rather than a pager, because the list is read from the top and
