@@ -49,6 +49,23 @@ Route::prefix('chatbot')->name('chatbot.')->group(function (): void {
      * leaves it uselessly high for the second.
      */
     Route::middleware(WidgetOrigin::class)->prefix('site')->name('site.')->group(function (): void {
+        /*
+         * How the widget should look, asked for before it draws anything.
+         *
+         * Its own endpoint rather than a field on the first history call: the
+         * launcher is on screen before any conversation exists, and the launcher
+         * is what carries the colour and the shape. Folded into history, the
+         * widget would appear in the package's default indigo and then change
+         * colour under the visitor a moment later.
+         *
+         * Throttled with the history limiter. This is asked once per page load,
+         * which is far rarer than polling, so the looser of the two ceilings is
+         * still tighter than it needs.
+         */
+        Route::get('theme', [SiteWidgetController::class, 'theme'])
+            ->middleware(ThrottleRequests::class.':chatbot-site-history')
+            ->name('theme');
+
         Route::get('messages', [SiteWidgetController::class, 'history'])
             ->middleware(ThrottleRequests::class.':chatbot-site-history')
             ->name('history');

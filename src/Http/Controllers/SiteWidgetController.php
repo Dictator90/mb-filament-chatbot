@@ -9,6 +9,7 @@ use Illuminate\Http\Request;
 use MB\FilamentChatbot\Channels\Drivers\SiteDriver;
 use MB\FilamentChatbot\Channels\InboundMessage;
 use MB\FilamentChatbot\Channels\MessageRouter;
+use MB\FilamentChatbot\Channels\WidgetTheme;
 use MB\FilamentChatbot\Http\VisitorToken;
 use MB\FilamentChatbot\Models\Bot;
 use MB\FilamentChatbot\Models\Conversation;
@@ -32,6 +33,30 @@ class SiteWidgetController
     public function __construct(
         private readonly MessageRouter $router,
     ) {}
+
+    /**
+     * How this bot's widget should look.
+     *
+     * Answers for a bot that will not talk — one whose widget is switched off,
+     * or that this site is not listed on — with the package defaults rather than
+     * with a refusal. The visitor gets a launcher that opens onto the ordinary
+     * "this is not available" path instead of an unstyled box in the corner of
+     * the page, and whoever is debugging the embed learns which bot is missing
+     * from the endpoint that actually carries the conversation.
+     *
+     * Nothing here is private: it is colours and corner radii, and they are on
+     * public display the moment the widget draws itself.
+     */
+    public function theme(Request $request): JsonResponse
+    {
+        $bot = $this->publicBot($request->query('bot'));
+        $theme = $bot === null ? WidgetTheme::make() : WidgetTheme::forBot($bot);
+
+        return response()->json([
+            'properties' => $theme->properties(),
+            'flags' => $theme->flags(),
+        ]);
+    }
 
     /**
      * The transcript since the id the widget already has.

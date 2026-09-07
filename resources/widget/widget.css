@@ -12,13 +12,27 @@
  * without forking the file.
  */
 
+/*
+ * Every value a bot can change is a custom property with a default here.
+ *
+ * The defaults matter as much as the properties: the widget draws its launcher
+ * before it has asked the server how it should look, and a property with no
+ * fallback is not a default but nothing at all — the rule using it collapses and
+ * the launcher spends one network round trip as unstyled text in the corner of
+ * somebody's homepage.
+ */
 .chatbot__root {
     --chatbot-accent: #4f46e5;
+    --chatbot-on-accent: #ffffff;
     --chatbot-surface: #ffffff;
     --chatbot-ink: #0f172a;
     --chatbot-muted: #64748b;
     --chatbot-line: #e2e8f0;
     --chatbot-agent: #f1f5f9;
+    --chatbot-agent-ink: #0f172a;
+    --chatbot-radius: 16px;
+    --chatbot-bubble-radius: 12px;
+    --chatbot-width: 360px;
 
     position: fixed;
     bottom: 20px;
@@ -54,11 +68,36 @@
     border: 0;
     border-radius: 999px;
     background: var(--chatbot-accent);
-    color: #ffffff;
+    color: var(--chatbot-on-accent);
     font: inherit;
     font-weight: 600;
     cursor: pointer;
     box-shadow: 0 10px 25px rgba(15, 23, 42, 0.18);
+}
+
+/*
+ * A round launcher shows the icon and drops the words.
+ *
+ * Hidden rather than left out of the markup, so the label is still there for a
+ * screen reader: the button says "chat with us" to anybody who cannot see that
+ * it is a speech bubble.
+ */
+.chatbot__root[data-launcher="circle"] .chatbot__launcher {
+    width: 56px;
+    height: 56px;
+    padding: 0;
+    justify-content: center;
+}
+
+.chatbot__root[data-launcher="circle"] .chatbot__launcher-label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
 }
 
 .chatbot__launcher:hover {
@@ -80,13 +119,13 @@
 .chatbot__panel {
     display: flex;
     flex-direction: column;
-    width: 360px;
+    width: var(--chatbot-width);
     max-width: calc(100vw - 32px);
     height: 520px;
     max-height: calc(100vh - 120px);
     margin-bottom: 12px;
     border: 1px solid var(--chatbot-line);
-    border-radius: 16px;
+    border-radius: var(--chatbot-radius);
     background: var(--chatbot-surface);
     overflow: hidden;
     box-shadow: 0 24px 60px rgba(15, 23, 42, 0.22);
@@ -102,7 +141,35 @@
     justify-content: space-between;
     padding: 14px 16px;
     background: var(--chatbot-accent);
-    color: #ffffff;
+    color: var(--chatbot-on-accent);
+}
+
+/*
+ * The bot's face, beside its own replies.
+ *
+ * Shown against the last message of a run and kept invisible — not absent — on
+ * the ones above it. Repeated against every line of a three-message answer it
+ * reads as three different speakers; removed outright from those lines, their
+ * text would start further left than the line below and the group would come
+ * apart.
+ */
+.chatbot__avatar {
+    flex: none;
+    width: 28px;
+    height: 28px;
+    margin-right: 8px;
+    border-radius: 50%;
+    background: var(--chatbot-agent) center/cover no-repeat;
+    color: var(--chatbot-agent-ink);
+    font-size: 12px;
+    font-weight: 600;
+    line-height: 28px;
+    text-align: center;
+    align-self: flex-end;
+}
+
+.chatbot__avatar[data-blank="yes"] {
+    visibility: hidden;
 }
 
 .chatbot__title {
@@ -139,21 +206,158 @@
 .chatbot__bubble {
     max-width: 80%;
     padding: 9px 13px;
-    border-radius: 14px;
+    border-radius: var(--chatbot-bubble-radius);
     background: var(--chatbot-agent);
+    color: var(--chatbot-agent-ink);
     white-space: pre-wrap;
     overflow-wrap: anywhere;
 }
 
 .chatbot__message[data-from="visitor"] .chatbot__bubble {
     background: var(--chatbot-accent);
-    color: #ffffff;
+    color: var(--chatbot-on-accent);
 }
 
 .chatbot__message[data-from="system"] .chatbot__bubble {
     background: transparent;
     color: var(--chatbot-muted);
     font-size: 13px;
+}
+
+/*
+ * ------------------------------------------------------------------
+ * Bubble styles
+ * ------------------------------------------------------------------
+ *
+ * Three, and only the first is a matter of corner radius. `square` is the same
+ * arrangement with the corners taken off; `ios` is a different arrangement
+ * altogether, which is why the theme names a style rather than offering a
+ * radius dial that could arrive at it by accident.
+ *
+ * The run attribute is set by the script: `first`, `middle`, `last` or `only`
+ * within a series of consecutive messages from the same speaker. Everything
+ * below reads that rather than counting siblings, because a poll inserts
+ * messages one at a time and CSS sibling selectors would restyle the previous
+ * bubble the instant the next one lands.
+ */
+
+.chatbot__root[data-bubbles="square"] .chatbot__bubble {
+    border-radius: 2px;
+}
+
+/*
+ * The iOS arrangement: a big even radius, consecutive messages pulled together
+ * into one block, and the corner nearest the speaker squared off on the last
+ * bubble of a run so it reads as a tail.
+ */
+.chatbot__root[data-bubbles="ios"] .chatbot__bubble {
+    border-radius: 18px;
+    padding: 8px 14px;
+}
+
+.chatbot__root[data-bubbles="ios"] .chatbot__message[data-run="middle"],
+.chatbot__root[data-bubbles="ios"] .chatbot__message[data-run="last"] {
+    margin-top: -8px;
+}
+
+.chatbot__root[data-bubbles="ios"] .chatbot__message[data-from="visitor"][data-run="first"] .chatbot__bubble,
+.chatbot__root[data-bubbles="ios"] .chatbot__message[data-from="visitor"][data-run="middle"] .chatbot__bubble {
+    border-bottom-right-radius: 5px;
+}
+
+.chatbot__root[data-bubbles="ios"] .chatbot__message[data-from="visitor"][data-run="middle"] .chatbot__bubble,
+.chatbot__root[data-bubbles="ios"] .chatbot__message[data-from="visitor"][data-run="last"] .chatbot__bubble {
+    border-top-right-radius: 5px;
+}
+
+.chatbot__root[data-bubbles="ios"] .chatbot__message[data-from="agent"][data-run="first"] .chatbot__bubble,
+.chatbot__root[data-bubbles="ios"] .chatbot__message[data-from="agent"][data-run="middle"] .chatbot__bubble {
+    border-bottom-left-radius: 5px;
+}
+
+.chatbot__root[data-bubbles="ios"] .chatbot__message[data-from="agent"][data-run="middle"] .chatbot__bubble,
+.chatbot__root[data-bubbles="ios"] .chatbot__message[data-from="agent"][data-run="last"] .chatbot__bubble {
+    border-top-left-radius: 5px;
+}
+
+/*
+ * The corner the tail grows out of is squared off, because the tail replaces it.
+ *
+ * Left rounded, the bubble curves away from the tail's base and the two read as
+ * a bubble with a separate hook floating beside it — which is exactly how the
+ * first attempt looked, and no amount of reshaping the hook fixed it.
+ */
+.chatbot__root[data-bubbles="ios"] .chatbot__message[data-from="visitor"][data-run="last"] .chatbot__bubble,
+.chatbot__root[data-bubbles="ios"] .chatbot__message[data-from="visitor"][data-run="only"] .chatbot__bubble {
+    border-bottom-right-radius: 6px;
+}
+
+.chatbot__root[data-bubbles="ios"] .chatbot__message[data-from="agent"][data-run="last"] .chatbot__bubble,
+.chatbot__root[data-bubbles="ios"] .chatbot__message[data-from="agent"][data-run="only"] .chatbot__bubble {
+    border-bottom-left-radius: 6px;
+}
+
+/*
+ * The tail itself, on the last bubble of a run only — the one place iMessage
+ * draws it, and the reason the grouping above exists at all.
+ */
+.chatbot__root[data-bubbles="ios"] .chatbot__message[data-run="last"] .chatbot__bubble,
+.chatbot__root[data-bubbles="ios"] .chatbot__message[data-run="only"] .chatbot__bubble {
+    position: relative;
+}
+
+/*
+ * The tail is one shape, masked out of a box painted in the bubble's colour.
+ *
+ * The obvious CSS way — a rounded corner with a second, page-coloured shape
+ * biting its outer edge off — needs to know what is *behind* the bubble, and
+ * gets it wrong the moment that is anything but one flat colour: a themed panel,
+ * a gradient, an image. A mask has no such dependency. It cuts the tail out of a
+ * box whose colour is the same variable the bubble uses, so the tail follows the
+ * theme with no rule of its own and sits correctly over anything.
+ *
+ * It is also a great deal less code. The cut-out version was eight rules of
+ * offsets and radii per side, and it took two attempts to place them; this is
+ * one shape and a mirror.
+ *
+ * `-webkit-mask-*` is kept because the widget runs on other people's sites,
+ * where the visitor's browser is not a choice anybody makes.
+ */
+.chatbot__root[data-bubbles="ios"] .chatbot__message[data-run="last"] .chatbot__bubble::after,
+.chatbot__root[data-bubbles="ios"] .chatbot__message[data-run="only"] .chatbot__bubble::after {
+    content: "";
+    position: absolute;
+    bottom: 0;
+    width: 20px;
+    height: 26px;
+    -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 26'%3E%3Cpath d='M0 2C0 18 6 25 19 26Q21 26 20 24C12 21 6 14 4 2Z'/%3E%3C/svg%3E");
+    mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 26'%3E%3Cpath d='M0 2C0 18 6 25 19 26Q21 26 20 24C12 21 6 14 4 2Z'/%3E%3C/svg%3E");
+    -webkit-mask-repeat: no-repeat;
+    mask-repeat: no-repeat;
+    -webkit-mask-size: 100% 100%;
+    mask-size: 100% 100%;
+}
+
+.chatbot__root[data-bubbles="ios"] .chatbot__message[data-from="visitor"][data-run="last"] .chatbot__bubble::after,
+.chatbot__root[data-bubbles="ios"] .chatbot__message[data-from="visitor"][data-run="only"] .chatbot__bubble::after {
+    right: -13px;
+    background: var(--chatbot-accent);
+}
+
+.chatbot__root[data-bubbles="ios"] .chatbot__message[data-from="agent"][data-run="last"] .chatbot__bubble::after,
+.chatbot__root[data-bubbles="ios"] .chatbot__message[data-from="agent"][data-run="only"] .chatbot__bubble::after {
+    left: -13px;
+    background: var(--chatbot-agent);
+    transform: scaleX(-1);
+}
+
+/*
+ * A system line is nobody speaking, so it takes no tail and no grouping in any
+ * style. Without this the "not delivered" note grows an iMessage tail and reads
+ * as something the bot said.
+ */
+.chatbot__root[data-bubbles="ios"] .chatbot__message[data-from="system"] .chatbot__bubble::after {
+    content: none;
 }
 
 .chatbot__choices {

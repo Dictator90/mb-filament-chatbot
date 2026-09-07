@@ -118,6 +118,75 @@
         placeholder: data.placeholder || null,
     };
 
+    /**
+     * How the widget looks, until the server says otherwise.
+     *
+     * The defaults are the same values `widget.css` already declares. Kept here
+     * as well so the widget can draw itself before the theme request answers —
+     * and so that a request which never answers leaves a working widget in the
+     * package's own colours rather than an unstyled one.
+     */
+    var theme = {
+        properties: {},
+        flags: {
+            bubbles: 'rounded',
+            launcher: 'pill',
+            position: null,
+            avatar: null,
+            avatar_label: '',
+            avatar_show: false,
+        },
+    };
+
+    /**
+     * Applies a theme to the element the widget is drawn into.
+     *
+     * `data-*` on the script tag still wins over anything stored, and that
+     * direction is deliberate: the tag is written by whoever maintains the page
+     * the widget sits on, and a colour chosen in the panel must not silently
+     * repaint a widget that a site owner has already matched to their own
+     * design. It also means every embed written before themes existed keeps
+     * looking exactly as it does today.
+     */
+    function applyTheme(sent) {
+        if (sent && sent.properties) {
+            theme.properties = sent.properties;
+        }
+
+        if (sent && sent.flags) {
+            Object.keys(theme.flags).forEach(function (name) {
+                if (Object.prototype.hasOwnProperty.call(sent.flags, name)) {
+                    theme.flags[name] = sent.flags[name];
+                }
+            });
+
+            theme.flags.avatar_show = Boolean(theme.flags.avatar || theme.flags.avatar_label);
+        }
+
+        if (!el.root) {
+            return;
+        }
+
+        Object.keys(theme.properties).forEach(function (name) {
+            el.root.style.setProperty(name, theme.properties[name]);
+        });
+
+        /*
+         * Re-applied after the stored properties so an accent given on the
+         * script tag stays the one on screen.
+         */
+        if (data.color) {
+            el.root.style.setProperty('--' + settings.prefix + '-accent', data.color);
+        }
+
+        el.root.setAttribute('data-bubbles', theme.flags.bubbles);
+        el.root.setAttribute('data-launcher', theme.flags.launcher);
+
+        if (!data.position && theme.flags.position) {
+            el.root.setAttribute('data-position', theme.flags.position);
+        }
+    }
+
     function label(name) {
         return pinned[name] || labels[name];
     }
@@ -145,7 +214,7 @@
             return;
         }
 
-        el.launcher.textContent = label('launcher');
+        el.launcherLabel.textContent = label('launcher');
         el.panel.setAttribute('aria-label', label('title'));
         el.title.textContent = label('title');
         el.close.setAttribute('aria-label', labels.close);
@@ -240,7 +309,14 @@
         el.root.setAttribute('data-position', settings.position);
         el.root.style.setProperty('--' + settings.prefix + '-accent', settings.color);
 
-        el.launcher = element('button', 'launcher', label('launcher'));
+        /*
+         * The label sits in its own element so the round launcher can hide it
+         * without removing it: the button still announces itself to a screen
+         * reader, which sees no difference between a circle and a pill.
+         */
+        el.launcher = element('button', 'launcher');
+        el.launcherLabel = element('span', 'launcher-label', label('launcher'));
+        el.launcher.appendChild(el.launcherLabel);
         el.launcher.type = 'button';
         el.launcher.setAttribute('aria-expanded', 'false');
         el.launcher.addEventListener('click', toggle);
@@ -370,8 +446,14 @@
             state.lastId = message.id;
         }
 
+        var from = message.incoming ? 'visitor' : 'agent';
         var row = element('div', 'message');
-        row.setAttribute('data-from', message.incoming ? 'visitor' : 'agent');
+        row.setAttribute('data-from', from);
+
+        if (from === 'agent' && theme.flags.avatar_show) {
+            row.appendChild(avatar());
+        }
+
         row.appendChild(element('div', 'bubble', message.body));
 
         if (!tracked) {
@@ -379,7 +461,73 @@
         }
 
         el.log.appendChild(row);
+        markRuns();
         el.log.scrollTop = el.log.scrollHeight;
+    }
+
+    /**
+     * The bot's face, or its initials when it has no picture.
+     */
+    function avatar() {
+        var node = element('div', 'avatar', theme.flags.avatar ? '' : (theme.flags.avatar_label || ''));
+
+        if (theme.flags.avatar) {
+            node.style.backgroundImage = 'url("' + theme.flags.avatar + '")';
+        }
+
+        return node;
+    }
+
+    /**
+     * Marks where each message sits in a run of consecutive ones from the same
+     * speaker: `first`, `middle`, `last` or `only`.
+     *
+     * Written onto the element rather than left to CSS sibling selectors,
+     * because messages arrive one at a time from a poll: a rule that styled a
+     * bubble by what follows it would restyle the bubble already on screen the
+     * moment the next one lands, and the visitor would watch a corner change
+     * shape under a message they had finished reading.
+     *
+     * Recomputed for the whole log rather than patched at the end, since an echo
+     * removed from the middle changes the run of everything around it.
+     */
+    function markRuns() {
+        var rows = Array.prototype.slice.call(el.log.querySelectorAll('.' + settings.prefix + '__message'));
+
+        rows.forEach(function (row, index) {
+            var speaker = row.getAttribute('data-from');
+            var previous = rows[index - 1];
+            var next = rows[index + 1];
+
+            /*
+             * A system line never joins a run. It is nobody speaking, and
+             * grouped with the bot's replies it would take a tail and read as
+             * something the bot said.
+             */
+            if (speaker === 'system') {
+                row.setAttribute('data-run', 'only');
+
+                return;
+            }
+
+            var startsRun = !previous || previous.getAttribute('data-from') !== speaker;
+            var endsRun = !next || next.getAttribute('data-from') !== speaker;
+
+            row.setAttribute('data-run', startsRun && endsRun ? 'only' : (startsRun ? 'first' : (endsRun ? 'last' : 'middle')));
+
+            /*
+             * The face goes beside the last message of a run, level with it —
+             * where iMessage puts it, and where it reads as "this group came
+             * from them" rather than as a label on the first line only. The
+             * earlier bubbles keep an invisible one so their text stays on the
+             * same left edge as the one below it.
+             */
+            var face = row.querySelector('.' + settings.prefix + '__avatar');
+
+            if (face) {
+                face.setAttribute('data-blank', endsRun ? 'no' : 'yes');
+            }
+        });
     }
 
     /**
@@ -469,6 +617,19 @@
     function start() {
         state.token = readToken();
         build();
+        applyTheme(null);
+
+        /*
+         * The theme is asked for and then applied, rather than awaited before
+         * anything is drawn. A widget that waited would be absent for as long as
+         * the request takes — on a slow connection, long enough for a visitor to
+         * decide the site has no chat — and if the request never answers it
+         * would never appear at all. Drawn first, the worst case is a launcher
+         * that settles into its colours a moment later.
+         */
+        api('theme?bot=' + encodeURIComponent(settings.bot))
+            .then(applyTheme)
+            .catch(function () {});
 
         if (settings.greeting) {
             append({ id: null, body: settings.greeting, incoming: false });

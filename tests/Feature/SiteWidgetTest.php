@@ -199,6 +199,51 @@ it('fetches its own stylesheet, because the embed is one tag', function (): void
  * missing — the person who unticked it has been told the bot is off their pages
  * and has no reason to check, and it answers every visitor exactly as before.
  */
+/**
+ * The widget asks how it should look before it draws anything.
+ *
+ * Behind the same allow-list as everything else: the endpoint is harmless — it
+ * answers with colours — but an endpoint outside the list is a second door, and
+ * the second door is the one nobody remembers when the rules change.
+ */
+it('tells the widget how it should look', function (): void {
+    $this->bot->update(['settings' => ['widget' => ['accent' => '#0ea5e9', 'bubbles' => 'ios']]]);
+
+    $answer = $this->withHeaders(['Origin' => 'https://shop.example.com'])
+        ->getJson('/chatbot/site/theme?bot=demo')
+        ->assertOk()
+        ->json();
+
+    expect($answer['properties']['--chatbot-accent'])->toBe('#0ea5e9')
+        ->and($answer['flags']['bubbles'])->toBe('ios');
+
+    $this->withHeaders(['Origin' => 'https://elsewhere.example.com'])
+        ->getJson('/chatbot/site/theme?bot=demo')
+        ->assertForbidden();
+});
+
+/**
+ * A bot the site may not use still gets an answer, and it is the default one.
+ *
+ * Refusing here would leave the visitor looking at an unstyled box in the corner
+ * of the page while the endpoint that actually carries the conversation explains
+ * the real problem. One confusing failure is better than two.
+ */
+it('answers with the package defaults for a bot it will not talk about', function (): void {
+    $this->bot->update([
+        'is_public_widget' => false,
+        'settings' => ['widget' => ['accent' => '#0ea5e9']],
+    ]);
+
+    $answer = $this->withHeaders(['Origin' => 'https://shop.example.com'])
+        ->getJson('/chatbot/site/theme?bot=demo')
+        ->assertOk()
+        ->json();
+
+    expect($answer['properties']['--chatbot-accent'])->toBe('#4f46e5')
+        ->and($answer['flags']['bubbles'])->toBe('rounded');
+});
+
 it('will not answer for a bot that is not published to the site', function (): void {
     $this->bot->update(['is_public_widget' => false]);
 
