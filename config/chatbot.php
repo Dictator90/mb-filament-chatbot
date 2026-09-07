@@ -82,6 +82,53 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Live updates
+    |--------------------------------------------------------------------------
+    |
+    | Off by default, and polling is not a fallback bolted on afterwards — it is
+    | the way this package works. A chat that required a socket server would be
+    | uninstallable on the shared hosting most small sites run on, and "install
+    | the package, paste the tag" would stop being true.
+    |
+    | Switched on, a new message is also broadcast, and a widget that manages to
+    | connect stops polling for as long as the connection holds. It resumes the
+    | moment the socket drops — which is why the poll can never be removed: a
+    | socket is an optimisation over a transport that already works, and the
+    | day it is the only transport is the day a proxy that buffers WebSockets
+    | takes the chat down with nothing in any log.
+    |
+    | driver names a Laravel broadcasting connection — `reverb`, `pusher`,
+    | `ably`. It is looked up in the host's own `config/broadcasting.php`, so
+    | the credentials stay in one place and this package never holds a second
+    | copy of them.
+    |
+    | The widget speaks the Pusher protocol over a plain WebSocket, in the same
+    | dependency-free file as the rest of it. Reverb and Pusher both speak it;
+    | anything that does not is reached by a host writing its own driver.
+    |
+    | ping_seconds is how often the widget proves the connection is alive. Left
+    | to TCP alone a socket through a corporate proxy stays "open" for minutes
+    | after it has stopped carrying anything, and the visitor sits looking at a
+    | chat that has quietly stopped updating.
+    |
+    */
+
+    'realtime' => [
+        'enabled' => env('CHATBOT_REALTIME', false),
+        'driver' => env('CHATBOT_REALTIME_DRIVER', 'reverb'),
+        'ping_seconds' => 30,
+
+        /*
+         * How long the widget waits for the socket before giving up and going
+         * back to polling. Short on purpose: the visitor must not spend it
+         * looking at a chat that is not updating, and the poll they fall back to
+         * is the ordinary way this works rather than a degraded mode.
+         */
+        'connect_timeout_seconds' => 5,
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | Sandbox
     |--------------------------------------------------------------------------
     |

@@ -5,6 +5,7 @@ declare(strict_types=1);
 use Illuminate\Routing\Middleware\ThrottleRequests;
 use Illuminate\Support\Facades\Route;
 use MB\FilamentChatbot\Http\Controllers\SiteWidgetController;
+use MB\FilamentChatbot\Http\Controllers\SocketAuthController;
 use MB\FilamentChatbot\Http\Controllers\TelegramWebhookController;
 use MB\FilamentChatbot\Http\Controllers\WidgetScriptController;
 use MB\FilamentChatbot\Http\Middleware\WidgetOrigin;
@@ -65,6 +66,22 @@ Route::prefix('chatbot')->name('chatbot.')->group(function (): void {
         Route::get('theme', [SiteWidgetController::class, 'theme'])
             ->middleware(ThrottleRequests::class.':chatbot-site-history')
             ->name('theme');
+
+        /*
+         * Admission to this visitor's own live channel.
+         *
+         * Inside this group, so it is behind the same origin allow-list and the
+         * same visitor token as everything else — a socket subscription hands
+         * out a live copy of a conversation, which is more than any single read
+         * here does, and it must not be the one door with weaker rules on it.
+         *
+         * Under the send limiter rather than the history one: this is asked once
+         * per connection and a connection is a thing worth spending, whereas a
+         * caller asking repeatedly is retrying a handshake that is failing.
+         */
+        Route::post('socket', SocketAuthController::class)
+            ->middleware(ThrottleRequests::class.':chatbot-site-send')
+            ->name('socket');
 
         Route::get('messages', [SiteWidgetController::class, 'history'])
             ->middleware(ThrottleRequests::class.':chatbot-site-history')
