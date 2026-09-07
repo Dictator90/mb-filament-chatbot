@@ -25,4 +25,18 @@ return [
     'send' => 'Send',
     'close' => 'Close',
     'failed' => 'That did not send. Try again in a moment.',
+    'emoji' => 'Emoji',
+    'attach' => 'Attach a file',
+    'remove' => 'Remove',
+
+    /*
+     * Why a file was not accepted, said to the visitor.
+     *
+     * Sent from the server for the same reason every other label here is, and
+     * worded specifically on purpose: "that did not send" over a file that was
+     * too big sends somebody straight back to try the same file again.
+     */
+    'attachment_off' => 'This chat does not accept files.',
+    'attachment_too_large' => 'That file is bigger than :limit KB.',
+    'attachment_wrong_type' => 'That kind of file is not accepted here.',
 ];

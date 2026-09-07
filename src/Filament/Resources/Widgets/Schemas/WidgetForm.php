@@ -20,6 +20,7 @@ use Filament\Schemas\Components\Utilities\Set;
 use Filament\Schemas\Schema;
 use Filament\Support\Enums\FontFamily;
 use Illuminate\Support\Str;
+use MB\FilamentChatbot\Channels\WidgetFeatures;
 use MB\FilamentChatbot\Channels\WidgetTheme;
 use MB\FilamentChatbot\Http\WidgetEmbed;
 use MB\FilamentChatbot\Models\Bot;
@@ -136,6 +137,36 @@ class WidgetForm
                     ->live()
                     ->helperText(__('chatbot::panel.site_widgets.identity.is_active')),
             ]),
+
+            /*
+             * On Basics rather than on Appearance, and that is the same reason
+             * these are not kept in `theme`. Whether this placement takes files
+             * from strangers is a question about what it does, not about how it
+             * looks; filed with the colours it would be found only by somebody
+             * who had come to change the colours.
+             *
+             * The defaults are read from the value object rather than written
+             * here, so a new widget and one saved before either switch existed
+             * answer the same way. A second copy of "attachments off" would part
+             * company with the first the day either moved, leaving a form that
+             * shows one answer while the endpoint enforces the other.
+             */
+            Section::make(__('chatbot::panel.site_widgets.features.heading'))
+                ->description(__('chatbot::panel.site_widgets.features.description'))
+                ->schema([
+                    Grid::make(2)->schema([
+                        Toggle::make('features.emoji')
+                            ->label(__('chatbot::panel.site_widgets.features.emoji'))
+                            ->default(WidgetFeatures::defaults()['emoji'])
+                            ->helperText(__('chatbot::panel.site_widgets.features.emoji_help'))
+                            ->live(),
+                        Toggle::make('features.attachments')
+                            ->label(__('chatbot::panel.site_widgets.features.attachments'))
+                            ->default(WidgetFeatures::defaults()['attachments'])
+                            ->helperText(__('chatbot::panel.site_widgets.features.attachments_help'))
+                            ->live(),
+                    ]),
+                ]),
         ];
     }
 
@@ -331,10 +362,20 @@ class WidgetForm
              * neither of us is watching.
              */
             Section::make(__('chatbot::panel.site_widgets.embed.heading'))->schema([
+                /*
+                 * Wrapped normally, never `pre-wrap`.
+                 *
+                 * Filament prints the value inside its own indented template, so
+                 * under `pre-wrap` a newline and twelve spaces of that template
+                 * arrive on screen ahead of the tag and eight more behind it —
+                 * an empty first line and a stray indent that look like part of
+                 * what you are being told to paste. The snippet is one line and
+                 * has no whitespace worth keeping, so keeping none is right.
+                 */
                 Text::make(fn (Get $get): string => WidgetEmbed::snippet((string) $get('key')))
                     ->key('widget_snippet')
                     ->fontFamily(FontFamily::Mono)
-                    ->extraAttributes(['style' => 'white-space: pre-wrap; word-break: break-all;'])
+                    ->extraAttributes(['style' => 'word-break: break-all;'])
                     ->copyable()
                     ->copyMessage(__('chatbot::panel.site_widgets.embed.copied'))
                     ->tooltip(__('chatbot::panel.site_widgets.embed.copy_tooltip'))

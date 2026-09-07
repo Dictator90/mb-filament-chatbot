@@ -440,6 +440,22 @@ return [
         ), static fn (string $origin): bool => $origin !== '')),
         'identity_secret' => env('CHATBOT_WIDGET_SECRET'),
         'token_ttl' => 600,
+
+        /*
+         * The biggest file either end of a conversation may attach, in kilobytes.
+         *
+         * One ceiling for the visitor and for the operator, although it is
+         * written under the widget. Two numbers would let an operator answer with
+         * a file the visitor's own widget could not have sent — and the visitor
+         * would then fail to send it back, with the widget refusing something it
+         * had just been given.
+         *
+         * It is a ceiling and not a promise: PHP's own upload_max_filesize and
+         * post_max_size cut in first and are not visible from here, so a host
+         * raising this must raise those too. Left below them, this is the number
+         * that decides, and it is the one that can answer with a sentence rather
+         * than with an empty request body.
+         */
         'max_attachment_kb' => 10240,
 
         /*
@@ -458,6 +474,52 @@ return [
             'chatbot-site-read' => 60,
             'chatbot-site-typing' => 60,
             'chatbot-webhook' => 300,
+        ],
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Attachments
+    |--------------------------------------------------------------------------
+    |
+    | Files people put into a conversation, from either end.
+    |
+    | disk is never 'public' by default and should not be made one. A visitor
+    | attaches a passport scan, an invoice, a photograph of a damaged parcel;
+    | on the public disk each of those is a file under a guessable path that
+    | every crawler, every referrer header and every person who was ever sent
+    | the link can fetch forever. They are served through a route instead, and
+    | that route asks who is asking.
+    |
+    | mimes is an allow-list, and the direction is the whole point. A deny-list
+    | is a list of the dangerous types somebody thought of, and the one nobody
+    | thought of is the one that gets uploaded. What is missing from this list
+    | is as deliberate as what is in it: image/svg+xml is an image that contains
+    | script and executes it when a browser opens it from this application's own
+    | origin, and text/html is the same thing without the disguise.
+    |
+    | Nothing here is matched against the file's name or against the Content-Type
+    | the browser announced. Both are written by whoever is uploading.
+    |
+    */
+
+    'attachments' => [
+        'disk' => env('CHATBOT_ATTACHMENT_DISK', 'local'),
+        'path' => 'chatbot/attachments',
+
+        'mimes' => [
+            'image/jpeg',
+            'image/png',
+            'image/gif',
+            'image/webp',
+            'application/pdf',
+            'text/plain',
+            'text/csv',
+            'application/zip',
+            'application/msword',
+            'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+            'application/vnd.ms-excel',
+            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
         ],
     ],
 

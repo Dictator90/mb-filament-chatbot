@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace MB\FilamentChatbot\Policies;
 
+use MB\FilamentChatbot\Models\Attachment;
 use MB\FilamentChatbot\Models\Bot;
 use MB\FilamentChatbot\Models\BudgetPeriod;
 use MB\FilamentChatbot\Models\Conversation;
@@ -51,6 +52,7 @@ final class Policies
             DataResource::class => DataResourcePolicy::class,
             Run::class => RunPolicy::class,
             Conversation::class => ConversationPolicy::class,
+            Attachment::class => AttachmentPolicy::class,
             QualityTest::class => QualityTestPolicy::class,
         ];
     }

@@ -118,7 +118,32 @@
         send: 'Send',
         close: 'Close',
         failed: 'That did not send. Try again in a moment.',
+        emoji: 'Emoji',
+        attach: 'Attach a file',
+        remove: 'Remove',
     };
+
+    /*
+     * The emoji on offer, grouped by what they are for.
+     *
+     * Written out here rather than fetched, and short rather than complete. This
+     * file carries no dependencies by design — it lands next to whatever
+     * framework the site already loads — so an emoji library is not on the
+     * table, and a full palette without one is a searchable, paginated,
+     * skin-toned thing that is a product of its own. Thirty characters cover
+     * what somebody reaches for mid-sentence, and everything else is already on
+     * the keyboard of every phone that will open this widget.
+     *
+     * The operator's desk keeps its own copy for the same reason in reverse: it
+     * is PHP and cannot read this file, and an endpoint fetched on every page
+     * load to deliver thirty characters that have never changed would be a round
+     * trip spent on nothing.
+     */
+    var EMOJI = [
+        ['🙂', '😀', '😅', '😉', '😍', '🤔', '😐', '😢', '😮', '😴'],
+        ['👍', '👎', '👌', '🙏', '👏', '🤝', '💪', '❤️', '🔥', '✨'],
+        ['✅', '❌', '⚠️', '📎', '📅', '⏰', '💬', '📞', '🎉', '🎁'],
+    ];
 
     var pinned = {
         title: data.title || null,
@@ -143,6 +168,16 @@
             avatar: null,
             avatar_label: '',
             avatar_show: false,
+        },
+        /*
+         * What this placement lets the visitor do, and the defaults are the ones
+         * the server ships. Attachments start off, so the paper clip is absent
+         * until a widget that accepts files says so — a button drawn first and
+         * withdrawn a moment later is a button somebody will have clicked.
+         */
+        features: {
+            emoji: true,
+            attachments: false,
         },
     };
 
@@ -171,9 +206,19 @@
             theme.flags.avatar_show = Boolean(theme.flags.avatar || theme.flags.avatar_label);
         }
 
+        if (sent && sent.features) {
+            Object.keys(theme.features).forEach(function (name) {
+                if (Object.prototype.hasOwnProperty.call(sent.features, name)) {
+                    theme.features[name] = Boolean(sent.features[name]);
+                }
+            });
+        }
+
         if (!el.root) {
             return;
         }
+
+        applyFeatures();
 
         Object.keys(theme.properties).forEach(function (name) {
             el.root.style.setProperty(name, theme.properties[name]);
@@ -192,6 +237,32 @@
 
         if (!data.position && theme.flags.position) {
             el.root.setAttribute('data-position', theme.flags.position);
+        }
+    }
+
+    /**
+     * Shows or hides the two composer buttons the widget's owner controls.
+     *
+     * Hiding a button is decoration and nothing more: the endpoint refuses a
+     * file from a widget that does not take them regardless of what is on
+     * screen, because this script runs on a page the visitor can edit and
+     * anything decided here is decided by them. What this saves is a visitor
+     * choosing a file and being told no.
+     */
+    function applyFeatures() {
+        if (!el.root) {
+            return;
+        }
+
+        el.emoji.hidden = !theme.features.emoji;
+        el.attach.hidden = !theme.features.attachments;
+
+        if (!theme.features.emoji) {
+            el.emojiPad.hidden = true;
+        }
+
+        if (!theme.features.attachments) {
+            clearAttachment();
         }
     }
 
@@ -228,6 +299,11 @@
         el.close.setAttribute('aria-label', labels.close);
         el.input.placeholder = label('placeholder');
         el.send.textContent = labels.send;
+        el.emoji.setAttribute('aria-label', labels.emoji);
+        el.emoji.title = labels.emoji;
+        el.attach.setAttribute('aria-label', labels.attach);
+        el.attach.title = labels.attach;
+        el.attachRemove.setAttribute('aria-label', labels.remove);
     }
 
     var POLL_OPEN = 5000;
@@ -241,6 +317,7 @@
         timer: null,
         messages: [],
         choices: [],
+        file: null,
     };
 
     var el = {};
@@ -271,6 +348,19 @@
         }
     }
 
+    /**
+     * Every call to the API, with the token on it and nothing else.
+     *
+     * `form` rather than `body` when a file is going: the browser has to set the
+     * multipart Content-Type itself, boundary and all, so this leaves the header
+     * off entirely for that case. Setting it by hand produces a request the
+     * server cannot parse and an error that names neither this line nor the file.
+     *
+     * A refusal is rejected with the status *and* the body, because the one
+     * thing the server can say that the widget cannot work out for itself is why
+     * a file was not accepted. Rejecting with a bare number, as this used to,
+     * left every failure looking like "that did not send".
+     */
     function api(path, options) {
         var request = options || {};
         var headers = { Accept: 'application/json' };
@@ -286,16 +376,49 @@
         return fetch(base + '/chatbot/site/' + path, {
             method: request.method || 'GET',
             headers: headers,
-            body: request.body ? JSON.stringify(request.body) : undefined,
+            body: request.form || (request.body ? JSON.stringify(request.body) : undefined),
             credentials: 'omit',
             mode: 'cors',
         }).then(function (response) {
             if (!response.ok) {
-                return Promise.reject(response.status);
+                return response.json()
+                    .catch(function () {
+                        return {};
+                    })
+                    .then(function (payload) {
+                        return Promise.reject({ status: response.status, payload: payload });
+                    });
             }
 
             return response.json();
         });
+    }
+
+    /**
+     * Fetches an attached file as a blob.
+     *
+     * A blob and not an `<img src>` pointing at the endpoint, and that is forced
+     * rather than preferred. The visitor's token travels in a header; a browser
+     * sends no custom header on an `<img>`, a `<video>` or a plain link, so the
+     * request would arrive with nothing identifying the conversation and the
+     * server would rightly refuse it. Fetched, the header goes with it, and what
+     * comes back is turned into a local address the page can point at.
+     */
+    function apiBlob(url) {
+        var headers = {};
+
+        if (state.token) {
+            headers['X-Chatbot-Token'] = state.token;
+        }
+
+        return fetch(url, { headers: headers, credentials: 'omit', mode: 'cors' })
+            .then(function (response) {
+                if (!response.ok) {
+                    return Promise.reject(response.status);
+                }
+
+                return response.blob();
+            });
     }
 
     function element(tag, className, text) {
@@ -350,7 +473,53 @@
 
         el.choices = element('div', 'choices');
 
+        el.notice = element('div', 'notice');
+        el.notice.setAttribute('role', 'status');
+        el.notice.hidden = true;
+
+        /*
+         * The chip that names the file waiting to go. Without it the only sign
+         * that anything is attached is a file dialog the visitor closed a moment
+         * ago, and the wrong file leaves looking exactly like no file at all.
+         */
+        el.attached = element('div', 'attached');
+        el.attached.hidden = true;
+        el.attachedName = element('span', 'attached-name');
+        el.attachRemove = element('button', 'attached-remove', '×');
+        el.attachRemove.type = 'button';
+        el.attachRemove.setAttribute('aria-label', labels.remove);
+        el.attachRemove.addEventListener('click', clearAttachment);
+        el.attached.appendChild(el.attachedName);
+        el.attached.appendChild(el.attachRemove);
+
+        el.emojiPad = buildEmojiPad();
+
         var form = element('form', 'composer');
+
+        el.emoji = element('button', 'emoji', '🙂');
+        el.emoji.type = 'button';
+        el.emoji.setAttribute('aria-label', labels.emoji);
+        el.emoji.title = labels.emoji;
+        el.emoji.addEventListener('click', function () {
+            el.emojiPad.hidden = !el.emojiPad.hidden;
+        });
+
+        /*
+         * A label wrapping a hidden input rather than a styled file control. The
+         * browser's own cannot be made to match the buttons beside it on every
+         * engine this runs on, and one that looked foreign would read as part of
+         * the host page rather than part of the chat.
+         */
+        el.attach = element('label', 'attach', '📎');
+        el.attach.title = labels.attach;
+        el.attach.setAttribute('aria-label', labels.attach);
+        el.file = document.createElement('input');
+        el.file.type = 'file';
+        el.file.addEventListener('change', function () {
+            showAttachment(el.file.files && el.file.files[0]);
+        });
+        el.attach.appendChild(el.file);
+
         el.input = element('input', 'input');
         el.input.type = 'text';
         el.input.placeholder = label('placeholder');
@@ -359,6 +528,8 @@
         el.send = element('button', 'send', labels.send);
         el.send.type = 'submit';
 
+        form.appendChild(el.emoji);
+        form.appendChild(el.attach);
         form.appendChild(el.input);
         form.appendChild(el.send);
         form.addEventListener('submit', function (event) {
@@ -369,11 +540,100 @@
         el.panel.appendChild(header);
         el.panel.appendChild(el.log);
         el.panel.appendChild(el.choices);
+        el.panel.appendChild(el.notice);
+        el.panel.appendChild(el.attached);
+        el.panel.appendChild(el.emojiPad);
         el.panel.appendChild(form);
 
         el.root.appendChild(el.panel);
         el.root.appendChild(el.launcher);
         document.body.appendChild(el.root);
+    }
+
+    /**
+     * The emoji picker: three rows, no state of its own.
+     *
+     * Each character is inserted where the cursor is and the cursor is put back
+     * after it, rather than appended. Appending sounds equivalent and is not:
+     * somebody who has gone back to fix a word mid-sentence would watch the
+     * smiley land at the far end of the line, and the next one land after that.
+     */
+    function buildEmojiPad() {
+        var pad = element('div', 'emoji-pad');
+
+        pad.hidden = true;
+
+        EMOJI.forEach(function (group) {
+            var row = element('div', 'emoji-row');
+
+            group.forEach(function (character) {
+                var pick = element('button', 'emoji-pick', character);
+
+                pick.type = 'button';
+                pick.addEventListener('click', function () {
+                    insertEmoji(character);
+                });
+
+                row.appendChild(pick);
+            });
+
+            pad.appendChild(row);
+        });
+
+        return pad;
+    }
+
+    function insertEmoji(character) {
+        var at = el.input.selectionStart;
+        var to = el.input.selectionEnd;
+        var value = el.input.value;
+
+        if (typeof at !== 'number') {
+            at = value.length;
+            to = value.length;
+        }
+
+        el.input.value = value.slice(0, at) + character + value.slice(to);
+        el.emojiPad.hidden = true;
+        el.input.focus();
+        el.input.selectionStart = at + character.length;
+        el.input.selectionEnd = at + character.length;
+    }
+
+    /**
+     * Remembers the picked file and names it on screen.
+     *
+     * Nothing is uploaded here. The file goes with the message, so a visitor who
+     * picks one and then closes the tab has left nothing behind on the server —
+     * which is the whole reason there is no upload endpoint of its own.
+     */
+    function showAttachment(file) {
+        state.file = file || null;
+        el.attached.hidden = state.file === null;
+        el.attachedName.textContent = state.file ? state.file.name : '';
+        hideNotice();
+    }
+
+    function clearAttachment() {
+        el.file.value = '';
+        showAttachment(null);
+    }
+
+    /**
+     * A line under the transcript saying why something was refused.
+     *
+     * The server's own sentence, in the application's language, and not the
+     * widget's generic "that did not send". A file rejected for being too large
+     * and one rejected for being the wrong kind need different answers, and
+     * neither of them is "try again".
+     */
+    function notice(text) {
+        el.notice.textContent = text;
+        el.notice.hidden = !text;
+    }
+
+    function hideNotice() {
+        notice('');
     }
 
     function toggle() {
@@ -462,7 +722,13 @@
             row.appendChild(avatar());
         }
 
-        row.appendChild(element('div', 'bubble', message.body));
+        var bubble = element('div', 'bubble', message.body);
+
+        (message.attachments || []).forEach(function (file) {
+            bubble.appendChild(attachment(file));
+        });
+
+        row.appendChild(bubble);
 
         if (!tracked) {
             row.setAttribute('data-local', 'yes');
@@ -471,6 +737,68 @@
         el.log.appendChild(row);
         markRuns();
         el.log.scrollTop = el.log.scrollHeight;
+    }
+
+    /**
+     * One attached file inside a bubble: a picture, or its name.
+     *
+     * Both are fetched rather than pointed at. The endpoint decides who may read
+     * a file by the token in a header, and a browser sends no custom header on
+     * an `<img src>` or on a plain link — so an address written straight into
+     * the markup would arrive at the server anonymous and be refused, showing a
+     * broken image to the very person the file belongs to.
+     *
+     * The name is written with `textContent`, so a file called `<script>` is a
+     * file called `<script>` and not a script. It is the one part of an
+     * attachment the uploader chose.
+     */
+    function attachment(file) {
+        var name = String(file.name || '');
+
+        if (file.image) {
+            var picture = element('img', 'thumb');
+
+            picture.alt = name;
+            apiBlob(file.url)
+                .then(function (blob) {
+                    picture.src = URL.createObjectURL(blob);
+                })
+                .catch(function () {});
+
+            return picture;
+        }
+
+        var link = element('button', 'file', '📎 ' + name);
+
+        link.type = 'button';
+        link.addEventListener('click', function () {
+            apiBlob(file.url)
+                .then(function (blob) {
+                    /*
+                     * Saved through a link the widget makes and clicks itself.
+                     * The bytes are already in the page by then, so this is the
+                     * only way to hand them to the visitor without a second
+                     * request that would arrive without the token.
+                     */
+                    var url = URL.createObjectURL(blob);
+                    var anchor = document.createElement('a');
+
+                    anchor.href = url;
+                    anchor.download = name;
+                    anchor.style.display = 'none';
+                    document.body.appendChild(anchor);
+                    anchor.click();
+                    anchor.remove();
+                    window.setTimeout(function () {
+                        URL.revokeObjectURL(url);
+                    }, 10000);
+                })
+                .catch(function () {
+                    notice(labels.failed);
+                });
+        });
+
+        return link;
     }
 
     /**
@@ -574,47 +902,100 @@
         });
     }
 
+    /**
+     * Sends what is in the box, and the file beside it if there is one.
+     *
+     * A file with nothing typed is a message: a photograph of a broken parcel
+     * says what it needs to. The server files it under the name it arrived
+     * with, which is why the echo below shows that name rather than an empty
+     * bubble.
+     *
+     * Multipart only when there is a file. JSON is what every other call here
+     * sends and what the endpoint has always taken; switching the whole widget
+     * to form data for the sake of the rare message that carries one would
+     * change the shape of every request a host has ever logged.
+     */
     function submit(text) {
         var body = (text || '').trim();
+        var file = state.file;
 
-        if (!body || state.sending) {
+        if ((!body && !file) || state.sending) {
             return;
         }
 
         state.sending = true;
         el.input.value = '';
+        el.emojiPad.hidden = true;
         state.choices = [];
         renderChoices();
+        hideNotice();
 
-        append({ id: null, body: body, incoming: true });
+        append({ id: null, body: body || (file ? file.name : ''), incoming: true });
 
-        api('messages', {
-            method: 'POST',
-            body: {
+        var request = { method: 'POST' };
+
+        if (file) {
+            var form = new FormData();
+
+            form.append('widget', settings.widget);
+            form.append('bot', settings.bot);
+            form.append('body', body);
+            form.append('page', window.location.href);
+            form.append('attachment', file);
+
+            request.form = form;
+        } else {
+            request.body = {
                 widget: settings.widget,
                 bot: settings.bot,
                 body: body,
                 page: window.location.href,
                 identity: settings.identity.signature ? settings.identity : null,
-            },
-        })
+            };
+        }
+
+        clearAttachment();
+
+        api('messages', request)
             .then(function (payload) {
                 if (payload.token) {
                     state.token = payload.token;
                     writeToken(payload.token);
                 }
             })
-            .catch(function () {
-                var failed = element('div', 'message');
-                failed.setAttribute('data-from', 'system');
-                failed.appendChild(element('div', 'bubble', labels.failed));
-                el.log.appendChild(failed);
+            .catch(function (failure) {
+                dropEchoes();
+                notice(refusal(failure) || labels.failed);
             })
             .then(function () {
                 state.sending = false;
                 window.clearTimeout(state.timer);
                 poll();
             });
+    }
+
+    /**
+     * The server's own reason, when it gave one.
+     *
+     * Only for a 422: that is the status the endpoint uses to say "this
+     * particular thing about your message is wrong", and it is the only one
+     * whose body is worth reading out. A 403, a 500 or a dropped connection all
+     * mean the same thing to a visitor — it did not go — and quoting a framework
+     * error at somebody on a marketing page helps nobody.
+     */
+    function refusal(failure) {
+        if (!failure || failure.status !== 422 || !failure.payload) {
+            return '';
+        }
+
+        var errors = failure.payload.errors || {};
+        var first = errors.attachment || errors.body;
+
+        if (first && first.length) {
+            return first[0];
+        }
+
+        return failure.payload.message || '';
     }
 
     function markRead() {

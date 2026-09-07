@@ -9,6 +9,7 @@ use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use MB\FilamentChatbot\Database\Factories\MessageFactory;
 use MB\FilamentChatbot\Enums\MessageAuthor;
 use MB\FilamentChatbot\Enums\MessageDirection;
@@ -57,6 +58,21 @@ class Message extends Model
     public function conversation(): BelongsTo
     {
         return $this->belongsTo(Conversation::class, 'conversation_id');
+    }
+
+    /**
+     * The files sent with this line.
+     *
+     * A relation rather than a key in `meta`, because a file has to be
+     * addressable on its own by the route that serves it — see the note on the
+     * attachments table. Empty for almost every message, which is why both
+     * transcripts eager-load it instead of asking per row.
+     *
+     * @return HasMany<Attachment, $this>
+     */
+    public function attachments(): HasMany
+    {
+        return $this->hasMany(Attachment::class, 'message_id');
     }
 
     /**

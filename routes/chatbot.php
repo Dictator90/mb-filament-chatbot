@@ -83,6 +83,24 @@ Route::prefix('chatbot')->name('chatbot.')->group(function (): void {
             ->name('typing');
 
         /*
+         * One attached file, for the visitor whose token owns the thread it is
+         * in. There is no upload route beside it: a file rides along with the
+         * message that carries it, and is therefore already behind this group's
+         * origin list and behind the send limiter, without either having been
+         * written down twice.
+         *
+         * Fetched under the history limiter rather than a ceiling of its own.
+         * The widget asks for a file while drawing a transcript it has just
+         * polled for, so it belongs to that rhythm; a fifth number here would be
+         * one more thing a host has to guess at, answering no question the first
+         * four do not.
+         */
+        Route::get('attachments/{attachment}', [SiteWidgetController::class, 'attachment'])
+            ->middleware(ThrottleRequests::class.':chatbot-site-history')
+            ->where('attachment', '[0-9a-fA-F-]{36}')
+            ->name('attachment');
+
+        /*
          * The browser asks permission before sending a custom header, and it
          * asks on the same path with OPTIONS. Without a route to match, that
          * preflight is a 404 and every widget request fails before it is made —

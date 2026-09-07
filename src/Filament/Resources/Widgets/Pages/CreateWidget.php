@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace MB\FilamentChatbot\Filament\Resources\Widgets\Pages;
 
 use Filament\Resources\Pages\CreateRecord;
+use MB\FilamentChatbot\Channels\WidgetFeatures;
 use MB\FilamentChatbot\Channels\WidgetTheme;
 use MB\FilamentChatbot\Filament\Resources\Widgets\WidgetResource;
 
@@ -34,6 +35,7 @@ class CreateWidget extends CreateRecord
     protected function mutateFormDataBeforeFill(array $data): array
     {
         $data['theme'] = WidgetTheme::defaults();
+        $data['features'] = WidgetFeatures::defaults();
 
         return $data;
     }

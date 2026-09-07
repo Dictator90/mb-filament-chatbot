@@ -47,4 +47,17 @@ class WidgetFactory extends Factory
     {
         return $this->state(fn (): array => ['allowed_origins' => $origins]);
     }
+
+    /**
+     * A placement that takes files.
+     *
+     * A state and not the default, because "off" is the shipped answer and a
+     * factory that quietly switched it on would leave the one thing worth
+     * proving — that a widget nobody configured refuses uploads — tested by
+     * nothing.
+     */
+    public function acceptingFiles(): static
+    {
+        return $this->state(fn (): array => ['features' => ['attachments' => true]]);
+    }
 }

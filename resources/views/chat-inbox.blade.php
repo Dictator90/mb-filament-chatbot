@@ -298,6 +298,34 @@
             overflow-wrap: anywhere;
         }
 
+        .chatbot-inbox__files {
+            display: flex;
+            flex-direction: column;
+            gap: 0.35rem;
+            margin-top: 0.35rem;
+        }
+
+        /*
+            A picture is shown small and links to itself. Full size it would push
+            the question underneath it off the screen, and the operator scrolls
+            past a photograph of a parcel to find the sentence that came with it.
+        */
+        .chatbot-inbox__files img {
+            max-width: min(18rem, 100%);
+            max-height: 14rem;
+            border-radius: 0.5rem;
+            object-fit: cover;
+        }
+
+        .chatbot-inbox__file {
+            display: inline-flex;
+            gap: 0.35rem;
+            align-items: center;
+            font-size: 0.78rem;
+            text-decoration: underline;
+            overflow-wrap: anywhere;
+        }
+
         .chatbot-inbox__composer {
             padding: 0.625rem 0.875rem;
             border-top: 1px solid var(--ci-line);
@@ -333,8 +361,64 @@
             color: rgb(220 38 38);
         }
 
-        .chatbot-inbox__quick {
+        .chatbot-inbox__quick,
+        .chatbot-inbox__emoji {
             position: relative;
+        }
+
+        /*
+            Opens upwards, for the same reason the stock phrases do: the composer
+            sits against the bottom of the window and a list dropping down would
+            open off screen.
+        */
+        .chatbot-inbox__emoji-pad {
+            position: absolute;
+            bottom: 100%;
+            left: 0;
+            z-index: 10;
+            display: flex;
+            flex-direction: column;
+            gap: 0.25rem;
+            width: 15rem;
+            padding: 0.4rem;
+            margin-bottom: 0.35rem;
+            background: var(--ci-surface);
+            border: 1px solid var(--ci-line);
+            border-radius: 0.5rem;
+            box-shadow: 0 10px 30px rgb(0 0 0 / 0.15);
+        }
+
+        .chatbot-inbox__emoji-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.1rem;
+        }
+
+        .chatbot-inbox__emoji-pick {
+            padding: 0.15rem 0.25rem;
+            font-size: 1.1rem;
+            line-height: 1.2;
+            border-radius: 0.35rem;
+        }
+
+        .chatbot-inbox__emoji-pick:hover {
+            background: var(--ci-raised);
+        }
+
+        .chatbot-inbox__attached {
+            display: flex;
+            gap: 0.4rem;
+            align-items: center;
+            margin-top: 0.4rem;
+            font-size: 0.75rem;
+            color: var(--ci-muted);
+        }
+
+        .chatbot-inbox__attached strong {
+            font-weight: 600;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
         }
 
         .chatbot-inbox__quick-pad {
@@ -544,6 +628,40 @@
                         >
                             <p class="chatbot-inbox__bubble-meta">{{ $this->authorLabel($message, $record) }}</p>
                             <p class="chatbot-inbox__bubble-text">{{ $message->body }}</p>
+
+                            {{--
+                                A picture is shown, anything else is a named
+                                link. The name is the one that arrived, printed
+                                and never used to fetch anything: what the link
+                                actually asks for is the file's own random id,
+                                and the route decides whether this reader may
+                                have it.
+                            --}}
+                            @if ($message->attachments->isNotEmpty())
+                                <div class="chatbot-inbox__files">
+                                    @foreach ($message->attachments as $file)
+                                        @if ($file->isImage())
+                                            <a
+                                                href="{{ $this->attachmentUrl($file) }}"
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                            >
+                                                <img src="{{ $this->attachmentUrl($file) }}" alt="{{ $file->name }}">
+                                            </a>
+                                        @else
+                                            <a
+                                                class="chatbot-inbox__file"
+                                                href="{{ $this->attachmentUrl($file) }}"
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                title="{{ __('chatbot::panel.inbox.attachment_download', ['name' => $file->name]) }}"
+                                            >
+                                                📎 {{ $file->name }}
+                                            </a>
+                                        @endif
+                                    @endforeach
+                                </div>
+                            @endif
                             <p class="chatbot-inbox__bubble-foot">
                                 <time datetime="{{ $message->created_at?->toIso8601String() }}">
                                     {{ $message->created_at?->format('d M H:i') }}
@@ -587,6 +705,7 @@
                             <label class="sr-only" for="chatbot-inbox-body">{{ __('chatbot::panel.inbox.your_reply') }}</label>
                             <textarea
                                 id="chatbot-inbox-body"
+                                x-ref="body"
                                 wire:model="composerBody"
                                 rows="3"
                                 maxlength="{{ $this->maxLength() }}"
@@ -633,6 +752,101 @@
                                     </div>
                                 </div>
 
+                                {{--
+                                    The emoji are inserted where the cursor is
+                                    and the cursor is put back after them, rather
+                                    than appended to the draft. Appending sounds
+                                    equivalent and is not: an operator who has
+                                    gone back to fix a word mid-sentence would
+                                    watch their smiley land at the far end of the
+                                    paragraph, and the second one would land
+                                    after that.
+                                --}}
+                                <div class="chatbot-inbox__emoji" x-data="{ open: false }">
+                                    <x-filament::button
+                                        type="button"
+                                        color="gray"
+                                        size="sm"
+                                        icon="heroicon-o-face-smile"
+                                        x-on:click="open = ! open"
+                                    >
+                                        {{ __('chatbot::panel.inbox.emoji') }}
+                                    </x-filament::button>
+
+                                    <div
+                                        class="chatbot-inbox__emoji-pad"
+                                        x-show="open"
+                                        x-on:click.outside="open = false"
+                                        x-cloak
+                                    >
+                                        @foreach ($this->emojiGroups() as $group => $characters)
+                                            <div class="chatbot-inbox__emoji-row" wire:key="chatbot-emoji-{{ $group }}">
+                                                @foreach ($characters as $character)
+                                                    <button
+                                                        type="button"
+                                                        class="chatbot-inbox__emoji-pick"
+                                                        {{--
+                                                            The cursor is moved
+                                                            by the character's
+                                                            length in JavaScript
+                                                            and not by its length
+                                                            in PHP. `mb_strlen`
+                                                            counts code points
+                                                            and a string index in
+                                                            a textarea counts
+                                                            UTF-16 units, so
+                                                            every emoji above the
+                                                            basic plane — which
+                                                            is most of the faces
+                                                            — would leave the
+                                                            caret one place short
+                                                            and the next typed
+                                                            letter inside it.
+                                                        --}}
+                                                        x-on:click="
+                                                            const character = @js($character);
+                                                            const field = $refs.body;
+                                                            const at = field.selectionStart ?? field.value.length;
+                                                            field.value = field.value.slice(0, at)
+                                                                + character
+                                                                + field.value.slice(field.selectionEnd ?? at);
+                                                            field.dispatchEvent(new Event('input'));
+                                                            field.focus();
+                                                            field.selectionStart = field.selectionEnd = at + character.length;
+                                                            open = false;
+                                                        "
+                                                    >{{ $character }}</button>
+                                                @endforeach
+                                            </div>
+                                        @endforeach
+                                    </div>
+                                </div>
+
+                                {{--
+                                    A label wrapped round a hidden input rather
+                                    than a styled `<input type="file">`: the
+                                    browser's own control cannot be made to look
+                                    like the buttons beside it, and one that
+                                    looked different would read as belonging to
+                                    something other than this composer.
+                                --}}
+                                <label class="chatbot-inbox__file" title="{{ __('chatbot::panel.inbox.attach') }}">
+                                    <x-filament::button
+                                        tag="span"
+                                        color="gray"
+                                        size="sm"
+                                        icon="heroicon-o-paper-clip"
+                                    >
+                                        {{ __('chatbot::panel.inbox.attach') }}
+                                    </x-filament::button>
+
+                                    <input
+                                        type="file"
+                                        class="sr-only"
+                                        wire:model="attachment"
+                                    >
+                                </label>
+
                                 <span class="chatbot-inbox__counter">
                                     <span x-text="length">0</span> / {{ $this->maxLength() }}
                                 </span>
@@ -648,7 +862,31 @@
                                 </x-filament::button>
                             </div>
 
+                            {{--
+                                The picked file is named back to the operator
+                                before it goes. Without it the only sign that
+                                anything is attached is a file dialog they closed
+                                a minute ago, and the reply that carries last
+                                week's screenshot goes out looking exactly like
+                                one that carries nothing.
+                            --}}
+                            @if ($this->attachmentName() !== '')
+                                <p class="chatbot-inbox__attached">
+                                    <span>📎</span>
+                                    <strong>{{ $this->attachmentName() }}</strong>
+                                    <button
+                                        type="button"
+                                        wire:click="clearAttachment"
+                                        title="{{ __('chatbot::panel.inbox.attach_remove') }}"
+                                    >×</button>
+                                </p>
+                            @endif
+
                             @error('composerBody')
+                                <p class="chatbot-inbox__error">{{ $message }}</p>
+                            @enderror
+
+                            @error('attachment')
                                 <p class="chatbot-inbox__error">{{ $message }}</p>
                             @enderror
                         </form>

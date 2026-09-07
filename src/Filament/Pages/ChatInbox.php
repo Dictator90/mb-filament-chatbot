@@ -14,15 +14,21 @@ use Filament\Support\Icons\Heroicon;
 use Illuminate\Contracts\Support\Htmlable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Cache;
 use InvalidArgumentException;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Url;
+use Livewire\Features\SupportFileUploads\TemporaryUploadedFile;
+use Livewire\WithFileUploads;
+use MB\FilamentChatbot\Chat\AttachmentRefused;
+use MB\FilamentChatbot\Chat\AttachmentStore;
 use MB\FilamentChatbot\Chat\OperatorReply;
 use MB\FilamentChatbot\Enums\BotState;
 use MB\FilamentChatbot\Enums\ConversationStatus;
 use MB\FilamentChatbot\Enums\MessageAuthor;
 use MB\FilamentChatbot\Filament\Concerns\HasChatbotNavigation;
+use MB\FilamentChatbot\Models\Attachment;
 use MB\FilamentChatbot\Models\Conversation;
 use MB\FilamentChatbot\Models\Message;
 use MB\FilamentChatbot\Models\QuickReply;
@@ -52,9 +58,33 @@ use UnitEnum;
 class ChatInbox extends Page
 {
     use HasChatbotNavigation;
+    use WithFileUploads;
 
     /** @var view-string */
     protected string $view = 'chatbot::chat-inbox';
+
+    /**
+     * The emoji the composer offers, grouped by what they are for.
+     *
+     * Short and closed, and it stays that way. A full palette is a searchable,
+     * paginated, skin-toned, keyboard-navigable thing with a data file behind
+     * it — a separate product — and this list covers what an operator actually
+     * reaches for between two sentences. Anything else is typed, pasted or
+     * picked from the operating system's own picker, which is a keystroke away
+     * on every platform this panel runs on.
+     *
+     * The widget carries its own copy rather than reading this one. It runs on
+     * somebody else's page with no way to call PHP, and giving it a fourth
+     * endpoint to fetch thirty characters would cost a round trip on every page
+     * load for a list that has never changed.
+     *
+     * @var array<string, list<string>>
+     */
+    public const EMOJI = [
+        'faces' => ['🙂', '😀', '😅', '😉', '😍', '🤔', '😐', '😢', '😮', '😴'],
+        'gestures' => ['👍', '👎', '👌', '🙏', '👏', '🤝', '💪', '❤️', '🔥', '✨'],
+        'marks' => ['✅', '❌', '⚠️', '📎', '📅', '⏰', '💬', '📞', '🎉', '🎁'],
+    ];
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedChatBubbleLeftRight;
 
@@ -97,6 +127,19 @@ class ChatInbox extends Page
     public bool $onlyUnread = false;
 
     public string $composerBody = '';
+
+    /**
+     * The file waiting to go out with the next reply, if any.
+     *
+     * Untyped on purpose. Livewire puts a `TemporaryUploadedFile` here once an
+     * upload has landed and a plain string on it while one is still arriving,
+     * and a typed property turns that intermediate state into a `TypeError`
+     * thrown from inside Livewire's own hydration — where nothing on screen
+     * names this page, this property, or the file somebody was uploading.
+     *
+     * @var TemporaryUploadedFile|null
+     */
+    public $attachment = null;
 
     public static function getNavigationLabel(): string
     {
@@ -330,6 +373,12 @@ class ChatInbox extends Page
         }
 
         return $conversation->messages()
+            /*
+             * The files are eager-loaded rather than asked for per bubble. Almost
+             * every message has none, so this is one query for the transcript
+             * where a relation touched in the view would be fifty.
+             */
+            ->with('attachments')
             ->reorder()
             ->latest('id')
             ->limit((int) config('chatbot.chat.history_limit', 50))
@@ -365,6 +414,7 @@ class ChatInbox extends Page
     {
         $this->conversationId = $conversationId;
         $this->composerBody = '';
+        $this->attachment = null;
         $this->resetValidation();
 
         $this->forgetThread();
@@ -376,6 +426,7 @@ class ChatInbox extends Page
     {
         $this->conversationId = null;
         $this->composerBody = '';
+        $this->attachment = null;
         $this->resetValidation();
 
         $this->forgetThread();
@@ -441,10 +492,12 @@ class ChatInbox extends Page
 
         $this->authorize('update', $conversation);
 
+        $file = $this->attachment instanceof UploadedFile ? $this->attachment : null;
+
         $body = trim($this->composerBody);
         $limit = (int) config('chatbot.chat.max_message_length', 4000);
 
-        if ($body === '') {
+        if ($body === '' && $file === null) {
             $this->addError('composerBody', __('chatbot::panel.inbox.empty_body'));
 
             return;
@@ -456,17 +509,115 @@ class ChatInbox extends Page
             return;
         }
 
+        /*
+         * The file is judged before the reply is written, not after.
+         *
+         * Writing first and refusing second would send the customer a message
+         * and then tell the operator their file was rejected — and nothing
+         * recalls a message a channel has already accepted, so the operator
+         * would be left explaining the half that did arrive.
+         */
+        if ($file !== null && ! $this->attachmentIsAcceptable($file)) {
+            return;
+        }
+
         try {
-            app(OperatorReply::class)->send($conversation, $body, Filament::auth()->user());
+            $message = app(OperatorReply::class)->send(
+                $conversation,
+                /*
+                 * A file with no sentence under it goes out named. `OperatorReply`
+                 * refuses an empty body — an empty bubble is a notification with
+                 * nothing in it — and inventing a placeholder here would write the
+                 * panel's language into a row the visitor reads.
+                 */
+                $body === '' ? $this->attachmentName($file) : $body,
+                Filament::auth()->user(),
+            );
         } catch (InvalidArgumentException) {
             $this->addError('composerBody', __('chatbot::panel.inbox.empty_body'));
 
             return;
         }
 
+        if ($file !== null) {
+            app(AttachmentStore::class)->store($message, $file);
+        }
+
         $this->composerBody = '';
+        $this->attachment = null;
         $this->resetValidation();
         $this->forgetThread();
+    }
+
+    /**
+     * Takes the file off the reply without sending anything.
+     */
+    public function clearAttachment(): void
+    {
+        $this->attachment = null;
+        $this->resetValidation('attachment');
+    }
+
+    /**
+     * Says no to a file the store would refuse, in words, under the box.
+     *
+     * The same two questions `AttachmentStore` asks, asked here so the answer
+     * can be a sentence rather than an exception. `store()` asks them again
+     * afterwards, which is not duplication but the guarantee: this method is
+     * about telling somebody, and that one is about what reaches the disk.
+     */
+    protected function attachmentIsAcceptable(UploadedFile $file): bool
+    {
+        $store = app(AttachmentStore::class);
+        $refusal = $store->refusalFor($file);
+
+        if ($refusal === null) {
+            return true;
+        }
+
+        $this->addError('attachment', $refusal->reason === AttachmentRefused::TOO_LARGE
+            ? __('chatbot::panel.inbox.attachment_too_large', ['limit' => $store->maxKilobytes()])
+            : __('chatbot::panel.inbox.attachment_wrong_type'));
+
+        return false;
+    }
+
+    /**
+     * The name of the file on the reply, as the operator's own machine spelled
+     * it. Empty when nothing is attached, which is what the composer draws.
+     */
+    public function attachmentName(mixed $file = null): string
+    {
+        $file ??= $this->attachment;
+
+        return $file instanceof UploadedFile
+            ? trim((string) $file->getClientOriginalName())
+            : '';
+    }
+
+    /**
+     * Where the desk fetches one attached file from.
+     *
+     * The panel is named in the address because the route is outside the panel's
+     * own path and has to know whose guard to ask — see
+     * `src/Http/Controllers/AttachmentController.php`. Taken from the panel
+     * currently rendering rather than from a setting, so a host running the desk
+     * in two panels gets a working link in both.
+     */
+    public function attachmentUrl(Attachment $attachment): string
+    {
+        return route('chatbot.attachment', [
+            'panel' => Filament::getCurrentPanel()?->getId() ?? Filament::getDefaultPanel()->getId(),
+            'attachment' => $attachment->uuid,
+        ]);
+    }
+
+    /**
+     * @return array<string, list<string>>
+     */
+    public function emojiGroups(): array
+    {
+        return self::EMOJI;
     }
 
     /**

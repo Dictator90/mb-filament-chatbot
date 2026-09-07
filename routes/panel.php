@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use Illuminate\Support\Facades\Route;
+use MB\FilamentChatbot\Http\Controllers\AttachmentController;
 use MB\FilamentChatbot\Http\Controllers\WidgetPreviewController;
 
 /**
@@ -26,4 +27,16 @@ Route::middleware('web')
     ->group(function (): void {
         Route::get('widget-preview/{panel}', WidgetPreviewController::class)
             ->name('widget.preview');
+
+        /*
+         * A file from a conversation, for the operator reading it.
+         *
+         * Not published into `public/` and not served from a signed URL. The
+         * files are passports, invoices and photographs of somebody's front
+         * door: what decides is the policy on the conversation, asked on every
+         * request, and a link that carried its own permission would go on
+         * working after the person who copied it stopped being staff.
+         */
+        Route::get('attachments/{panel}/{attachment}', AttachmentController::class)
+            ->name('attachment');
     });

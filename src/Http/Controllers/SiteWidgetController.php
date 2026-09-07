@@ -6,15 +6,24 @@ namespace MB\FilamentChatbot\Http\Controllers;
 
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\UploadedFile;
+use Illuminate\Validation\ValidationException;
 use MB\FilamentChatbot\Channels\Drivers\SiteDriver;
 use MB\FilamentChatbot\Channels\InboundMessage;
 use MB\FilamentChatbot\Channels\MessageRouter;
+use MB\FilamentChatbot\Channels\WidgetFeatures;
 use MB\FilamentChatbot\Channels\WidgetResolver;
 use MB\FilamentChatbot\Channels\WidgetTheme;
+use MB\FilamentChatbot\Chat\AttachmentRefused;
+use MB\FilamentChatbot\Chat\AttachmentStore;
+use MB\FilamentChatbot\Http\AttachmentResponse;
 use MB\FilamentChatbot\Http\VisitorToken;
+use MB\FilamentChatbot\Models\Attachment;
 use MB\FilamentChatbot\Models\Bot;
 use MB\FilamentChatbot\Models\Conversation;
 use MB\FilamentChatbot\Models\Message;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 /**
  * What the browser widget talks to.
@@ -62,6 +71,16 @@ class SiteWidgetController
         return response()->json([
             'properties' => $theme->properties(),
             'flags' => $theme->flags(),
+            /*
+             * What this placement lets a visitor do, beside what it looks like
+             * rather than inside it. The widget draws its emoji button and its
+             * paper clip from this, so a widget that will not talk here — one
+             * switched off, or not listed on this site — falls back to the
+             * shipped answers, and those have attachments off. A launcher that
+             * offers a paper clip and then refuses the file is worse than one
+             * that never offered it.
+             */
+            'features' => WidgetFeatures::forWidget($widget)->toArray(),
             'labels' => array_filter((array) ($widget?->labels ?? [])),
         ]);
     }
@@ -92,7 +111,13 @@ class SiteWidgetController
 
         $after = max(0, (int) $request->query('after', 0));
 
+        /*
+         * The files are eager-loaded rather than asked for per line. Almost
+         * every message has none, so the relation is one extra query for the
+         * whole poll and would otherwise be fifty.
+         */
         $messages = $conversation->messages()
+            ->with('attachments')
             ->where('id', '>', $after)
             ->orderBy('id')
             ->limit((int) config('chatbot.chat.history_limit', 50))
@@ -107,6 +132,7 @@ class SiteWidgetController
                 'incoming' => $message->isIncoming(),
                 'author' => $message->author->value,
                 'at' => $message->created_at?->toIso8601String(),
+                'attachments' => $this->attachments($message),
             ])->all(),
             'choices' => $this->choices($conversation),
             'labels' => $this->labels(),
@@ -140,6 +166,9 @@ class SiteWidgetController
             'send' => __('chatbot::widget.send'),
             'close' => __('chatbot::widget.close'),
             'failed' => __('chatbot::widget.failed'),
+            'emoji' => __('chatbot::widget.emoji'),
+            'attach' => __('chatbot::widget.attach'),
+            'remove' => __('chatbot::widget.remove'),
         ];
     }
 
@@ -150,11 +179,31 @@ class SiteWidgetController
      * the body once; the server keeps the hash, so this response is the only
      * time it can be handed over, and a widget that loses it starts a new
      * conversation rather than resuming a stranger's.
+     *
+     * **A file arrives with the message and not through an endpoint of its own.**
+     * An upload that stood alone would have to be owned by somebody before there
+     * was a message to own it — a row belonging to a token, waiting for a send
+     * that may never come, and sweepable only by a schedule a package cannot
+     * assume the host runs. Arriving together, the file is refused or stored in
+     * the same request that decides whether there is a conversation at all, and
+     * it inherits this endpoint's origin check and its send limiter without
+     * either being written twice.
      */
     public function send(Request $request): JsonResponse
     {
         $data = $request->validate([
-            'body' => ['required', 'string', 'max:'.(int) config('chatbot.chat.max_message_length', 4000)],
+            /*
+             * Required only when nothing is attached. A photograph of a broken
+             * parcel with no sentence under it is an ordinary message, and
+             * refusing it would send the visitor looking for something to type.
+             */
+            'body' => [
+                'required_without:attachment',
+                'nullable',
+                'string',
+                'max:'.(int) config('chatbot.chat.max_message_length', 4000),
+            ],
+            'attachment' => ['nullable', 'file'],
             'bot' => ['nullable', 'string', 'max:191'],
             'widget' => ['nullable', 'string', 'max:64'],
             'page' => ['nullable', 'string', 'max:2048'],
@@ -166,6 +215,12 @@ class SiteWidgetController
             'identity.email' => ['nullable', 'string', 'max:191'],
         ]);
 
+        $file = $request->file('attachment');
+
+        if ($file instanceof UploadedFile) {
+            $this->refuseUnacceptable($request, $file);
+        }
+
         $token = VisitorToken::fromRequest($request);
         $issued = $token === null;
         $token ??= VisitorToken::issue();
@@ -174,7 +229,7 @@ class SiteWidgetController
 
         $message = $this->router->receive(new InboundMessage(
             channel: SiteDriver::KEY,
-            body: $data['body'],
+            body: $this->body($data['body'] ?? null, $file),
             displayName: $identity['name'] ?? null,
             phone: $identity['phone'] ?? null,
             email: $identity['email'] ?? null,
@@ -183,10 +238,45 @@ class SiteWidgetController
             botId: $this->answeringBotId($request),
         ));
 
+        if ($file instanceof UploadedFile && $message instanceof Message) {
+            app(AttachmentStore::class)->store($message, $file);
+        }
+
         return response()->json(array_filter([
             'token' => $issued ? $token : null,
             'id' => $message?->getKey(),
         ], static fn (mixed $value): bool => $value !== null));
+    }
+
+    /**
+     * Hands back one attached file, to the one conversation that owns it.
+     *
+     * The request names a file and never a conversation, exactly as everything
+     * else here does: which thread the caller may read is decided by their
+     * token, and the file is then required to be in that thread. A file
+     * belonging to somebody else is a 404 rather than a 403 — a refusal would
+     * confirm that the id exists, which is the only thing a stranger holding one
+     * still needs to learn.
+     *
+     * The bytes go out under the type detected when they arrived, with sniffing
+     * switched off, and only pictures are shown in place. Everything else is a
+     * download, because a document rendered inline runs with this application's
+     * own origin in the address bar.
+     */
+    public function attachment(Request $request, string $attachment): StreamedResponse|BinaryFileResponse
+    {
+        $conversation = $this->conversation($request);
+
+        abort_if($conversation === null, 404);
+
+        $file = Attachment::query()
+            ->where('uuid', $attachment)
+            ->where('conversation_id', $conversation->getKey())
+            ->first();
+
+        abort_if($file === null, 404);
+
+        return AttachmentResponse::for($file);
     }
 
     /**
@@ -234,6 +324,96 @@ class SiteWidgetController
     public function preflight(): JsonResponse
     {
         return response()->json([], 204);
+    }
+
+    /**
+     * Stops a file this widget must not take, before anything is written.
+     *
+     * Two separate refusals, in this order. The first is whether this placement
+     * accepts files at all — a widget that does not is not merely one whose
+     * button is hidden, because the button is drawn by a script on a page the
+     * visitor can edit, and a check that lived only there would be no check.
+     * The second is whether the file itself passes, which `AttachmentStore`
+     * answers by looking at the bytes.
+     *
+     * Reported as a validation error rather than a 403 so the widget can put the
+     * sentence under its own composer, where the person who chose the file is
+     * looking.
+     *
+     * @throws ValidationException
+     */
+    private function refuseUnacceptable(Request $request, UploadedFile $file): void
+    {
+        $widget = $this->widgets->forRequest($request);
+
+        if (! $this->widgets->reachable($widget, $request)) {
+            $widget = null;
+        }
+
+        if (! WidgetFeatures::forWidget($widget)->attachments()) {
+            throw ValidationException::withMessages([
+                'attachment' => __('chatbot::widget.attachment_off'),
+            ]);
+        }
+
+        $store = app(AttachmentStore::class);
+        $refusal = $store->refusalFor($file);
+
+        if ($refusal === null) {
+            return;
+        }
+
+        throw ValidationException::withMessages([
+            'attachment' => $refusal->reason === AttachmentRefused::TOO_LARGE
+                ? __('chatbot::widget.attachment_too_large', ['limit' => $store->maxKilobytes()])
+                : __('chatbot::widget.attachment_wrong_type'),
+        ]);
+    }
+
+    /**
+     * What the transcript records for a message that is only a file.
+     *
+     * `MessageRouter` refuses an empty body outright — a message with nothing in
+     * it must not open a thread or wake the bot — so a file sent on its own is
+     * filed under the name it arrived with. A placeholder sentence would have
+     * been better English and worse data: it would write one language into a row
+     * that every channel, every export and every operator reads afterwards,
+     * whichever language the visitor was speaking.
+     */
+    private function body(?string $body, ?UploadedFile $file): string
+    {
+        $body = trim((string) $body);
+
+        if ($body !== '' || $file === null) {
+            return $body;
+        }
+
+        return trim((string) $file->getClientOriginalName()) ?: 'file';
+    }
+
+    /**
+     * The files on one message, as the widget needs them.
+     *
+     * The address is the file's own random id and carries nothing about the
+     * conversation, because the endpoint behind it works out the conversation
+     * from the token. A URL that named the thread would be a URL somebody could
+     * edit.
+     *
+     * @return list<array{id: string, name: string, mime: string, size: int, image: bool, url: string}>
+     */
+    private function attachments(Message $message): array
+    {
+        return $message->attachments
+            ->map(fn (Attachment $file): array => [
+                'id' => (string) $file->uuid,
+                'name' => (string) $file->name,
+                'mime' => (string) $file->mime,
+                'size' => (int) $file->size,
+                'image' => $file->isImage(),
+                'url' => route('chatbot.site.attachment', ['attachment' => $file->uuid]),
+            ])
+            ->values()
+            ->all();
     }
 
     /**

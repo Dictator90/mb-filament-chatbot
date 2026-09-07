@@ -56,6 +56,22 @@ return new class extends Migration
 
             $table->json('theme')->nullable();
             $table->json('labels')->nullable();
+
+            /*
+             * What this placement lets a visitor do, as opposed to what it looks
+             * like. Kept out of `theme` because the two are read by different
+             * things for different reasons: every value in `theme` is sanitised
+             * into a CSS custom property and printed into a `style` attribute on
+             * somebody else's page, so a flag landing there is either passed
+             * through as a colour or dropped by the vocabulary check. And "this
+             * widget accepts files from strangers" is not a matter of appearance
+             * — filed under the theme it would live behind the tab people open to
+             * change colours, which is the last place anybody would look for it.
+             *
+             * Null means the shipped answers: emoji on, attachments off.
+             */
+            $table->json('features')->nullable();
+
             $table->text('greeting')->nullable();
 
             $table->timestamps();

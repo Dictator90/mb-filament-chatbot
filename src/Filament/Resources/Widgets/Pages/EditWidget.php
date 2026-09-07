@@ -6,6 +6,7 @@ namespace MB\FilamentChatbot\Filament\Resources\Widgets\Pages;
 
 use Filament\Actions\DeleteAction;
 use Filament\Resources\Pages\EditRecord;
+use MB\FilamentChatbot\Channels\WidgetFeatures;
 use MB\FilamentChatbot\Channels\WidgetTheme;
 use MB\FilamentChatbot\Filament\Resources\Widgets\WidgetResource;
 
@@ -30,6 +31,15 @@ class EditWidget extends EditRecord
     protected function mutateFormDataBeforeFill(array $data): array
     {
         $data['theme'] = WidgetTheme::resolved($data['theme'] ?? null);
+
+        /*
+         * The same problem in a nastier form. A widget saved before these
+         * switches existed has no `features` at all, and a toggle bound to a
+         * missing key draws itself off — so the emoji picker, which is on, would
+         * be shown as off, and the first person to save this form without
+         * touching it would turn it off for real.
+         */
+        $data['features'] = WidgetFeatures::make($data['features'] ?? null)->toArray();
 
         return $data;
     }

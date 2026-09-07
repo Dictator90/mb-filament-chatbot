@@ -410,6 +410,180 @@
     color: #ffffff;
 }
 
+/*
+ * ------------------------------------------------------------------
+ * Emoji and attachments
+ * ------------------------------------------------------------------
+ *
+ * Drawn from the same custom properties as everything above, so a theme chosen
+ * in the panel reaches the paper clip, the emoji pad and the file chip without
+ * any of them being named there. A hard-coded grey in here would be the one part
+ * of the widget that ignored a shop's own colours, and it would only be visible
+ * on the dark ones.
+ */
+
+/*
+ * A picture inside a bubble, bounded in both directions.
+ *
+ * A photograph from a phone is four thousand pixels wide. Drawn at its own size
+ * it becomes the whole panel, and the sentence that came with it is scrolled off
+ * the top.
+ */
+.chatbot__thumb {
+    display: block;
+    max-width: 100%;
+    max-height: 180px;
+    margin-top: 6px;
+    border-radius: 8px;
+    object-fit: cover;
+    cursor: zoom-in;
+}
+
+.chatbot__file {
+    display: inline-block;
+    margin-top: 6px;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    font-size: 13px;
+    text-align: start;
+    text-decoration: underline;
+    cursor: pointer;
+    overflow-wrap: anywhere;
+}
+
+/*
+ * Why something was refused, under the transcript rather than inside it.
+ *
+ * Not a bubble. A bubble is something somebody said; a refusal is the widget
+ * talking about itself, and drawn as one it would join the run of the bot's
+ * replies and, in the iOS style, grow a tail — reading as a promise the bot had
+ * made.
+ */
+.chatbot__notice {
+    padding: 0 16px 8px;
+    color: var(--chatbot-muted);
+    font-size: 13px;
+}
+
+.chatbot__notice[hidden] {
+    display: none;
+}
+
+.chatbot__attached {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 0 16px 8px;
+    color: var(--chatbot-muted);
+    font-size: 13px;
+}
+
+.chatbot__attached[hidden] {
+    display: none;
+}
+
+.chatbot__attached-name {
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.chatbot__attached-remove {
+    flex: none;
+    padding: 0 4px;
+    border: 0;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    font-size: 18px;
+    line-height: 1;
+    cursor: pointer;
+}
+
+.chatbot__emoji-pad {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: 6px 12px 8px;
+    border-top: 1px solid var(--chatbot-line);
+}
+
+.chatbot__emoji-pad[hidden] {
+    display: none;
+}
+
+.chatbot__emoji-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 2px;
+}
+
+.chatbot__emoji-pick {
+    padding: 2px 4px;
+    border: 0;
+    border-radius: 6px;
+    background: transparent;
+    font: inherit;
+    font-size: 20px;
+    line-height: 1.2;
+    cursor: pointer;
+}
+
+.chatbot__emoji-pick:hover {
+    background: var(--chatbot-agent);
+}
+
+/*
+ * The two composer buttons that are not "send".
+ *
+ * The file input inside the label is hidden rather than left out: the label is
+ * the control, and a bare `input[type=file]` cannot be made to match the buttons
+ * beside it on every engine this widget runs on — it would read as part of the
+ * host page rather than part of the chat.
+ */
+.chatbot__emoji,
+.chatbot__attach {
+    flex: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 34px;
+    border: 1px solid var(--chatbot-line);
+    border-radius: 10px;
+    background: var(--chatbot-surface);
+    color: inherit;
+    font: inherit;
+    font-size: 17px;
+    line-height: 1;
+    cursor: pointer;
+}
+
+.chatbot__emoji[hidden],
+.chatbot__attach[hidden] {
+    display: none;
+}
+
+.chatbot__emoji:hover,
+.chatbot__attach:hover {
+    background: var(--chatbot-agent);
+}
+
+.chatbot__attach input {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+}
+
 .chatbot__composer {
     display: flex;
     gap: 8px;

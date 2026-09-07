@@ -9,6 +9,7 @@ use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use MB\FilamentChatbot\Channels\WidgetFeatures;
 use MB\FilamentChatbot\Channels\WidgetTheme;
 use MB\FilamentChatbot\Database\Factories\WidgetFactory;
 
@@ -41,6 +42,7 @@ class Widget extends Model
             'allowed_origins' => 'array',
             'theme' => 'array',
             'labels' => 'array',
+            'features' => 'array',
         ];
     }
 
@@ -69,6 +71,19 @@ class Widget extends Model
     public function theme(): WidgetTheme
     {
         return WidgetTheme::make((array) $this->theme);
+    }
+
+    /**
+     * What this placement lets a visitor do.
+     *
+     * Resolved through the value object rather than read off the column, so a
+     * widget saved before either switch existed answers the shipped defaults
+     * instead of null — and a null read as false would have taken the emoji
+     * picker off every widget already in service.
+     */
+    public function features(): WidgetFeatures
+    {
+        return WidgetFeatures::forWidget($this);
     }
 
     /**

@@ -42,10 +42,22 @@ final class WidgetEmbed
      * answers stays a setting on this side — re-pointing a widget must never
      * mean asking somebody to edit their own website.
      */
+    /**
+     * One line, with no indentation of its own.
+     *
+     * It used to be two, broken so the attributes lined up — which reads well in
+     * a source file and badly everywhere this actually goes. The panel prints it
+     * inside `white-space: pre-wrap`, so the break and the eight spaces after it
+     * arrived on screen as a ragged second line; and whoever copies this pastes
+     * it into their own template, at their own indentation, where a hard-coded
+     * eight spaces is simply wrong.
+     *
+     * Short enough to stay readable on one line: two attributes, and the second
+     * is the only one anybody has to look at.
+     */
     public static function snippet(string $key): string
     {
-        return '<script src="'.self::scriptUrl().'" async'."\n"
-            .'        data-widget="'.$key.'"></script>';
+        return '<script src="'.self::scriptUrl().'" async data-widget="'.$key.'"></script>';
     }
 
     /**
