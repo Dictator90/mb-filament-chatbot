@@ -28,7 +28,8 @@ Route::get('/demo', function (): string {
      * the browser feels like asking again — which is a slow way to learn that
      * the widget you are looking at is last week's.
      */
-    $version = (int) filemtime(dirname(__DIR__, 2).'/resources/widget/widget.js');
+    $widget = dirname(__DIR__, 2).'/resources/widget/';
+    $version = max((int) filemtime($widget.'widget.js'), (int) filemtime($widget.'widget.css'));
 
     return <<<HTML
         <!doctype html>

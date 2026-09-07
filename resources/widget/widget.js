@@ -61,10 +61,21 @@
             return;
         }
 
+        /*
+         * The script's own query string is carried across to the stylesheet.
+         *
+         * Whatever a site puts after `widget.js` — a release number, a build
+         * hash — is there to make the browser fetch a new copy, and the two
+         * files are one release. Left off, the script arrives new and the
+         * stylesheet stays cached for as long as its max-age says, which is the
+         * one combination that breaks the widget rather than merely dating it:
+         * new markup styled by old rules.
+         */
+        var version = script.src.indexOf('?') === -1 ? '' : script.src.slice(script.src.indexOf('?'));
         var link = document.createElement('link');
 
         link.rel = 'stylesheet';
-        link.href = href;
+        link.href = href + version;
         link.setAttribute('data-chatbot-styles', '');
 
         (document.head || document.documentElement).appendChild(link);

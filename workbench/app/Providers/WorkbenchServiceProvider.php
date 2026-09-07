@@ -54,11 +54,40 @@ class WorkbenchServiceProvider extends ServiceProvider
      * is scheme and host, not a bare domain, and it is the site the widget sits
      * on rather than the application serving it. Here they happen to be the same
      * application, which is what makes the demo page a fair test of the setting.
+     *
+     * **The port is part of the origin, and `APP_URL` here has none.** Testbench
+     * ships `http://localhost`, `testbench serve` listens on a port, and the
+     * browser then announces `http://localhost:8000` — which does not match, so
+     * the demo page answers 403 from an allow-list that looks correct in the
+     * config. Taking the address from the request that arrived is what makes the
+     * stand work on whatever port it was started with.
+     *
+     * Safe here and nowhere else: this reads the *served* host and hands it to
+     * an allow-list that only this stand uses. A host doing the same thing would
+     * have written "allow whoever asks", which is the one thing the allow-list
+     * exists to refuse.
      */
     public function boot(): void
     {
-        $this->app['config']->set('chatbot.widget.origins', [
-            rtrim((string) $this->app['config']->get('app.url'), '/'),
-        ]);
+        $configured = rtrim((string) $this->app['config']->get('app.url'), '/');
+
+        /*
+         * Read from the server environment rather than from Laravel's request.
+         *
+         * Two things get in the way of the obvious spellings. `runningInConsole()`
+         * answers true under `testbench serve` even while a request is being
+         * handled, so a branch guarded by it never runs; and the request bound at
+         * the time providers boot has no host, so asking it yields an empty
+         * string. `HTTP_HOST` is set by the server for the request actually in
+         * flight, which is the thing this needs to know.
+         */
+        $host = (string) ($_SERVER['HTTP_HOST'] ?? '');
+        $secure = ($_SERVER['HTTPS'] ?? '') !== '' || (int) ($_SERVER['SERVER_PORT'] ?? 0) === 443;
+        $served = $host === '' ? null : ($secure ? 'https://' : 'http://').$host;
+
+        $this->app['config']->set('chatbot.widget.origins', array_values(array_unique(array_filter([
+            $configured,
+            $served,
+        ]))));
     }
 }

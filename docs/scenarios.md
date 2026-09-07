@@ -16,6 +16,14 @@ Three things, nested:
 Nothing about a scenario is compiled or generated. The canvas writes rows into
 `chatbot_steps`, and the engine reads those rows at run time.
 
+![A scenario on the canvas, with a node's settings beside it]({{ site.baseurl }}/assets/scenario-canvas.png)
+
+The sandbox holds a real conversation held by the real engine — hidden from the
+desk and from reports rather than simulated — so a scenario can be walked before
+anybody meets it:
+
+![The sandbox: a conversation, and the trace of the nodes it walked]({{ site.baseurl }}/assets/sandbox.png)
+
 ---
 
 ## Choosing the scenario that answers

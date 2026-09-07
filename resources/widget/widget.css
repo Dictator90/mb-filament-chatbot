@@ -517,14 +517,23 @@
     display: none;
 }
 
+/*
+ * A grid of ten, not a wrapping row.
+ *
+ * Wrapped, the three groups broke at whatever width was left — eight and two,
+ * then nine and one — and the pad read as a spill rather than a palette. The
+ * count is fixed because the groups in `widget.js` are written ten to a line,
+ * so the two agree by construction: a group of a different length simply gets a
+ * shorter last row instead of a ragged one.
+ */
 .chatbot__emoji-row {
-    display: flex;
-    flex-wrap: wrap;
+    display: grid;
+    grid-template-columns: repeat(10, minmax(0, 1fr));
     gap: 2px;
 }
 
 .chatbot__emoji-pick {
-    padding: 2px 4px;
+    padding: 2px 0;
     border: 0;
     border-radius: 6px;
     background: transparent;

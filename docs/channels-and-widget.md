@@ -199,6 +199,8 @@ deliberately and escape accordingly.
 
 ## The site widget
 
+![The widget on a page that is standing in for a customer's own site]({{ site.baseurl }}/assets/widget-on-a-site.png)
+
 A widget is a record you create in the panel, under **Widgets**. It names the
 bot that answers, the sites it may be embedded on, and how it looks. The panel
 hands you the tag; you paste it before `</body>`:
@@ -209,6 +211,8 @@ hands you the tag; you paste it before `</body>`:
 ```
 
 ### One bot, several widgets
+
+![The widget's own screen: which bot answers, and what a visitor may do]({{ site.baseurl }}/assets/widget-basics.png)
 
 That is the reason a widget is its own record rather than a tab on the bot.
 
@@ -265,6 +269,8 @@ today.
 
 ### How it looks
 
+![Colours and shape, with the preview redrawing as they change]({{ site.baseurl }}/assets/widget-appearance.png)
+
 Colours, corner radii, panel width, the launcher's shape, the bot's face and the
 bubble style are set on the widget and fetched by the script before it draws
 anything — its own endpoint rather than a field on the first history call,
@@ -307,6 +313,78 @@ are clamped, and an avatar is accepted only as an absolute `https` address. A
 relative path there would point at the customer's own server and resolve to
 their 404 page.
 
+### What a visitor may do
+
+Two switches, set per widget rather than per installation, because the answer
+differs by where the widget is: a support page and a public landing page are not
+the same room.
+
+| Switch | Default | What it does |
+| --- | --- | --- |
+| Emoji picker | on | a short list beside the message box |
+| Files from visitors | **off** | a paper clip beside it |
+
+![The emoji picker open beside the message box]({{ site.baseurl }}/assets/widget-emoji.png)
+
+The emoji list is written into `widget.js` rather than fetched. The file carries
+no dependencies by design — it lands next to whatever framework the site already
+loads — so an emoji library is not on the table, and a full palette without one
+is a searchable, paginated, skin-toned thing that is a product of its own. Thirty
+characters cover what somebody reaches for mid-sentence; the rest is already on
+the keyboard of every phone that will open this widget.
+
+The desk has its own copy of the same list, and the switch does not govern it:
+staff always have it.
+
+### Files
+
+**Off unless you turn it on.** This is the application taking a file from an
+anonymous stranger and keeping it, which is a decision rather than a default.
+
+A file rides along with the message that carries it. There is no upload endpoint
+beside it, and that is the point: a standalone upload would create a row owned by
+a token, waiting for a send that may never come, sweepable only by a schedule a
+package cannot assume the host runs. Riding along, a file inherits the origin
+allow-list and the send rate limit without either being written down twice.
+
+What is accepted, and how it is judged:
+
+- **An allow-list of types, never a block-list** — a block-list is always
+  incomplete. It is `chatbot.attachments.mimes`, and `image/svg+xml` and
+  `text/html` are deliberately absent from it: an SVG is a script, and it would
+  run on *this* application's origin.
+- **The type is read from the bytes**, never from the extension and never from
+  the `Content-Type` the browser announced. Both of those are written by whoever
+  is sending the file.
+- **The size ceiling is `chatbot.widget.max_attachment_kb`**, one number for both
+  ends. An operator and a visitor attaching the same file to the same thread must
+  succeed or fail together, or a reply lands in a conversation the other side
+  cannot answer in kind.
+
+Where it goes:
+
+```php
+'attachments' => [
+    'disk' => env('CHATBOT_ATTACHMENT_DISK', 'local'),
+    'path' => 'chatbot/attachments',
+    'mimes' => [ /* the allow-list */ ],
+],
+```
+
+**Never a public disk by default.** A visitor attaches a passport scan and an
+invoice to a support chat; those must not sit at a guessable address. The name on
+disk is random and the sent name lives only in the database — a file called
+`passport-scan.pdf` should not be findable by asking for `passport-scan.pdf`.
+
+Serving is by the file's own opaque id, and the conversation it belongs to comes
+from the visitor's token rather than from the request. A file from another thread
+answers **404 and not 403**: a 403 confirms that the id exists, which is the one
+thing the request was fishing for. Operators fetch the same file through the
+panel, behind the policy on that conversation.
+
+Responses carry `X-Content-Type-Options: nosniff` and are served `inline` only
+for the handful of raster image types; everything else downloads.
+
 ### The preview
 
 The widget's form shows a live preview beside it, and what it draws is the real
@@ -316,6 +394,15 @@ That is worth stating because the alternative is tempting and wrong: a preview
 that drew its own approximation of a widget would be a second implementation of
 how the widget looks, and it would drift from the first. A preview that lies is
 worse than no preview.
+
+The embed code is on its tab beside it, with this installation's own address and
+this widget's own key already in it — and it appears only while a tag copied
+from it would genuinely open a conversation. Handed over while the widget is off
+or no origin is allowed, it is a promise kept by a 403 on somebody else's page:
+it installs cleanly, looks right in the source, and fails where neither of you is
+watching.
+
+![The embed code, with the real address and key]({{ site.baseurl }}/assets/widget-embed.png)
 
 The file is vanilla, unbundled, and one file. It runs on somebody else's site
 next to whatever framework they already load, and every dependency it carried

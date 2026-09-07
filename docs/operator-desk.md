@@ -10,6 +10,8 @@ The bot answers what it has been taught. Everything else has to reach a person,
 and this is the screen that person works at: every conversation on every
 channel, in one list, with a box to answer from.
 
+![The operator desk: conversations on the left, the transcript and a reply box on the right]({{ site.baseurl }}/assets/chat-desk.png)
+
 It is a Filament page — `MB\FilamentChatbot\Filament\Pages\ChatInbox` — and the
 plugin registers it, so there is nothing to add to a panel that already has
 [the plugin installed]({{ site.baseurl }}/installation).

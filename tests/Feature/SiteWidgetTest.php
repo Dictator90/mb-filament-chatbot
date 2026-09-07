@@ -191,8 +191,16 @@ it('fetches its own stylesheet, because the embed is one tag', function (): void
      */
     $demo = (string) file_get_contents(dirname(__DIR__, 2).'/workbench/routes/web.php');
 
+    /*
+     * The property is "embeds no stylesheet of its own", and it is checked as
+     * that rather than as "never says widget.css". The page legitimately reads
+     * the stylesheet's modification time to build a cache-buster, and an earlier
+     * spelling of this assertion failed on that — a test objecting to the file
+     * being mentioned rather than to it being linked.
+     */
     expect($demo)->toContain('/chatbot/widget.js')
-        ->and($demo)->not->toContain('widget.css');
+        ->and($demo)->not->toContain('rel="stylesheet"')
+        ->and($demo)->not->toContain('<link');
 });
 
 /**

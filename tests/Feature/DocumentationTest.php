@@ -34,16 +34,40 @@ function docPage(string $name): string
  * they ever see.
  */
 it('does not link to a page that does not exist', function (): void {
-    preg_match_all('/\{\{ site\.baseurl \}\}\/([a-z0-9-]+)/', docContents(), $matches);
+    preg_match_all('/\{\{ site\.baseurl \}\}\/([a-z0-9-]+)(\/[a-z0-9.-]+)?/', docContents(), $matches);
 
-    $targets = array_unique($matches[1]);
+    $targets = [];
+    $files = [];
+
+    foreach ($matches[1] as $index => $target) {
+        /*
+         * A path with a second segment is a file — an image under `assets/` —
+         * and not a page. Checked as a file rather than skipped: a screenshot
+         * referenced and never committed renders as a broken image, which is
+         * exactly the class of rot this test exists for.
+         */
+        if (($matches[2][$index] ?? '') !== '') {
+            $files[] = $target.$matches[2][$index];
+
+            continue;
+        }
+
+        $targets[] = $target;
+    }
 
     $this->assertNotEmpty($targets);
 
-    foreach ($targets as $target) {
+    foreach (array_unique($targets) as $target) {
         $this->assertFileExists(
             __DIR__."/../../docs/{$target}.md",
             "docs/{$target}.md is linked to but does not exist",
+        );
+    }
+
+    foreach (array_unique($files) as $file) {
+        $this->assertFileExists(
+            __DIR__."/../../docs/{$file}",
+            "docs/{$file} is shown but is not there",
         );
     }
 });
