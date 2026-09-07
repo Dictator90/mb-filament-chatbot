@@ -253,6 +253,20 @@
             color: var(--ci-muted);
         }
 
+        /*
+            The one line that says who this is reads darker than the channel and
+            the status beneath it. Both are grey and both are second-level, but
+            only one of them is what the operator opened the thread to learn.
+        */
+        .chatbot-inbox__who p.chatbot-inbox__contact {
+            font-size: 0.78rem;
+            color: inherit;
+        }
+
+        .chatbot-inbox__contact a {
+            text-decoration: underline;
+        }
+
         .chatbot-inbox__banner {
             display: flex;
             gap: 0.5rem;
@@ -733,6 +747,34 @@
                 <header class="chatbot-inbox__stage-head">
                     <div class="chatbot-inbox__who">
                         <h3>{{ $record->title() }}</h3>
+
+                        {{--
+                            Who the application says this is, when it says
+                            anything. Without it the desk knows only what the
+                            visitor typed, and an operator answering a customer
+                            of eight years reads the same three words as for a
+                            stranger — then searches the CRM by hand for the
+                            record the thread is already linked to.
+
+                            Every word here is the host's: the package never
+                            reads the linked record, so what a card shows and
+                            what it deliberately leaves out are decisions taken
+                            somewhere this file cannot see.
+                        --}}
+                        @if ($card = $this->contactCard())
+                            <p class="chatbot-inbox__contact">
+                                @if ($card->url)
+                                    <a href="{{ $card->url }}">{{ $card->name }}</a>
+                                @else
+                                    <strong>{{ $card->name }}</strong>
+                                @endif
+
+                                @if ($card->note)
+                                    <span aria-hidden="true">·</span> {{ $card->note }}
+                                @endif
+                            </p>
+                        @endif
+
                         <p>
                             {{ $record->channel }}
                             <span aria-hidden="true">·</span>

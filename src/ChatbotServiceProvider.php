@@ -57,11 +57,13 @@ use MB\FilamentChatbot\Bot\Steps\Types\SetStep;
 use MB\FilamentChatbot\Bot\Steps\Types\StartStep;
 use MB\FilamentChatbot\Bot\Steps\Types\TransformStep;
 use MB\FilamentChatbot\Bot\Variables\TalkVariables;
+use MB\FilamentChatbot\Chat\NoContactDirectory;
 use MB\FilamentChatbot\Console\Commands\DemoConversationCommand;
 use MB\FilamentChatbot\Console\Commands\DoctorCommand;
 use MB\FilamentChatbot\Console\Commands\RunQualityChecksCommand;
 use MB\FilamentChatbot\Console\Commands\SeedDemoDataCommand;
 use MB\FilamentChatbot\Console\Commands\SyncDataResourcesCommand;
+use MB\FilamentChatbot\Contracts\ContactDirectory;
 use MB\FilamentChatbot\Knowledge\KnowledgeBaseSource;
 use MB\FilamentChatbot\Policies\Policies;
 use MB\FilamentChatbot\Registry\ChatbotRegistry;
@@ -120,6 +122,15 @@ class ChatbotServiceProvider extends ServiceProvider
          * knows nothing about a model.
          */
         $this->app->bind(KnowledgeSource::class, KnowledgeBaseSource::class);
+
+        /*
+         * Nobody is recognised and nothing is said about anybody, until a host
+         * binds its own. Bound rather than left nullable so that every call site
+         * asks the question unconditionally: the alternative is an `if` at each
+         * of them, and the one somebody forgets is in the inbound path, where
+         * the failure is a customer's message that did not arrive.
+         */
+        $this->app->bind(ContactDirectory::class, NoContactDirectory::class);
     }
 
     public function boot(): void

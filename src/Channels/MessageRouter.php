@@ -8,11 +8,13 @@ use Illuminate\Database\QueryException;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Facades\DB;
 use MB\FilamentChatbot\Bot\BotEngine;
+use MB\FilamentChatbot\Contracts\ContactDirectory;
 use MB\FilamentChatbot\Enums\ConversationStatus;
 use MB\FilamentChatbot\Enums\MessageAuthor;
 use MB\FilamentChatbot\Enums\MessageDirection;
 use MB\FilamentChatbot\Models\Conversation;
 use MB\FilamentChatbot\Models\Message;
+use Throwable;
 
 /**
  * The one door every incoming message comes through.
@@ -27,6 +29,7 @@ class MessageRouter
 {
     public function __construct(
         private readonly BotEngine $engine,
+        private readonly ContactDirectory $contacts,
     ) {}
 
     /**
@@ -186,8 +189,57 @@ class MessageRouter
         }
 
         $this->mergeContacts($conversation, $inbound);
+        $this->identify($conversation, $inbound);
 
         return $conversation;
+    }
+
+    /**
+     * Asks the host whether it recognises this person, and links the thread if
+     * it does.
+     *
+     * Runs on every inbound message rather than only on the first, because
+     * recognition often arrives later than the thread: somebody opens the chat
+     * as a stranger and gives a phone number three turns in.
+     *
+     * Asked only while the thread is unlinked. A link already made came from a
+     * signed identity, from an operator or from a scenario, and each of those
+     * knows more than a lookup on something typed into a chat box — letting this
+     * overrule them would refile a thread under the wrong customer on the
+     * strength of a mistyped digit.
+     *
+     * **Nothing the directory does may cost the customer their message.** The
+     * host's code runs inside the transaction that stores what was said, so a
+     * lookup that threw would roll that message back and answer the channel with
+     * a failure — after which the webhook redelivers and the same lookup throws
+     * again. The contract asks for a directory that never throws; this is the
+     * guarantee behind the request.
+     */
+    private function identify(Conversation $conversation, InboundMessage $inbound): void
+    {
+        if (filled($conversation->contact_type)) {
+            return;
+        }
+
+        try {
+            $contact = $this->contacts->identify($conversation, $inbound);
+        } catch (Throwable) {
+            return;
+        }
+
+        if ($contact === null) {
+            return;
+        }
+
+        /*
+         * The morph and nothing else. What came back is the host's own record,
+         * and reading anything off it here would be this package deciding what a
+         * contact is — the one thing the nullable morph exists to avoid.
+         */
+        $conversation->forceFill([
+            'contact_type' => $contact->getMorphClass(),
+            'contact_id' => $contact->getKey(),
+        ])->save();
     }
 
     private function findConversation(InboundMessage $inbound): ?Conversation

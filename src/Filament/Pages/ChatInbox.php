@@ -23,7 +23,9 @@ use Livewire\Features\SupportFileUploads\TemporaryUploadedFile;
 use Livewire\WithFileUploads;
 use MB\FilamentChatbot\Chat\AttachmentRefused;
 use MB\FilamentChatbot\Chat\AttachmentStore;
+use MB\FilamentChatbot\Chat\ContactCard;
 use MB\FilamentChatbot\Chat\OperatorReply;
+use MB\FilamentChatbot\Contracts\ContactDirectory;
 use MB\FilamentChatbot\Enums\BotState;
 use MB\FilamentChatbot\Enums\ConversationStatus;
 use MB\FilamentChatbot\Enums\MessageAuthor;
@@ -766,6 +768,30 @@ class ChatInbox extends Page
     public function botIsAnswering(): bool
     {
         return $this->activeConversation?->bot_state === BotState::Active;
+    }
+
+    /**
+     * What the application says about the person this thread belongs to.
+     *
+     * Asked once per render and never cached across them: an operator who
+     * corrects a customer's name in another tab must not go on reading the old
+     * one here for the rest of the day.
+     *
+     * An empty card is treated as no card. A directory that answered with a
+     * blank name would otherwise draw a line with nothing on it, which reads as
+     * a broken screen rather than as a thread nobody has identified.
+     */
+    public function contactCard(): ?ContactCard
+    {
+        $conversation = $this->activeConversation;
+
+        if ($conversation === null) {
+            return null;
+        }
+
+        $card = app(ContactDirectory::class)->describe($conversation);
+
+        return $card?->filled() === true ? $card : null;
     }
 
     /**
