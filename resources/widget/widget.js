@@ -135,6 +135,7 @@
         receipt_sent: 'Sent',
         receipt_delivered: 'Delivered',
         receipt_read: 'Read',
+        expand: 'Open the picture',
     };
 
     /*
@@ -158,6 +159,36 @@
         ['👍', '👎', '👌', '🙏', '👏', '🤝', '💪', '❤️', '🔥', '✨'],
         ['✅', '❌', '⚠️', '📎', '📅', '⏰', '💬', '📞', '🎉', '🎁'],
     ];
+
+    /*
+     * The chrome's own icons, drawn rather than typed.
+     *
+     * They were emoji characters — 🙂 and 📎 — and an emoji is not an icon: it
+     * is a coloured picture the operating system draws, so the same button was
+     * a flat outline on one machine, a glossy yellow face on another and a
+     * black-and-white lozenge on a third, none of them matching the widget's
+     * own colours and none of them matching each other. It also could not take
+     * the theme: an emoji ignores `color`, so a dark widget had two bright
+     * stickers sitting in its composer.
+     *
+     * The paths are Heroicons' outline set, which is what the operator's desk
+     * already uses for the same two buttons. Inlined rather than fetched: this
+     * file is embedded on somebody else's page and may load no second asset,
+     * and two icons of markup are cheaper than a request that could fail.
+     */
+    var ICONS = {
+        emoji: [
+            'M15.182 15.182a4.5 4.5 0 0 1-6.364 0M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z',
+            'M9.75 9.75c0 .414-.168.75-.375.75S9 10.164 9 9.75 9.168 9 9.375 9s.375.336.375.75Z',
+            'M14.625 9.75c0 .414-.168.75-.375.75s-.375-.336-.375-.75.168-.75.375-.75.375.336.375.75Z',
+        ],
+        attach: [
+            'm18.375 12.739-7.693 7.693a4.5 4.5 0 0 1-6.364-6.364l10.94-10.94A3 3 0 1 1 19.5 7.372L8.552 18.32m.009-.01-.01.01m5.699-9.941-7.81 7.81a1.5 1.5 0 0 0 2.112 2.13',
+        ],
+        close: ['M6 18 18 6M6 6l12 12'],
+    };
+
+    var SVG_NS = 'http://www.w3.org/2000/svg';
 
     var pinned = {
         title: data.title || null,
@@ -447,6 +478,37 @@
             });
     }
 
+    /**
+     * One of the chrome's icons, as an element.
+     *
+     * Built through the DOM rather than assigned as markup. `innerHTML` on an
+     * element of somebody else's page is the habit this file cannot afford to
+     * have anywhere — the same line would eventually be written with a value
+     * that came from the server — so the shape that is safe everywhere is the
+     * one used here too.
+     */
+    function icon(name) {
+        var svg = document.createElementNS(SVG_NS, 'svg');
+
+        svg.setAttribute('viewBox', '0 0 24 24');
+        svg.setAttribute('fill', 'none');
+        svg.setAttribute('stroke', 'currentColor');
+        svg.setAttribute('stroke-width', '1.5');
+        svg.setAttribute('stroke-linecap', 'round');
+        svg.setAttribute('stroke-linejoin', 'round');
+        svg.setAttribute('aria-hidden', 'true');
+        svg.setAttribute('focusable', 'false');
+
+        (ICONS[name] || []).forEach(function (definition) {
+            var path = document.createElementNS(SVG_NS, 'path');
+
+            path.setAttribute('d', definition);
+            svg.appendChild(path);
+        });
+
+        return svg;
+    }
+
     function element(tag, className, text) {
         var node = document.createElement(tag);
 
@@ -487,7 +549,8 @@
         el.title = element('span', 'title', label('title'));
         header.appendChild(el.title);
 
-        el.close = element('button', 'close', '×');
+        el.close = element('button', 'close');
+        el.close.appendChild(icon('close'));
         el.close.type = 'button';
         el.close.setAttribute('aria-label', labels.close);
         el.close.addEventListener('click', toggle);
@@ -511,7 +574,8 @@
         el.attached = element('div', 'attached');
         el.attached.hidden = true;
         el.attachedName = element('span', 'attached-name');
-        el.attachRemove = element('button', 'attached-remove', '×');
+        el.attachRemove = element('button', 'attached-remove');
+        el.attachRemove.appendChild(icon('close'));
         el.attachRemove.type = 'button';
         el.attachRemove.setAttribute('aria-label', labels.remove);
         el.attachRemove.addEventListener('click', clearAttachment);
@@ -522,7 +586,8 @@
 
         var form = element('form', 'composer');
 
-        el.emoji = element('button', 'emoji', '🙂');
+        el.emoji = element('button', 'emoji');
+        el.emoji.appendChild(icon('emoji'));
         el.emoji.type = 'button';
         el.emoji.setAttribute('aria-label', labels.emoji);
         el.emoji.title = labels.emoji;
@@ -536,7 +601,8 @@
          * engine this runs on, and one that looked foreign would read as part of
          * the host page rather than part of the chat.
          */
-        el.attach = element('label', 'attach', '📎');
+        el.attach = element('label', 'attach');
+        el.attach.appendChild(icon('attach'));
         el.attach.title = labels.attach;
         el.attach.setAttribute('aria-label', labels.attach);
         el.file = document.createElement('input');
@@ -850,6 +916,78 @@
     }
 
     /**
+     * Shows one picture at the size of the screen.
+     *
+     * Built once and reused, because it is drawn over a page this widget does
+     * not own: a viewer created per picture would leave a growing stack of
+     * fixed-position layers on somebody's marketing site, and each one would
+     * hold its blob open.
+     *
+     * Escape closes it before it closes the chat, which is why the key is
+     * listened for here and not once at the top: a visitor pressing Escape at a
+     * full-screen photograph means the photograph.
+     */
+    function viewer() {
+        if (el.viewer) {
+            return el.viewer;
+        }
+
+        el.viewer = element('div', 'viewer');
+        el.viewer.hidden = true;
+        el.viewer.setAttribute('role', 'dialog');
+        el.viewer.setAttribute('aria-modal', 'true');
+
+        el.viewerImage = element('img', 'viewer-image');
+
+        var shut = element('button', 'viewer-close');
+
+        shut.type = 'button';
+        shut.appendChild(icon('close'));
+        shut.setAttribute('aria-label', labels.close);
+
+        el.viewer.appendChild(el.viewerImage);
+        el.viewer.appendChild(shut);
+
+        /*
+         * The backdrop closes, the picture does not. Without the check, the
+         * click that lands on the photograph the visitor is looking at closes
+         * the thing they opened to look at it.
+         */
+        el.viewer.addEventListener('click', function (event) {
+            if (event.target !== el.viewerImage) {
+                collapse();
+            }
+        });
+
+        el.viewer.addEventListener('keydown', function (event) {
+            if (event.key === 'Escape') {
+                collapse();
+            }
+        });
+
+        el.root.appendChild(el.viewer);
+
+        return el.viewer;
+    }
+
+    function expand(source, name) {
+        var box = viewer();
+
+        el.viewerImage.src = source;
+        el.viewerImage.alt = name || '';
+        box.hidden = false;
+        box.setAttribute('tabindex', '-1');
+        box.focus();
+    }
+
+    function collapse() {
+        if (el.viewer) {
+            el.viewer.hidden = true;
+            el.viewerImage.removeAttribute('src');
+        }
+    }
+
+    /**
      * One attached file inside a bubble: a picture, or its name.
      *
      * Both are fetched rather than pointed at. The endpoint decides who may read
@@ -866,6 +1004,21 @@
         var name = String(file.name || '');
 
         if (file.image) {
+            /*
+             * A button around the thumbnail, not a bare image. A picture in a
+             * chat is looked at, and the thumbnail is a hundred pixels of a
+             * screenshot somebody sent to be read — the visitor's only way to
+             * read it was to know that saving it and opening it elsewhere
+             * worked. It is a button rather than a link because there is no
+             * address to give: the bytes arrive over an authenticated fetch and
+             * live in this page as a blob.
+             */
+            var opener = element('button', 'shot');
+
+            opener.type = 'button';
+            opener.title = labels.expand;
+            opener.setAttribute('aria-label', labels.expand);
+
             var picture = element('img', 'thumb');
 
             picture.alt = name;
@@ -875,11 +1028,20 @@
                 })
                 .catch(function () {});
 
-            return picture;
+            opener.appendChild(picture);
+            opener.addEventListener('click', function () {
+                if (picture.src) {
+                    expand(picture.src, name);
+                }
+            });
+
+            return opener;
         }
 
-        var link = element('button', 'file', '📎 ' + name);
+        var link = element('button', 'file');
 
+        link.appendChild(icon('attach'));
+        link.appendChild(document.createTextNode(name));
         link.type = 'button';
         link.addEventListener('click', function () {
             apiBlob(file.url)

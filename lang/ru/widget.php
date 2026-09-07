@@ -19,6 +19,7 @@ return [
     'receipt_sent' => 'Отправлено',
     'receipt_delivered' => 'Доставлено',
     'receipt_read' => 'Прочитано',
+    'expand' => 'Открыть изображение',
     'attachment_off' => 'В этом чате файлы не принимают.',
     'attachment_too_large' => 'Файл больше :limit КБ.',
     'attachment_wrong_type' => 'Такие файлы здесь не принимают.',

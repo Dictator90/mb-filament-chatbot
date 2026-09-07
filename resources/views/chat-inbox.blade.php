@@ -272,6 +272,28 @@
             overflow-y: auto;
         }
 
+        /*
+            The day, centred over the messages that belong to it, with a rule
+            running out to both sides. Left-aligned it reads as a message from
+            somebody called "Today".
+        */
+        .chatbot-inbox__day {
+            display: flex;
+            align-items: center;
+            gap: 0.6rem;
+            margin: 0.35rem 0;
+            font-size: 0.68rem;
+            color: var(--ci-muted);
+        }
+
+        .chatbot-inbox__day::before,
+        .chatbot-inbox__day::after {
+            content: '';
+            flex: 1 1 auto;
+            height: 1px;
+            background: var(--ci-line);
+        }
+
         .chatbot-inbox__bubble {
             max-width: min(44rem, 80%);
             padding: 0.45rem 0.65rem;
@@ -327,15 +349,69 @@
         }
 
         /*
-            A picture is shown small and links to itself. Full size it would push
-            the question underneath it off the screen, and the operator scrolls
-            past a photograph of a parcel to find the sentence that came with it.
+            A picture is shown small and opens over the desk when clicked. Full
+            size in the thread it would push the question underneath it off the
+            screen, and the operator scrolls past a photograph of a parcel to
+            find the sentence that came with it.
         */
         .chatbot-inbox__files img {
             max-width: min(18rem, 100%);
             max-height: 14rem;
             border-radius: 0.5rem;
             object-fit: cover;
+        }
+
+        .chatbot-inbox__shot {
+            display: block;
+            padding: 0;
+            border: 0;
+            background: transparent;
+            cursor: zoom-in;
+        }
+
+        /*
+            Over the desk, at the size of the window.
+
+            The thread is a column of a few hundred pixels, and a screenshot
+            read inside it is the thumbnail again. It replaced a link that
+            opened a new tab: the picture arrived alone, and coming back
+            reloaded a Livewire page that had scrolled itself to the newest
+            message — the operator lost the place they were reading.
+        */
+        .chatbot-inbox__viewer {
+            position: fixed;
+            inset: 0;
+            z-index: 50;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 1.5rem;
+            background: rgb(15 23 42 / 0.86);
+            cursor: zoom-out;
+        }
+
+        .chatbot-inbox__viewer-image {
+            max-width: 100%;
+            max-height: 100%;
+            border-radius: 0.5rem;
+            object-fit: contain;
+            cursor: default;
+        }
+
+        .chatbot-inbox__viewer-close {
+            position: absolute;
+            top: 0.75rem;
+            inset-inline-end: 0.75rem;
+            display: inline-flex;
+            padding: 0.375rem;
+            border-radius: 9999px;
+            background: rgb(15 23 42 / 0.6);
+            color: #fff;
+        }
+
+        .chatbot-inbox__viewer-close svg {
+            width: 1.375rem;
+            height: 1.375rem;
         }
 
         .chatbot-inbox__file {
@@ -347,33 +423,88 @@
             overflow-wrap: anywhere;
         }
 
+        .chatbot-inbox__file-icon {
+            flex: none;
+            width: 1rem;
+            height: 1rem;
+        }
+
+        /*
+            Its own class rather than the one the bubbles use. That one names a
+            link to a file and carries an underline; this is a button, and it
+            wore the underline for as long as the two shared a name.
+        */
+        .chatbot-inbox__attach {
+            flex: none;
+            display: inline-flex;
+        }
+
         .chatbot-inbox__composer {
             padding: 0.625rem 0.875rem;
             border-top: 1px solid var(--ci-line);
         }
 
         .chatbot-inbox__composer textarea {
-            width: 100%;
+            flex: 1 1 auto;
+            min-width: 0;
             padding: 0.45rem 0.6rem;
             font-size: 0.83rem;
             color: inherit;
             background: var(--ci-raised);
             border: 1px solid var(--ci-line);
             border-radius: 0.5rem;
-            resize: vertical;
+            resize: none;
         }
 
-        .chatbot-inbox__composer-bar {
+        /*
+            The whole composer on one line: the two icons, the box, and send.
+
+            It used to be a paragraph-sized textarea with a row of labelled
+            buttons underneath, which is a form, not a chat. An operator
+            answering twenty threads reads the same four controls twenty times,
+            and a reply is a sentence rather than a document.
+        */
+        .chatbot-inbox__composer-row {
             display: flex;
-            flex-wrap: wrap;
+            gap: 0.4rem;
+            align-items: flex-end;
+        }
+
+        /*
+            The stock phrases sit under the line rather than in it. They are
+            reached for occasionally and are the widest control here; on the
+            line they pushed the box that everything is typed into down to a
+            few characters on a laptop.
+        */
+        .chatbot-inbox__composer-under {
+            display: flex;
             gap: 0.5rem;
             align-items: center;
-            margin-top: 0.5rem;
+            margin-top: 0.4rem;
         }
 
         .chatbot-inbox__counter {
+            margin-inline-start: auto;
             font-size: 0.7rem;
             color: var(--ci-muted);
+        }
+
+        /*
+            On a phone the emoji button goes, and send loses its word.
+
+            Nothing is lost: every phone keyboard has an emoji key of its own,
+            so that button is a second door to something already one tap away —
+            and it is the only control here whose absence costs nothing. The
+            paperclip stays, because a phone is where the photograph is.
+        */
+        @media (max-width: 40rem) {
+            .chatbot-inbox__emoji {
+                display: none;
+            }
+
+            .chatbot-inbox__send-text {
+                display: none;
+            }
         }
 
         .chatbot-inbox__error {
@@ -637,8 +768,32 @@
                     </div>
                 @endif
 
-                <div class="chatbot-inbox__thread" wire:key="chatbot-thread-{{ $record->getKey() }}">
+                <div
+                    class="chatbot-inbox__thread"
+                    wire:key="chatbot-thread-{{ $record->getKey() }}"
+                    data-conversation="{{ $record->getKey() }}"
+                >
+                    @php $day = null; @endphp
+
                     @forelse ($messages as $message)
+                        {{--
+                            A heading whenever the day changes.
+
+                            Without it the transcript is a column of clock
+                            times, and nothing says whether 14:02 under 09:41 is
+                            one afternoon or two months. An operator apologising
+                            for a two-minute wait on a message from Tuesday is
+                            how that goes wrong, and the bubble they answered
+                            looked entirely ordinary.
+                        --}}
+                        @if ($message->created_at?->toDateString() !== $day)
+                            @php $day = $message->created_at?->toDateString(); @endphp
+
+                            <p class="chatbot-inbox__day" wire:key="chatbot-day-{{ $day }}">
+                                <span>{{ $this->dayLabel($message->created_at) }}</span>
+                            </p>
+                        @endif
+
                         <div
                             wire:key="chatbot-msg-{{ $message->getKey() }}"
                             @class([
@@ -662,13 +817,28 @@
                                 <div class="chatbot-inbox__files">
                                     @foreach ($message->attachments as $file)
                                         @if ($file->isImage())
-                                            <a
-                                                href="{{ $this->attachmentUrl($file) }}"
-                                                target="_blank"
-                                                rel="noopener noreferrer"
+                                            {{--
+                                                Opened over the desk rather than
+                                                in a new tab. A picture in a
+                                                thread is looked at, and looking
+                                                at it cost the operator the
+                                                thread: the tab that opened
+                                                showed the photograph alone, and
+                                                coming back reloaded a Livewire
+                                                page that had scrolled itself
+                                                back to the newest message.
+                                            --}}
+                                            <button
+                                                type="button"
+                                                class="chatbot-inbox__shot"
+                                                title="{{ __('chatbot::panel.inbox.attachment_expand') }}"
+                                                x-on:click="$dispatch('chatbot-picture', {
+                                                    src: @js($this->attachmentUrl($file)),
+                                                    alt: @js($file->name),
+                                                })"
                                             >
                                                 <img src="{{ $this->attachmentUrl($file) }}" alt="{{ $file->name }}">
-                                            </a>
+                                            </button>
                                         @else
                                             <a
                                                 class="chatbot-inbox__file"
@@ -677,7 +847,8 @@
                                                 rel="noopener noreferrer"
                                                 title="{{ __('chatbot::panel.inbox.attachment_download', ['name' => $file->name]) }}"
                                             >
-                                                📎 {{ $file->name }}
+                                                <x-filament::icon icon="heroicon-m-paper-clip" class="chatbot-inbox__file-icon" />
+                                                {{ $file->name }}
                                             </a>
                                         @endif
                                     @endforeach
@@ -745,56 +916,15 @@
                             wire:submit="sendReply"
                             x-data="{ get length() { return ($wire.composerBody ?? '').length } }"
                         >
-                            <label class="sr-only" for="chatbot-inbox-body">{{ __('chatbot::panel.inbox.your_reply') }}</label>
-                            <textarea
-                                id="chatbot-inbox-body"
-                                x-ref="body"
-                                wire:model="composerBody"
-                                rows="3"
-                                maxlength="{{ $this->maxLength() }}"
-                                placeholder="{{ __('chatbot::panel.inbox.reply_placeholder') }}"
-                                x-on:keydown.enter="if (! $event.shiftKey) { $event.preventDefault(); $wire.sendReply() }"
-                            ></textarea>
-
-                            <div class="chatbot-inbox__composer-bar">
-                                {{--
-                                    The stock phrases open upwards. The composer
-                                    sits against the bottom of the window, and a
-                                    list dropping down would open off screen.
-                                --}}
-                                <div class="chatbot-inbox__quick" x-data="{ open: false }">
-                                    <x-filament::button
-                                        type="button"
-                                        color="gray"
-                                        size="sm"
-                                        icon="heroicon-o-bolt"
-                                        x-on:click="open = ! open"
-                                    >
-                                        {{ __('chatbot::panel.inbox.quick_replies') }}
-                                    </x-filament::button>
-
-                                    <div
-                                        class="chatbot-inbox__quick-pad"
-                                        x-show="open"
-                                        x-on:click.outside="open = false"
-                                        x-cloak
-                                    >
-                                        @forelse ($this->quickReplies as $reply)
-                                            <button
-                                                type="button"
-                                                class="chatbot-inbox__quick-pick"
-                                                wire:click="applyQuickReply({{ $reply->getKey() }})"
-                                                x-on:click="open = false"
-                                            >
-                                                {{ $reply->title }}
-                                                <span>{{ str($reply->body)->limit(90) }}</span>
-                                            </button>
-                                        @empty
-                                            <p class="chatbot-inbox__quick-pick">{{ __('chatbot::panel.inbox.no_quick_replies') }}</p>
-                                        @endforelse
-                                    </div>
-                                </div>
-
+                            {{--
+                                Everything typed on one line: the two icons, the
+                                box, and send. It was a paragraph-sized textarea
+                                over a row of labelled buttons, which is a form
+                                rather than a chat — and an operator working
+                                twenty threads reads those four controls twenty
+                                times to write one sentence.
+                            --}}
+                            <div class="chatbot-inbox__composer-row">
                                 {{--
                                     The emoji are inserted where the cursor is
                                     and the cursor is put back after them, rather
@@ -813,7 +943,8 @@
                                         icon="heroicon-o-face-smile"
                                         x-on:click="open = ! open"
                                     >
-                                        {{ __('chatbot::panel.inbox.emoji') }}
+                                        {{-- Named for a screen reader, drawn as an icon. --}}
+                                        <span class="sr-only">{{ __('chatbot::panel.inbox.emoji') }}</span>
                                     </x-filament::button>
 
                                     <div
@@ -873,14 +1004,14 @@
                                     looked different would read as belonging to
                                     something other than this composer.
                                 --}}
-                                <label class="chatbot-inbox__file" title="{{ __('chatbot::panel.inbox.attach') }}">
+                                <label class="chatbot-inbox__attach" title="{{ __('chatbot::panel.inbox.attach') }}">
                                     <x-filament::button
                                         tag="span"
                                         color="gray"
                                         size="sm"
                                         icon="heroicon-o-paper-clip"
                                     >
-                                        {{ __('chatbot::panel.inbox.attach') }}
+                                        <span class="sr-only">{{ __('chatbot::panel.inbox.attach') }}</span>
                                     </x-filament::button>
 
                                     <input
@@ -890,9 +1021,16 @@
                                     >
                                 </label>
 
-                                <span class="chatbot-inbox__counter">
-                                    <span x-text="length">0</span> / {{ $this->maxLength() }}
-                                </span>
+                                <label class="sr-only" for="chatbot-inbox-body">{{ __('chatbot::panel.inbox.your_reply') }}</label>
+                                <textarea
+                                    id="chatbot-inbox-body"
+                                    x-ref="body"
+                                    wire:model="composerBody"
+                                    rows="1"
+                                    maxlength="{{ $this->maxLength() }}"
+                                    placeholder="{{ __('chatbot::panel.inbox.reply_placeholder') }}"
+                                    x-on:keydown.enter="if (! $event.shiftKey) { $event.preventDefault(); $wire.sendReply() }"
+                                ></textarea>
 
                                 <x-filament::button
                                     type="submit"
@@ -901,8 +1039,60 @@
                                     wire:loading.attr="disabled"
                                     wire:target="sendReply"
                                 >
-                                    {{ __('chatbot::panel.inbox.send') }}
+                                    {{--
+                                        The word goes on a phone and the icon
+                                        stays. It is kept in the markup either
+                                        way rather than swapped for an
+                                        `aria-label`, so the button reads the
+                                        same to a screen reader at every width.
+                                    --}}
+                                    <span class="chatbot-inbox__send-text">{{ __('chatbot::panel.inbox.send') }}</span>
+                                    <span class="sr-only">{{ __('chatbot::panel.inbox.send') }}</span>
                                 </x-filament::button>
+                            </div>
+
+                            <div class="chatbot-inbox__composer-under">
+                                {{--
+                                    The stock phrases open upwards. The composer
+                                    sits against the bottom of the window, and a
+                                    list dropping down would open off screen.
+                                --}}
+                                <div class="chatbot-inbox__quick" x-data="{ open: false }">
+                                    <x-filament::button
+                                        type="button"
+                                        color="gray"
+                                        size="sm"
+                                        icon="heroicon-o-bolt"
+                                        x-on:click="open = ! open"
+                                    >
+                                        {{ __('chatbot::panel.inbox.quick_replies') }}
+                                    </x-filament::button>
+
+                                    <div
+                                        class="chatbot-inbox__quick-pad"
+                                        x-show="open"
+                                        x-on:click.outside="open = false"
+                                        x-cloak
+                                    >
+                                        @forelse ($this->quickReplies as $reply)
+                                            <button
+                                                type="button"
+                                                class="chatbot-inbox__quick-pick"
+                                                wire:click="applyQuickReply({{ $reply->getKey() }})"
+                                                x-on:click="open = false"
+                                            >
+                                                {{ $reply->title }}
+                                                <span>{{ str($reply->body)->limit(90) }}</span>
+                                            </button>
+                                        @empty
+                                            <p class="chatbot-inbox__quick-pick">{{ __('chatbot::panel.inbox.no_quick_replies') }}</p>
+                                        @endforelse
+                                    </div>
+                                </div>
+
+                                <span class="chatbot-inbox__counter">
+                                    <span x-text="length">0</span> / {{ $this->maxLength() }}
+                                </span>
                             </div>
 
                             {{--
@@ -915,13 +1105,15 @@
                             --}}
                             @if ($this->attachmentName() !== '')
                                 <p class="chatbot-inbox__attached">
-                                    <span>📎</span>
+                                    <x-filament::icon icon="heroicon-m-paper-clip" class="chatbot-inbox__file-icon" />
                                     <strong>{{ $this->attachmentName() }}</strong>
                                     <button
                                         type="button"
                                         wire:click="clearAttachment"
                                         title="{{ __('chatbot::panel.inbox.attach_remove') }}"
-                                    >×</button>
+                                    >
+                                        <x-filament::icon icon="heroicon-m-x-mark" class="chatbot-inbox__file-icon" />
+                                    </button>
                                 </p>
                             @endif
 
@@ -943,6 +1135,42 @@
         </section>
     </div>
 
+    {{--
+        One viewer for the whole thread, listening for a window event.
+
+        Written once rather than per bubble: a thread is fifty messages long and
+        fifty copies of a full-screen overlay is fifty Alpine components holding
+        the same markup. It is deliberately not a Livewire modal either — opening
+        a picture would be a round trip, and the thing being opened is already on
+        the page.
+    --}}
+    <div
+        x-data="{ src: null, alt: '' }"
+        x-on:chatbot-picture.window="src = $event.detail.src; alt = $event.detail.alt"
+        x-on:keydown.escape.window="src = null"
+    >
+        <div
+            class="chatbot-inbox__viewer"
+            x-show="src"
+            x-on:click="src = null"
+            role="dialog"
+            aria-modal="true"
+            x-cloak
+        >
+            {{-- The backdrop closes; the picture does not, or the click that lands on what the operator is looking at shuts it. --}}
+            <img class="chatbot-inbox__viewer-image" x-bind:src="src" x-bind:alt="alt" x-on:click.stop>
+
+            <button
+                type="button"
+                class="chatbot-inbox__viewer-close"
+                x-on:click="src = null"
+                aria-label="{{ __('chatbot::panel.inbox.attachment_close') }}"
+            >
+                <x-filament::icon icon="heroicon-m-x-mark" />
+            </button>
+        </div>
+    </div>
+
     <x-filament-actions::modals />
 
     {{--
@@ -950,20 +1178,67 @@
         ended, and a reply that lands below the fold looks like it was not sent.
         The script lives here because it needs this page's `$wire`; `@script`
         runs once on mount and survives re-renders.
+
+        **It only follows the bottom while the operator is already there.** The
+        first version scrolled down after every morph, and this page polls: an
+        operator reading back through a long thread was thrown to the newest
+        message every few seconds, mid-sentence, with nothing on screen to
+        explain it. Scrolling up is how somebody reads what a customer said
+        before deciding what to answer, so it is the one thing the poll must not
+        take away.
+
+        Opening a different conversation still lands at the bottom. Without the
+        conversation id, a thread opened while the previous one was scrolled up
+        would inherit that decision and start halfway through somebody else's
+        history.
     --}}
     @script
     <script>
         (() => {
-            const toBottom = () => {
-                const thread = document.querySelector('.chatbot-inbox__thread');
+            /*
+             * A few pixels of slack. Browsers report fractional scroll heights
+             * on zoomed and high-density displays, so an exact comparison says
+             * "not at the bottom" for a thread that visibly is, and the desk
+             * stops following a live conversation.
+             */
+            const SLACK = 48;
 
-                if (thread) {
-                    thread.scrollTop = thread.scrollHeight;
+            const thread = () => document.querySelector('.chatbot-inbox__thread');
+
+            const atBottom = (node) =>
+                node.scrollHeight - node.scrollTop - node.clientHeight <= SLACK;
+
+            let follow = true;
+            let showing = null;
+
+            const remember = () => {
+                const node = thread();
+
+                follow = !node || atBottom(node);
+            };
+
+            const settle = () => {
+                const node = thread();
+
+                if (!node) {
+                    return;
+                }
+
+                const opened = node.dataset.conversation ?? null;
+
+                if (opened !== showing) {
+                    showing = opened;
+                    follow = true;
+                }
+
+                if (follow) {
+                    node.scrollTop = node.scrollHeight;
                 }
             };
 
-            Livewire.hook('morphed', () => queueMicrotask(toBottom));
-            queueMicrotask(toBottom);
+            Livewire.hook('morph.updating', remember);
+            Livewire.hook('morphed', () => queueMicrotask(settle));
+            queueMicrotask(settle);
         })();
     </script>
     @endscript

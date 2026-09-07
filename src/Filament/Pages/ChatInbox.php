@@ -865,6 +865,42 @@ class ChatInbox extends Page
     }
 
     /**
+     * The day a run of messages belongs to, for the divider above it.
+     *
+     * Without it a transcript is a column of times: `14:02` under `09:41` under
+     * `18:20`, and nothing anywhere says whether those are three moments of one
+     * afternoon or three months of a conversation nobody answered. An operator
+     * apologising for a two-minute wait on a message from Tuesday is how it
+     * goes wrong, and the bubble they read looked entirely normal.
+     *
+     * Today and yesterday are spelled out. A date is what somebody reads when
+     * they have to work out how long ago it was, and for the two days that come
+     * up most nobody should have to.
+     *
+     * `CarbonInterface` for the reason `listTimestamp()` gives above it.
+     */
+    public function dayLabel(?CarbonInterface $at): string
+    {
+        if ($at === null) {
+            return '';
+        }
+
+        return match (true) {
+            /*
+             * Its own pair of keys rather than the list's. There the word sits
+             * inside a row as a timestamp and is lower case; here it is a
+             * heading over a day's messages, and Russian capitalises the two
+             * differently from English — one string could only be wrong in one
+             * of the four places.
+             */
+            $at->isToday() => __('chatbot::panel.inbox.day_today'),
+            $at->isYesterday() => __('chatbot::panel.inbox.day_yesterday'),
+            $at->isCurrentYear() => $at->translatedFormat('j F'),
+            default => $at->translatedFormat('j F Y'),
+        };
+    }
+
+    /**
      * Channels worth offering: the ones conversations actually arrived on.
      *
      * Read from the table rather than from the registry of drivers, because a

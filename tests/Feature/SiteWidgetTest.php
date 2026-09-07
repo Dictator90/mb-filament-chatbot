@@ -212,6 +212,47 @@ it('fetches its own stylesheet, because the embed is one tag', function (): void
  * and has no reason to check, and it answers every visitor exactly as before.
  */
 /**
+ * Every control the widget names has a word for it on the server, and no word
+ * on the server names a control that no longer exists.
+ *
+ * The two lists are written in different languages and edited months apart, and
+ * a name added to one of them alone fails silently in both directions. Missing
+ * on the server, the control keeps the English fallback compiled into the
+ * script — so a Russian widget grows one English tooltip, and the person who
+ * translated everything sees nothing wrong. Missing in the script, the
+ * translator is maintaining a phrase nothing has said for a year.
+ *
+ * The keys are taken out of the script's own defaults rather than listed here,
+ * because a list in a test is a third place to forget.
+ */
+it('has a word for every control it draws, and draws every control it has a word for', function (): void {
+    $source = (string) file_get_contents(dirname(__DIR__, 2).'/resources/widget/widget.js');
+
+    expect(preg_match('/var labels = \{(.*?)\n {4}\};/s', $source, $block))->toBe(1);
+
+    preg_match_all('/^\s{8}([a-z_]+):/m', $block[1], $found);
+
+    $drawn = $found[1];
+
+    /*
+     * Read off the transcript endpoint and not the theme one. The theme
+     * carries the wording a particular widget overrode; this is the wording
+     * the application speaks, which is the list the script's defaults stand in
+     * for until it arrives.
+     */
+    $said = array_keys((array) $this->withHeaders(['Origin' => 'https://shop.example.com'])
+        ->getJson('/chatbot/site/messages?widget=demo')
+        ->assertOk()
+        ->json('labels'));
+
+    sort($drawn);
+    sort($said);
+
+    expect($drawn)->not->toBeEmpty()
+        ->and($said)->toBe($drawn);
+});
+
+/**
  * The widget asks how it should look before it draws anything.
  *
  * Behind the same allow-list as everything else: the endpoint is harmless — it

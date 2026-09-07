@@ -200,6 +200,7 @@ class SiteWidgetController
             'receipt_sent' => __('chatbot::widget.receipt_sent'),
             'receipt_delivered' => __('chatbot::widget.receipt_delivered'),
             'receipt_read' => __('chatbot::widget.receipt_read'),
+            'expand' => __('chatbot::widget.expand'),
         ];
     }
 

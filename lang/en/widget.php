@@ -43,6 +43,13 @@ return [
     'receipt_read' => 'Read',
 
     /*
+     * The name of the button a picture sits inside. A thumbnail is a hundred
+     * pixels of a screenshot somebody sent to be read, and without a name on it
+     * nothing says the picture can be opened at all.
+     */
+    'expand' => 'Open the picture',
+
+    /*
      * Why a file was not accepted, said to the visitor.
      *
      * Sent from the server for the same reason every other label here is, and

@@ -177,13 +177,36 @@
 }
 
 .chatbot__close {
+    display: inline-flex;
+    align-items: center;
     border: 0;
     background: transparent;
     color: inherit;
-    font-size: 22px;
     line-height: 1;
     cursor: pointer;
     padding: 0 4px;
+}
+
+/*
+ * Every icon in the chrome is sized here rather than at each button.
+ *
+ * They are drawn, not typed, so nothing about them follows the font: an SVG
+ * with no width fills whatever box it is in, and the composer's paperclip came
+ * out the height of the whole row the first time. One rule, and a button that
+ * gains an icon later cannot be the one that forgot it.
+ */
+.chatbot__close svg,
+.chatbot__emoji svg,
+.chatbot__attach svg,
+.chatbot__attached-remove svg {
+    display: block;
+    width: 20px;
+    height: 20px;
+}
+
+.chatbot__attached-remove svg {
+    width: 16px;
+    height: 16px;
 }
 
 .chatbot__log {
@@ -454,6 +477,14 @@
  * it becomes the whole panel, and the sentence that came with it is scrolled off
  * the top.
  */
+.chatbot__shot {
+    display: block;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    cursor: zoom-in;
+}
+
 .chatbot__thumb {
     display: block;
     max-width: 100%;
@@ -461,11 +492,63 @@
     margin-top: 6px;
     border-radius: 8px;
     object-fit: cover;
-    cursor: zoom-in;
+}
+
+/*
+ * A picture at the size of the screen, over the host's page.
+ *
+ * Fixed to the viewport and not to the panel: the panel is a column three
+ * hundred pixels wide, and a screenshot shown inside it is the thumbnail again
+ * with more ceremony. The z-index sits above the widget's own so that the
+ * launcher and the composer cannot be tapped through the photograph.
+ */
+.chatbot__viewer {
+    position: fixed;
+    inset: 0;
+    z-index: 2147483000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    background: rgba(15, 23, 42, 0.86);
+    cursor: zoom-out;
+}
+
+.chatbot__viewer[hidden] {
+    display: none;
+}
+
+.chatbot__viewer-image {
+    max-width: 100%;
+    max-height: 100%;
+    border-radius: 8px;
+    object-fit: contain;
+    cursor: default;
+}
+
+.chatbot__viewer-close {
+    position: absolute;
+    top: 12px;
+    inset-inline-end: 12px;
+    display: inline-flex;
+    padding: 6px;
+    border: 0;
+    border-radius: 999px;
+    background: rgba(15, 23, 42, 0.6);
+    color: #fff;
+    cursor: pointer;
+}
+
+.chatbot__viewer-close svg {
+    display: block;
+    width: 22px;
+    height: 22px;
 }
 
 .chatbot__file {
-    display: inline-block;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
     margin-top: 6px;
     padding: 0;
     border: 0;
@@ -477,6 +560,12 @@
     text-decoration: underline;
     cursor: pointer;
     overflow-wrap: anywhere;
+}
+
+.chatbot__file svg {
+    flex: none;
+    width: 16px;
+    height: 16px;
 }
 
 /*
