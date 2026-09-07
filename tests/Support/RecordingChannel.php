@@ -67,4 +67,13 @@ final class RecordingChannel implements ChannelDriver
     {
         return $this->buttons;
     }
+
+    /**
+     * Stands in for a channel that leaves the building — the kind whose
+     * delivery is queued, retried and stamped.
+     */
+    public function sendsOutward(): bool
+    {
+        return true;
+    }
 }

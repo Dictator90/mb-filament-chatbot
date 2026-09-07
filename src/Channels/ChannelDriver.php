@@ -68,4 +68,25 @@ interface ChannelDriver
      * than becoming a place where every question is unanswerable.
      */
     public function supportsButtons(): bool;
+
+    /**
+     * Whether a reply on this channel has to be carried somewhere.
+     *
+     * False for a channel the reader comes to. The site widget polls this
+     * application and takes whatever has been written, so a message is already
+     * where it needs to be the moment the row exists — and the job that would
+     * "send" it has nothing to do but write down that it did. The outbox reads
+     * this and queues nothing.
+     *
+     * That is not merely wasteful. On an installation whose worker is not
+     * running, those no-op jobs *are* the queue: a backlog made entirely of work
+     * nobody needed, hiding the jobs that matter. The first real installation
+     * this package met had thirty-seven of them and not one that did anything.
+     *
+     * True for anything that leaves the building — Telegram, e-mail, a
+     * provider's API — where the send is the whole point and its outcome is a
+     * fact about whether the customer got the message. **True is the answer for
+     * a driver in doubt**, because it costs a job and false costs a silence.
+     */
+    public function sendsOutward(): bool;
 }

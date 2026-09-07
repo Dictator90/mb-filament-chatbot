@@ -20,7 +20,9 @@ use MB\FilamentChatbot\Models\Message;
  * It is still a driver, and still goes through the outbox, because the
  * alternative is a special case in every place that sends. "Everything is
  * queued and stamped, except site, which is written straight through" is the
- * kind of exception that survives exactly until someone adds a second one.
+ * kind of exception that survives exactly until someone adds a second one. What
+ * it does instead is answer `sendsOutward()` with false: the outbox asks the
+ * driver, and every place that sends goes on calling the same method.
  */
 final class SiteDriver implements ChannelDriver
 {
@@ -69,5 +71,15 @@ final class SiteDriver implements ChannelDriver
     public function supportsButtons(): bool
     {
         return true;
+    }
+
+    /**
+     * Nothing leaves. The widget comes and takes the message, so queueing a
+     * delivery for it would enqueue a job whose entire effect is to call the
+     * method above and stamp no column at all.
+     */
+    public function sendsOutward(): bool
+    {
+        return false;
     }
 }

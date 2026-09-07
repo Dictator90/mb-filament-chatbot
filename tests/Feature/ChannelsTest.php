@@ -146,6 +146,69 @@ it('queues delivery of an outgoing message instead of sending it in the request'
 });
 
 /**
+ * Nothing is queued for a channel the reader comes to.
+ *
+ * The site widget polls this application, so a reply is already where it needs
+ * to be the moment the row exists, and the job that would "send" it has nothing
+ * to do but write down that it did. That is not merely wasteful: on an
+ * installation whose worker is not running, those no-op jobs become the queue —
+ * a backlog made entirely of work nobody needed, hiding the jobs that matter.
+ * The first real installation this package met had thirty-seven of them and not
+ * one that did anything.
+ *
+ * Telegram is here in the same test on purpose. Alone, the site half would pass
+ * just as happily if the outbox had stopped queueing altogether.
+ */
+it('queues nothing for a channel the reader comes to, and still queues for one that leaves', function (): void {
+    Queue::fake();
+
+    $site = Conversation::factory()->create(['channel' => 'site']);
+    $telegram = Conversation::factory()->create(['channel' => 'telegram', 'external_id' => '77']);
+
+    Message::create([
+        'conversation_id' => $site->getKey(),
+        'direction' => MessageDirection::Outgoing,
+        'author' => MessageAuthor::Bot,
+        'body' => 'Waiting to be fetched.',
+    ]);
+
+    Queue::assertNotPushed(DeliverMessage::class);
+
+    Message::create([
+        'conversation_id' => $telegram->getKey(),
+        'direction' => MessageDirection::Outgoing,
+        'author' => MessageAuthor::Bot,
+        'body' => 'On its way.',
+    ]);
+
+    Queue::assertPushed(DeliverMessage::class, 1);
+});
+
+/**
+ * A switched-off channel is still queued, and that is the point.
+ *
+ * Skipping the queue says how a channel delivers, not whether it can. A site
+ * channel somebody has turned off delivers nothing at all, and the only place
+ * that says so is the reason the job writes on the row; skip it and the message
+ * sits pending forever, looking exactly like a customer who has not replied.
+ */
+it('still queues for a channel that is switched off, so the row can say why', function (): void {
+    Queue::fake();
+    config()->set('chatbot.channels.site.enabled', false);
+
+    $conversation = Conversation::factory()->create(['channel' => 'site']);
+
+    Message::create([
+        'conversation_id' => $conversation->getKey(),
+        'direction' => MessageDirection::Outgoing,
+        'author' => MessageAuthor::Bot,
+        'body' => 'Nowhere to go.',
+    ]);
+
+    Queue::assertPushed(DeliverMessage::class, 1);
+});
+
+/**
  * A message with nowhere to go must be visibly broken, not quietly pending.
  *
  * Left unmarked it looks exactly like a message the customer is slow to answer,

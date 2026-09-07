@@ -33,10 +33,33 @@ class Outbox
      * outage while their browser spins. Queued, the conversation is already
      * saved and on screen; the network is somebody else's problem, retried by a
      * worker.
+     *
+     * **Nothing is queued for a channel the reader comes to.** The site widget
+     * polls this application, so the message is already where it needs to be,
+     * and running the job would change not one column: accepted delivery writes
+     * no timestamp, and there is no failure to clear on a row a moment old. The
+     * cost of queueing it anyway is not the work — it is that on an
+     * installation whose worker is stopped, those no-op jobs are the whole
+     * backlog, and the delivery that actually failed is buried among them.
+     *
+     * The question is put to the driver rather than answered by comparing the
+     * channel to 'site', so that a host adding its own polled channel gets the
+     * same behaviour without editing this class.
+     *
+     * A channel that is switched off or has no driver at all is queued
+     * regardless: the job is where the reason gets written on the row, and a
+     * message left pending looks exactly like a customer who has not replied.
      */
     public function dispatch(Message $message): void
     {
         if (! $this->isDeliverable($message)) {
+            return;
+        }
+
+        $channel = $message->conversation?->channel;
+        $driver = $channel === null ? null : $this->registry->channel((string) $channel);
+
+        if ($driver !== null && $driver->isConfigured() && ! $driver->sendsOutward()) {
             return;
         }
 

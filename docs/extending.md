@@ -696,6 +696,11 @@ final class WhatsAppDriver implements ChannelDriver
         return false;
     }
 
+    public function sendsOutward(): bool
+    {
+        return true;
+    }
+
     public function send(Conversation $conversation, Message $message): DeliveryResult
     {
         if (! $this->isConfigured()) {
@@ -757,6 +762,20 @@ the queue with work guaranteed to fail while delaying the reason reaching the
 operator. The external id on `sent()` is optional because not every channel has
 one — the site widget hands out no identifiers at all, and inventing a
 placeholder would make the column unusable for the channels that do return one.
+
+**`sendsOutward()` answers "does a reply here have to be carried anywhere?" —
+and for almost every channel the answer is yes.** Say `false` only for a channel
+the reader comes to, the way the site widget polls this application: the message
+is already where it needs to be the moment the row exists, and the outbox queues
+nothing for it. Say `true` if you are unsure. The wrong `true` costs a job that
+does nothing; the wrong `false` costs a message nobody ever sends, with nothing
+on the row to say so.
+
+The reason it exists is a real installation whose worker had stopped. Its queue
+held thirty-seven jobs, every one of them a site message that needed no sending
+— and the delivery that had actually failed was somewhere in the middle of them.
+A channel that is switched off or has no driver at all is still queued, because
+the job is where that reason gets written on the message row.
 
 ### Why a channel without buttons is still fully usable
 

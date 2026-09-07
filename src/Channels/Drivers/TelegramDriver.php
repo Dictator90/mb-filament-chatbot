@@ -125,6 +125,16 @@ final class TelegramDriver implements ChannelDriver
     }
 
     /**
+     * The message has to reach Telegram's servers, and whether it did is a fact
+     * about a call this application makes — so it is queued, retried and
+     * stamped like any other outward send.
+     */
+    public function sendsOutward(): bool
+    {
+        return true;
+    }
+
+    /**
      * One button per row.
      *
      * Options are answers to a question, and a row of them side by side is a
