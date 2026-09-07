@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace MB\FilamentChatbot\Console\Doctor;
 
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use MB\FilamentChatbot\Bot\Steps\Types\DelayStep;
 use MB\FilamentChatbot\Models\Scenario;
 use MB\FilamentChatbot\Models\Step;
@@ -43,7 +45,7 @@ final class QueueCheck extends DoctorCheck
         $connection = (string) config('queue.default');
 
         if ($connection !== 'sync') {
-            return [DoctorFinding::pass("Jobs run on the [{$connection}] connection.")];
+            return [$this->drained($connection)];
         }
 
         $reasons = [];
@@ -69,6 +71,58 @@ final class QueueCheck extends DoctorCheck
             'Point QUEUE_CONNECTION at a real driver and run a worker. On sync a pause is a sleep inside the visitor\'s own request.',
             $paused,
         )];
+    }
+
+    /**
+     * A configured queue is not the same fact as a queue somebody is emptying.
+     *
+     * The connection being anything but `sync` used to be reported as a pass,
+     * and that reads as "the queue is fine" while jobs pile up untouched. They
+     * do not fail; they wait. Every reply the package hands to a channel goes
+     * out through one, and until a worker runs the message sits in the desk
+     * marked as still sending — for as long as nobody looks, which on a machine
+     * without a worker is forever.
+     *
+     * Only the database driver can be asked this cheaply, and only that one is
+     * asked. Redis and SQS know their own depth, but reaching for either means
+     * a connection this command may not have and a failure mode of its own; a
+     * doctor that cannot run is worse than one that says less.
+     */
+    protected function drained(string $connection): DoctorFinding
+    {
+        $driver = (string) config("queue.connections.{$connection}.driver");
+
+        if ($driver !== 'database') {
+            return DoctorFinding::pass("Jobs run on the [{$connection}] connection.");
+        }
+
+        $table = (string) config("queue.connections.{$connection}.table", 'jobs');
+
+        if (! Schema::hasTable($table)) {
+            return DoctorFinding::warn(
+                "The [{$connection}] queue has no [{$table}] table.",
+                'Run the queue migrations, or point QUEUE_CONNECTION somewhere that exists. Until then every job fails on dispatch.',
+            );
+        }
+
+        $waiting = (int) DB::table($table)->count();
+
+        if ($waiting === 0) {
+            return DoctorFinding::pass("Jobs run on the [{$connection}] connection, and none are waiting.");
+        }
+
+        $oldest = DB::table($table)->min('created_at');
+        $stale = is_numeric($oldest) && (time() - (int) $oldest) > 300;
+
+        if (! $stale) {
+            return DoctorFinding::pass("Jobs run on the [{$connection}] connection; {$waiting} waiting to be picked up.");
+        }
+
+        return DoctorFinding::warn(
+            "{$waiting} jobs have been waiting on the [{$connection}] queue for more than five minutes.",
+            'Nothing is draining the queue: run `php artisan queue:work`. Replies are dispatched through it, so until '
+            .'a worker runs they are never delivered and the desk shows every one of them as still sending.',
+        );
     }
 
     /**

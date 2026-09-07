@@ -85,6 +85,39 @@ it('lets a warning through unless the run asked for strictness', function (): vo
 });
 
 /**
+ * The busiest write in the installation is a counter nobody reads.
+ *
+ * Every widget endpoint is behind a rate limiter, the widget polls every few
+ * seconds per open tab, and a limiter counts by writing. On `CACHE_STORE=database`
+ * over SQLite that write lands in the same file everything else is read from,
+ * and SQLite admits one writer at a time: two visitors, or a visitor and an
+ * operator, and the polling endpoint answers "database is locked" — which the
+ * visitor sees as a chat that opens empty and never fills in.
+ *
+ * Unfindable by hand. One person on a laptop never collides with themselves, so
+ * the fault waits for the second real visitor.
+ */
+it('says when the rate limiter shares one SQLite file with everything else', function (): void {
+    config([
+        'cache.default' => 'database',
+        'cache.stores.database' => ['driver' => 'database', 'connection' => null],
+        'database.default' => 'testing',
+        'database.connections.testing.driver' => 'sqlite',
+    ]);
+
+    $this->artisan('chatbot:doctor --check=rate-limits')
+        ->expectsOutputToContain('WARN')
+        ->expectsOutputToContain('one writer at a time')
+        ->assertExitCode(0);
+
+    config(['cache.default' => 'file', 'cache.stores.file' => ['driver' => 'file']]);
+
+    $this->artisan('chatbot:doctor --check=rate-limits')
+        ->doesntExpectOutputToContain('WARN')
+        ->assertExitCode(0);
+});
+
+/**
  * A key that is present and a key that is accepted are different facts.
  *
  * The gateway's own `isAvailable()` answers the first, and is right to: nodes
