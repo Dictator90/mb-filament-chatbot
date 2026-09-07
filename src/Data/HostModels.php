@@ -68,6 +68,73 @@ final class HostModels
     }
 
     /**
+     * The database connections this installation has configured.
+     *
+     * Read from the host's own `config/database.php`, because that is where
+     * credentials for another host already live and a package holding a second
+     * copy of them is a package that will hold a stale one.
+     *
+     * @return array<string, string>
+     */
+    public static function connections(): array
+    {
+        $names = array_keys((array) config('database.connections', []));
+
+        sort($names);
+
+        return array_combine($names, $names) ?: [];
+    }
+
+    /**
+     * The columns of a table on a named connection.
+     *
+     * Asked of the connection rather than typed by hand, even for a foreign
+     * database: Laravel can introspect anything it can connect to, and a list
+     * somebody maintains is wrong the first time that schema changes. An
+     * unreachable connection answers with nothing, and the form falls back to
+     * what is stored — which is what keeps a resource editable on a machine
+     * where the reporting database is not attached.
+     *
+     * @return list<string>
+     */
+    public static function tableColumns(?string $connection, ?string $table): array
+    {
+        $table = trim((string) $table);
+
+        if ($table === '') {
+            return [];
+        }
+
+        try {
+            return Schema::connection(trim((string) $connection) ?: null)->getColumnListing($table);
+        } catch (Throwable) {
+            return [];
+        }
+    }
+
+    /**
+     * The tables a connection has, for the same reason as the columns.
+     *
+     * @return array<string, string>
+     */
+    public static function tables(?string $connection): array
+    {
+        try {
+            $names = array_map(
+                static fn (array $table): string => (string) ($table['name'] ?? ''),
+                Schema::connection(trim((string) $connection) ?: null)->getTables(),
+            );
+        } catch (Throwable) {
+            return [];
+        }
+
+        $names = array_values(array_filter($names, static fn (string $name): bool => $name !== ''));
+        sort($names);
+
+        return array_combine($names, $names) ?: [];
+    }
+
+    /**
      * The columns of a model's table, or nothing when it cannot be asked.
      *
      * Read from the schema rather than from a list somebody maintains, because

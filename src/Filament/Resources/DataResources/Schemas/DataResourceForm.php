@@ -35,6 +35,23 @@ class DataResourceForm
         return array_combine($columns, $columns) ?: [];
     }
 
+    /**
+     * The columns of whichever source this resource is, seen from inside a
+     * repeater item.
+     *
+     * One helper rather than the same three-line choice written at each field:
+     * the two lists have to agree, and the copy that is one edit behind is the
+     * one offering a column of the model to a resource that is a table.
+     *
+     * @return array<string, string>
+     */
+    private static function sourceColumns(Get $get): array
+    {
+        return self::columnOptions(filled($get('../../source_table'))
+            ? HostModels::tableColumns($get('../../connection'), $get('../../source_table'))
+            : HostModels::columns($get('../../model')));
+    }
+
     public static function configure(Schema $schema): Schema
     {
         return $schema->columns(1)->components([
@@ -61,6 +78,39 @@ class DataResourceForm
                 ]),
 
                 /*
+                 * Where the rows are. Empty means this application's own
+                 * database, which is what every resource meant before this
+                 * field existed and goes on meaning.
+                 *
+                 * A resource on another connection is one of two things: the
+                 * same model read elsewhere — a replica, a shard — or a table
+                 * this application has no model for at all: a legacy database,
+                 * another service's schema. The choice below decides which.
+                 */
+                Grid::make(2)->schema([
+                    Select::make('connection')
+                        ->label(__('chatbot::panel.data_resources.connection'))
+                        ->live()
+                        ->placeholder(__('chatbot::panel.data_resources.connection_none'))
+                        ->options(fn (Get $get): array => HostModels::including(
+                            HostModels::connections(),
+                            $get('connection'),
+                        ))
+                        ->helperText(__('chatbot::panel.data_resources.connection_help')),
+
+                    Select::make('source_table')
+                        ->label(__('chatbot::panel.data_resources.table'))
+                        ->live()
+                        ->searchable()
+                        ->placeholder(__('chatbot::panel.data_resources.table_none'))
+                        ->options(fn (Get $get): array => HostModels::including(
+                            HostModels::tables($get('connection')),
+                            $get('source_table'),
+                        ))
+                        ->helperText(__('chatbot::panel.data_resources.table_help')),
+                ]),
+
+                /*
                  * Chosen from what the installation has, not typed.
                  *
                  * It was a text box, and `App\Models\Oder` saves perfectly:
@@ -71,12 +121,15 @@ class DataResourceForm
                  * so a value already stored stays selectable even when
                  * discovery has not heard of it.
                  *
-                 * Live, because the column and relation lists below are read
-                 * off whatever is chosen here.
+                 * Hidden once a table is named, because then there is no model:
+                 * a form offering both would let somebody fill in both, and the
+                 * resource would silently be whichever one the reader looks at
+                 * first.
                  */
                 Select::make('model')
                     ->label(__('chatbot::panel.data_resources.model'))
-                    ->required()
+                    ->required(fn (Get $get): bool => blank($get('source_table')))
+                    ->hidden(fn (Get $get): bool => filled($get('source_table')))
                     ->searchable()
                     ->live()
                     ->options(fn (Get $get): array => HostModels::including(
@@ -180,7 +233,7 @@ class DataResourceForm
                                     ->required()
                                     ->searchable()
                                     ->options(fn (Get $get): array => HostModels::including(
-                                        self::columnOptions(HostModels::columns($get('../../model'))),
+                                        self::sourceColumns($get),
                                         $get('name'),
                                     )),
                                 TextInput::make('label')
@@ -282,6 +335,13 @@ class DataResourceForm
                                 ->label(__('chatbot::panel.data_resources.scopes.relation'))
                                 ->live()
                                 ->searchable()
+                                /*
+                                 * Gone for a table: a table has no relations to
+                                 * reach through, and the read refuses a scope
+                                 * that names one. Offering the field would let
+                                 * somebody build a resource that cannot answer.
+                                 */
+                                ->hidden(fn (Get $get): bool => filled($get('../../source_table')))
                                 ->placeholder(__('chatbot::panel.data_resources.scopes.relation_none'))
                                 ->options(fn (Get $get): array => HostModels::including(
                                     HostModels::relations($get('../../model')),
@@ -295,9 +355,9 @@ class DataResourceForm
                                     ->required()
                                     ->searchable()
                                     ->options(fn (Get $get): array => HostModels::including(
-                                        self::columnOptions(filled($get('relation'))
-                                            ? HostModels::relatedColumns($get('../../model'), $get('relation'))
-                                            : HostModels::columns($get('../../model'))),
+                                        filled($get('relation'))
+                                            ? self::columnOptions(HostModels::relatedColumns($get('../../model'), $get('relation')))
+                                            : self::sourceColumns($get),
                                         $get('field'),
                                     )),
                                 /*

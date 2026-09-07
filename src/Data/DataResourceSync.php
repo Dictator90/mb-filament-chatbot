@@ -79,9 +79,17 @@ class DataResourceSync
         }
 
         $model = (string) ($declaration['model'] ?? '');
+        $table = (string) ($declaration['table'] ?? '');
 
-        if ($model === '') {
-            throw new InvalidArgumentException("Data resource declaration [{$key}] names no model.");
+        /*
+         * One of the two, and either will do. A resource is a model of this
+         * application or a table on a connection it has configured; a
+         * declaration naming neither is a resource nothing can read, and every
+         * scenario pointing at it would answer "unknown resource" months later
+         * instead of failing here, where the offending entry can be named.
+         */
+        if ($model === '' && $table === '') {
+            throw new InvalidArgumentException("Data resource declaration [{$key}] names neither a model nor a table.");
         }
 
         return DataResource::query()->updateOrCreate(
@@ -90,7 +98,9 @@ class DataResourceSync
                 'label' => (string) ($declaration['label'] ?? $key),
                 'description' => $declaration['description'] ?? null,
                 'query_guidance' => $declaration['query_guidance'] ?? null,
-                'model' => $model,
+                'model' => $model ?: null,
+                'connection' => $declaration['connection'] ?? null,
+                'source_table' => $table ?: null,
                 'modes' => $this->modes($declaration['modes'] ?? null),
                 'fields' => (array) ($declaration['fields'] ?? []),
                 'default_sort' => $declaration['default_sort'] ?? null,

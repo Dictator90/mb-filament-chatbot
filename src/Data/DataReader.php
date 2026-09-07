@@ -6,8 +6,10 @@ namespace MB\FilamentChatbot\Data;
 
 use BackedEnum;
 use DateTimeInterface;
-use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Builder as EloquentBuilder;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Query\Builder as QueryBuilder;
+use Illuminate\Support\Facades\DB;
 use MB\FilamentChatbot\Enums\DataFilterOperator;
 use MB\FilamentChatbot\Enums\DataQueryMode;
 use MB\FilamentChatbot\Exceptions\DataQueryException;
@@ -80,13 +82,11 @@ class DataReader
             );
         }
 
-        $model = $this->resolveModel($resource);
+        $builder = $this->baseQuery($resource);
 
-        if ($model === null) {
+        if ($builder === null) {
             return DataResult::failed("Data resource [{$resource->key}] points at a model that does not exist.");
         }
-
-        $builder = $model->newQuery();
 
         $this->applyFilters($builder, $resource, $query->filters);
         $this->applyScopes($builder, $resource, $context);
@@ -182,12 +182,12 @@ class DataReader
     }
 
     /**
-     * @param  Builder<Model>  $builder
+     * @param  EloquentBuilder<Model>|QueryBuilder  $builder
      * @param  list<array{field: string, operator: string, value: mixed}>  $filters
      *
      * @throws DataQueryException
      */
-    protected function applyFilters(Builder $builder, DataResource $resource, array $filters): void
+    protected function applyFilters(EloquentBuilder|QueryBuilder $builder, DataResource $resource, array $filters): void
     {
         foreach ($filters as $filter) {
             $field = $filter['field'];
@@ -243,11 +243,11 @@ class DataReader
      * as far: a name Eloquent does not know throws, the read is refused, and a
      * refusal is the safe end of that mistake.
      *
-     * @param  Builder<Model>  $builder
+     * @param  EloquentBuilder<Model>|QueryBuilder  $builder
      *
      * @throws DataQueryException
      */
-    protected function applyScopes(Builder $builder, DataResource $resource, RuntimeContext $context): void
+    protected function applyScopes(EloquentBuilder|QueryBuilder $builder, DataResource $resource, RuntimeContext $context): void
     {
         foreach ((array) $resource->scopes as $scope) {
             if (! is_array($scope)) {
@@ -299,10 +299,10 @@ class DataReader
      * has-many, and a limit applied afterwards would then return five copies of
      * two records — a wrong answer that reads as a short one.
      *
-     * @param  Builder<Model>  $builder
+     * @param  EloquentBuilder<Model>|QueryBuilder  $builder
      */
     protected function restrict(
-        Builder $builder,
+        EloquentBuilder|QueryBuilder $builder,
         string $relation,
         string $field,
         DataFilterOperator $operator,
@@ -314,7 +314,20 @@ class DataReader
             return;
         }
 
-        $builder->whereHas($relation, function (Builder $related) use ($field, $operator, $value): void {
+        /*
+         * A table has no relations to reach through, and a scope that cannot be
+         * applied must stop the read rather than be skipped. Skipped, the query
+         * runs unrestricted and every row it returns looks like a correct
+         * answer — which is the failure this whole class is built against.
+         */
+        if (! $builder instanceof EloquentBuilder) {
+            throw DataQueryException::unknownField(
+                $field,
+                "{$field} (a scope through relation [{$relation}] needs a model, and this resource is a table)",
+            );
+        }
+
+        $builder->whereHas($relation, function (EloquentBuilder $related) use ($field, $operator, $value): void {
             $this->compare($related, $field, $operator, $value);
         });
     }
@@ -330,10 +343,10 @@ class DataReader
      * do is sort by an undeclared column anyway — that is an index scan chosen
      * by the visitor.
      *
-     * @param  Builder<Model>  $builder
+     * @param  EloquentBuilder<Model>|QueryBuilder  $builder
      * @param  list<array{field: string, direction: string}>  $sort
      */
-    protected function applySort(Builder $builder, DataResource $resource, array $sort): void
+    protected function applySort(EloquentBuilder|QueryBuilder $builder, DataResource $resource, array $sort): void
     {
         $descriptors = $resource->fieldDescriptors();
         $applied = false;
@@ -394,9 +407,9 @@ class DataReader
     }
 
     /**
-     * @param  Builder<Model>  $builder
+     * @param  EloquentBuilder<Model>|QueryBuilder  $builder
      */
-    protected function compare(Builder $builder, string $field, DataFilterOperator $operator, mixed $value): void
+    protected function compare(EloquentBuilder|QueryBuilder $builder, string $field, DataFilterOperator $operator, mixed $value): void
     {
         match ($operator) {
             DataFilterOperator::Equals => $builder->where($field, '=', $value),
@@ -489,6 +502,47 @@ class DataReader
     }
 
     /**
+     * The query this resource starts from: a model's, or a table's.
+     *
+     * A resource is one or the other. With a table named it is a table on a
+     * configured connection — a reporting replica, a legacy database, another
+     * service's schema — where there is no class to introspect and nothing to
+     * check the declaration against; without one it is a model of this
+     * application, as every resource was before.
+     *
+     * Everything after this point treats the two alike. Filters, the access
+     * scope, the sort, the ceiling and the named column list are all query
+     * builder work, and the one thing that differs — a scope reaching through a
+     * relation — refuses on a table, because a table has no relations to reach
+     * through.
+     */
+    protected function baseQuery(DataResource $resource): EloquentBuilder|QueryBuilder|null
+    {
+        if ($resource->isTableBacked()) {
+            return DB::connection($resource->connection ?: null)->table((string) $resource->source_table);
+        }
+
+        $model = $this->resolveModel($resource);
+
+        if ($model === null) {
+            return null;
+        }
+
+        /*
+         * A model may be read on another connection too, and that is a
+         * different case from a table: the class, its casts and its column list
+         * are this application's, only the rows live elsewhere. Setting it here
+         * rather than on the class keeps the model itself untouched — the same
+         * model is still read normally everywhere else in the host.
+         */
+        if (filled($resource->connection)) {
+            $model->setConnection((string) $resource->connection);
+        }
+
+        return $model->newQuery();
+    }
+
+    /**
      * Rebuilds one row from the declared field names.
      *
      * Built from the select list rather than from the model's attributes, so a
@@ -501,12 +555,20 @@ class DataReader
      * @param  array<int, string>  $select
      * @return array<string, scalar|null>
      */
-    protected function flattenRecord(Model $record, array $select): array
+    protected function flattenRecord(object $record, array $select): array
     {
         $row = [];
 
         foreach ($select as $field) {
-            $row[$field] = $this->scalarise($record->getAttribute($field));
+            /*
+             * A table-backed read comes back as a plain object rather than a
+             * model, so the value is read off the property. Same rule either
+             * way: the row is built from the declared names, and a column that
+             * arrived for some other reason has nowhere to appear.
+             */
+            $row[$field] = $this->scalarise(
+                $record instanceof Model ? $record->getAttribute($field) : ($record->{$field} ?? null),
+            );
         }
 
         return $row;

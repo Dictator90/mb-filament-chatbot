@@ -28,7 +28,9 @@ use MB\FilamentChatbot\Exceptions\DataQueryException;
  *
  * @property string $key
  * @property string $label
- * @property string $model
+ * @property string|null $model
+ * @property string|null $connection
+ * @property string|null $source_table
  * @property array<int, string> $modes
  * @property array<array-key, mixed> $fields
  * @property array<string, mixed>|null $default_sort
@@ -81,6 +83,26 @@ class DataResource extends Model
     public function scopeActive(Builder $query): Builder
     {
         return $query->where('is_active', true);
+    }
+
+    /**
+     * Whether this resource is a table somewhere rather than a model here.
+     *
+     * The second kind exists because not every readable thing has a model: a
+     * reporting replica, a legacy database, another service's schema on another
+     * host. There is no class to introspect, so the table and its columns are
+     * named by whoever declares it, and nothing about the declaration can be
+     * checked against code that does not exist.
+     *
+     * **Read-only, and that is a rule rather than a limitation of the moment.**
+     * A write needs a key column, a lock column and a model whose events the
+     * host expects to fire; a foreign table offers none of the three, and a
+     * package writing into somebody's reporting replica because a scenario said
+     * so is the kind of thing found afterwards.
+     */
+    public function isTableBacked(): bool
+    {
+        return trim((string) $this->source_table) !== '';
     }
 
     /**

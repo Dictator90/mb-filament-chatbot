@@ -5,6 +5,7 @@ declare(strict_types=1);
 use MB\FilamentChatbot\Data\DataQuery;
 use MB\FilamentChatbot\Data\DataReader;
 use MB\FilamentChatbot\Data\DataResourceSync;
+use MB\FilamentChatbot\Data\DataWriter;
 use MB\FilamentChatbot\Data\RuntimeContext;
 use MB\FilamentChatbot\Enums\DataQueryMode;
 use MB\FilamentChatbot\Models\Conversation;
@@ -444,6 +445,75 @@ it('refuses a read whose scope names a relation the model has not got', function
 
     expect($result->ok())->toBeFalse()
         ->and($result->rows())->toBe([]);
+});
+
+/**
+ * A resource may be a table rather than a model, and everything else still
+ * holds.
+ *
+ * Not every readable thing has a class: a reporting replica, a legacy database,
+ * another service's schema on another host. The point of this test is the second
+ * half — the declared columns, the ceiling and above all the access scope apply
+ * exactly as they do to a model, because the reader is the same reader. A source
+ * that quietly skipped them would be a hole shaped like a feature.
+ */
+it('reads a plain table under the same rules as a model', function (): void {
+    DemoRecord::create(['name' => 'Mine', 'owner_id' => 7, 'secret_code' => 'S-1']);
+    DemoRecord::create(['name' => 'Theirs', 'owner_id' => 99, 'secret_code' => 'S-2']);
+
+    DataResource::factory()->create([
+        'key' => 'demo-table',
+        'model' => null,
+        'source_table' => 'demo_records',
+        'modes' => [DataQueryMode::List->value],
+        'fields' => [
+            ['name' => 'name', 'returned_by_default' => true],
+            ['name' => 'secret_code', 'sensitive' => true],
+        ],
+        'scopes' => [[
+            'field' => 'owner_id',
+            'operator' => 'equals',
+            'source' => 'conversation.contact_id',
+        ]],
+    ]);
+
+    $result = reader()->read(
+        new DataQuery(resource: 'demo-table', mode: DataQueryMode::List),
+        RuntimeContext::forConversation(Conversation::factory()->create([
+            'contact_type' => DemoRecord::class,
+            'contact_id' => 7,
+        ])),
+    );
+
+    expect($result->ok())->toBeTrue()
+        ->and($result->rows())->toBe([['name' => 'Mine']]);
+});
+
+/**
+ * A table cannot be written to, and says so by name.
+ *
+ * A write needs a key column, a lock column and a model whose events the host
+ * expects to fire; a foreign table offers none of the three. Left to fail
+ * obscurely on a missing class, the refusal would read as a bug in the package
+ * rather than as the rule it is — and the alternative to refusing is a package
+ * writing into somebody's reporting replica because a scenario said so.
+ */
+it('refuses to write to a resource that is a table', function (): void {
+    DataResource::factory()->create([
+        'key' => 'demo-table',
+        'model' => null,
+        'source_table' => 'demo_records',
+        'modes' => [DataQueryMode::List->value],
+        'fields' => [['name' => 'name', 'returned_by_default' => true]],
+        'is_writable' => true,
+        'write_fields' => ['name'],
+    ]);
+
+    $result = (new DataWriter)->insert('demo-table', ['name' => 'Sneaked in'], anonymousContext());
+
+    expect($result->ok())->toBeFalse()
+        ->and($result->error())->toContain('demo-table')
+        ->and(DemoRecord::query()->count())->toBe(0);
 });
 
 /**

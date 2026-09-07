@@ -26,6 +26,17 @@ trait ReachesRecords
      */
     protected function model(DataResource $resource): Model
     {
+        /*
+         * A table on some other connection has no model, and a write needs one:
+         * a key column, a lock column, and events the host expects to fire.
+         * Refused by name rather than left to fail obscurely on a null class —
+         * a package writing into somebody's reporting replica because a
+         * scenario said so is the kind of thing found afterwards.
+         */
+        if ($resource->isTableBacked()) {
+            throw new RuntimeException("The data resource [{$resource->key}] is a table rather than a model, and may only be read.");
+        }
+
         $class = (string) $resource->model;
 
         if (! class_exists($class) || ! is_subclass_of($class, Model::class)) {
