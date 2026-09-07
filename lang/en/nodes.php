@@ -12,6 +12,20 @@ declare(strict_types=1);
  */
 return [
 
+    /**
+     * The three things a conversation itself remembers about a person.
+     *
+     * Shared rather than repeated under each node that can write them, because
+     * they name the same columns wherever they are offered — and two spellings
+     * of "phone" on two nodes is the kind of difference nobody notices until
+     * somebody reads both screens in one sitting.
+     */
+    'conversation_fields' => [
+        'name' => 'Their name',
+        'phone' => 'Their phone number',
+        'email' => 'Their email address',
+    ],
+
     'steps' => [
 
         'start' => [
@@ -78,6 +92,11 @@ return [
                     'hint' => 'Leave empty to store it under the slot name.',
                 ],
                 'attempts' => ['label' => 'Attempts before giving up'],
+                'remember_as' => [
+                    'label' => 'Also remember on the conversation',
+                    'hint' => 'Writes the answer onto the thread itself, so the desk shows a person instead of a number. Never overwrites what the channel already knew.',
+                    'none' => 'Only as a variable',
+                ],
             ],
             'issues' => [
                 'no_slot' => 'This node does not say what it asks for.',

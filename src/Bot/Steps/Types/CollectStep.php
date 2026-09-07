@@ -10,6 +10,7 @@ use MB\FilamentChatbot\Bot\Slots\SlotParser;
 use MB\FilamentChatbot\Bot\Steps\StepContext;
 use MB\FilamentChatbot\Bot\Steps\StepResult;
 use MB\FilamentChatbot\Bot\Steps\StepType;
+use MB\FilamentChatbot\Chat\ConversationFacts;
 use MB\FilamentChatbot\Enums\StepOutputs;
 use MB\FilamentChatbot\Facades\Chatbot;
 use MB\FilamentChatbot\Models\RunStep;
@@ -98,7 +99,57 @@ final class CollectStep extends StepType
                 ->default(2)
                 ->min(1)
                 ->max(5),
+            /*
+             * Offered rather than inferred from the slot's name.
+             *
+             * A slot called `name` is the obvious word for a dozen unrelated
+             * questions — a pet's name, a company's, the name on a card — and a
+             * package that renamed the conversation whenever it saw one would be
+             * guessing about the field an operator reads first. Asked for
+             * explicitly, it is a decision somebody made and can see on the node.
+             */
+            Field::select('remember_as')
+                ->label(__('chatbot::nodes.steps.collect.fields.remember_as.label'))
+                ->hint(__('chatbot::nodes.steps.collect.fields.remember_as.hint'))
+                ->default('')
+                ->options(fn (): array => ['' => __('chatbot::nodes.steps.collect.fields.remember_as.none')]
+                    + self::conversationFields()),
         ];
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    public static function conversationFields(): array
+    {
+        $options = [];
+
+        foreach (array_keys(ConversationFacts::FIELDS) as $field) {
+            $options[$field] = __("chatbot::nodes.conversation_fields.{$field}");
+        }
+
+        return $options;
+    }
+
+    /**
+     * Puts the answer on the conversation as well, when the node says to.
+     *
+     * Returns what it wrote so the run journal says so. An operator looking at a
+     * thread that renamed itself mid-conversation should be able to find the
+     * node that did it, and "the name changed and nothing recorded why" is the
+     * kind of thing that gets blamed on the bot in general.
+     */
+    private function rememberOnConversation(StepContext $context, string $value): ?string
+    {
+        $choice = trim((string) $context->setting('remember_as', ''));
+
+        if ($choice === '') {
+            return null;
+        }
+
+        return app(ConversationFacts::class)->remember($context->conversation, $choice, $value)
+            ? $choice
+            : null;
     }
 
     public function run(StepContext $context): StepResult
@@ -142,12 +193,14 @@ final class CollectStep extends StepType
             }
 
             $this->rememberAsking($context, null);
+            $remembered = $this->rememberOnConversation($context, $parsed->value());
 
-            return StepResult::next()->traced(RunStep::ANSWERED, [
+            return StepResult::next()->traced(RunStep::ANSWERED, array_filter([
                 'slot' => $slot->key(),
                 'variable' => $name,
                 'value' => $parsed->value(),
-            ]);
+                'remembered_as' => $remembered,
+            ], static fn (mixed $value): bool => $value !== null));
         }
 
         $used = $this->attemptsUsed($context) + 1;
