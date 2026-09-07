@@ -6,7 +6,7 @@ nav_order: 4
 
 # Node reference
 
-Twenty-five node kinds ship with the package. Each one is a class under
+Twenty-six node kinds ship with the package. Each one is a class under
 `MB\FilamentChatbot\Bot\Steps\Types`, registered by the service provider under a
 key that is stable forever: that string is what a saved graph refers to, and
 renaming it orphans every node of that kind in every published version.
@@ -673,6 +673,63 @@ Publishing refuses a scenario where this node is reachable without an
 [`approval`](#approval) above it. That is not a runtime check and cannot be: the
 engine is handed one node and cannot see the graph. The defence is a node
 somebody had to draw and a release that fails while it is missing.
+
+## `link`
+
+Points the conversation at a record of the host application.
+
+| | |
+| --- | --- |
+| Class | `LinkStep` |
+| Outputs | `Pair` — `linked` / `could not` |
+| Speaks | no |
+| Trace | `passed`, `empty_result`, `failed` |
+| Pins | `data_resources` |
+
+| Setting | |
+| --- | --- |
+| `resource` | The declared data resource the record belongs to. Required |
+| `role` | `contact` — who this is — or `subject` — what this is about. Default `contact` |
+| `key` | The variable holding the record key. Required |
+| `replace` | Whether a link already on the conversation may be moved. Default off |
+
+The missing half of the data nodes. A scenario could already find a record and
+even create one — [`choose`](#choose) remembers a key, [`mutate`](#mutate)
+returns one — and then the key sat in a variable and died with the run. The
+thread an operator opened afterwards still said nothing about which customer or
+which order it was, and the only way to attach one was by hand, off a number
+written in a message three screens up.
+
+What it writes is a morph pair the package never dereferences: a type and an id
+the host reads back through `contact` and `subject`. Which of the two is the
+node's own setting, because they answer different questions, and a conversation
+routinely fills them from different resources.
+
+**The type is never typed in.** It comes from a declared data resource, and that
+is the whole security of the node: `contact_type` holds a model class, and a
+free-text field there would let whoever writes scenarios aim a conversation at
+any model in the application — including one no resource ever exposed — after
+which the host, doing exactly what it was told, renders that record to whoever
+is in the chat.
+
+Going through a resource also means **the key is checked against that resource's
+access scopes**, the same rule a write goes through. A key comes from a
+variable, and a variable one node earlier may hold something the visitor typed;
+without the scopes, naming somebody else's order number would point the
+conversation at it. An unreachable key links to nothing, and the node says so
+only in its trace — a message distinguishing "not yours" from "not there" would
+answer a question the visitor should not be able to ask.
+
+The type is written as the record's `getMorphClass()`, so an application with a
+morph map gets its alias rather than a class name. The wrong one fails nowhere:
+the link simply resolves to null, months later, wherever it is read.
+
+**A link already on the conversation is not moved unless `replace` says so.**
+What is there came from the channel, from the host, or from an earlier and
+better-informed turn. Pointing at the record it already points at is a success —
+the scenario asked for a state and the state holds — but pointing at a different
+one takes the second exit, so a thread cannot be quietly refiled under the wrong
+customer.
 
 ## `action`
 

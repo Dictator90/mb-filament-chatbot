@@ -350,6 +350,37 @@ return [
             ],
         ],
 
+        'link' => [
+            'label' => 'Link to a record',
+            'exits' => ['linked', 'could not'],
+            'fields' => [
+                'resource' => [
+                    'label' => 'Which resource',
+                    'hint' => 'The record has to belong to a declared resource. That is where its kind comes from, and its access scopes decide whether this conversation may point at it.',
+                ],
+                'role' => [
+                    'label' => 'Link it as',
+                    'options' => [
+                        'contact' => 'Who this is',
+                        'subject' => 'What this is about',
+                    ],
+                ],
+                'key' => [
+                    'label' => 'Which record',
+                    'hint' => 'The variable holding the record key — usually filled by a lookup, a pick or a write above.',
+                ],
+                'replace' => [
+                    'label' => 'Replace an existing link',
+                    'hint' => 'Off, a conversation already pointing at another record leaves by the second exit. What is there came from the channel or from an earlier turn, and repointing it silently files the thread under the wrong record.',
+                ],
+            ],
+            'issues' => [
+                'no_resource' => 'This node does not say which resource the record belongs to.',
+                'no_key' => 'This node links a record without saying which one.',
+                'bad_role' => 'This node does not say whether it links who the person is or what the conversation is about.',
+            ],
+        ],
+
         'approval' => [
             'label' => 'Ask for confirmation',
             'exits' => ['approved', 'declined'],

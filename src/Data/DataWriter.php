@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace MB\FilamentChatbot\Data;
 
 use Illuminate\Database\Eloquent\Model;
+use MB\FilamentChatbot\Data\Concerns\ReachesRecords;
 use MB\FilamentChatbot\Models\DataResource;
 use Throwable;
 
@@ -32,6 +33,8 @@ use Throwable;
  */
 class DataWriter
 {
+    use ReachesRecords;
+
     /**
      * Adds a row.
      *
@@ -109,13 +112,7 @@ class DataWriter
                 return DataResult::failed('Nothing to write: none of the given fields is writable.');
             }
 
-            $query = $model->newQuery()->whereKey($key);
-
-            foreach ($this->scopeValues($resource, $context) as $field => $value) {
-                $query->where($field, $value);
-            }
-
-            $record = $query->first();
+            $record = $this->reachable($resource, $key, $context);
 
             if ($record === null) {
                 return DataResult::failed('No record of that resource is reachable under this conversation.');
@@ -186,44 +183,6 @@ class DataWriter
         );
 
         return array_intersect_key($values, array_flip($allowed));
-    }
-
-    /**
-     * @return array<string, mixed>
-     */
-    protected function scopeValues(DataResource $resource, RuntimeContext $context): array
-    {
-        $applied = [];
-
-        foreach ((array) $resource->scopes as $scope) {
-            $field = (string) ($scope['field'] ?? '');
-            $source = (string) ($scope['source'] ?? '');
-
-            if ($field === '' || $source === '') {
-                continue;
-            }
-
-            $value = $context->resolve($source);
-
-            if ($value === null) {
-                throw new \RuntimeException("The access scope [{$source}] resolved to nothing, so nothing may be written.");
-            }
-
-            $applied[$field] = $value;
-        }
-
-        return $applied;
-    }
-
-    protected function model(DataResource $resource): Model
-    {
-        $class = (string) $resource->model;
-
-        if (! class_exists($class) || ! is_subclass_of($class, Model::class)) {
-            throw new \RuntimeException("The data resource [{$resource->key}] names no usable model.");
-        }
-
-        return new $class;
     }
 
     /**
