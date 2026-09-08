@@ -15,6 +15,7 @@ use MB\FilamentChatbot\Channels\MessageRouter;
 use MB\FilamentChatbot\Channels\Outbox;
 use MB\FilamentChatbot\Channels\WidgetFeatures;
 use MB\FilamentChatbot\Channels\WidgetIdentity;
+use MB\FilamentChatbot\Channels\WidgetLead;
 use MB\FilamentChatbot\Channels\WidgetResolver;
 use MB\FilamentChatbot\Channels\WidgetTheme;
 use MB\FilamentChatbot\Chat\AttachmentRefused;
@@ -98,6 +99,14 @@ class SiteWidgetController
              * business collecting anything for it.
              */
             'cookies' => $widget?->cookieNames() ?? [],
+            /*
+             * Whether this placement asks who is writing before it lets them
+             * write, and which fields. Falls back to the shipped answer — ask
+             * nothing — for a widget that cannot talk here, like everything
+             * else on this response: a form in front of a chat that will refuse
+             * the message anyway is a form filled in for nothing.
+             */
+            'lead' => WidgetLead::forWidget($widget)->toArray(),
         ]);
     }
 
@@ -214,6 +223,11 @@ class SiteWidgetController
             'receipt_sent' => __('chatbot::widget.receipt_sent'),
             'receipt_delivered' => __('chatbot::widget.receipt_delivered'),
             'receipt_read' => __('chatbot::widget.receipt_read'),
+            'lead_intro' => __('chatbot::widget.lead_intro'),
+            'lead_name' => __('chatbot::widget.lead_name'),
+            'lead_phone' => __('chatbot::widget.lead_phone'),
+            'lead_email' => __('chatbot::widget.lead_email'),
+            'lead_submit' => __('chatbot::widget.lead_submit'),
             'expand' => __('chatbot::widget.expand'),
         ];
     }
@@ -255,6 +269,10 @@ class SiteWidgetController
             'page' => ['nullable', 'string', 'max:2048'],
             'cookies' => ['nullable', 'array', 'max:20'],
             'cookies.*' => ['nullable', 'string', 'max:255'],
+            'lead' => ['nullable', 'array'],
+            'lead.name' => ['nullable', 'string', 'max:191'],
+            'lead.phone' => ['nullable', 'string', 'max:32'],
+            'lead.email' => ['nullable', 'string', 'max:191'],
             'identity' => ['nullable', 'array'],
             'identity.id' => ['nullable', 'string', 'max:191'],
             'identity.signature' => ['nullable', 'string', 'max:191'],
@@ -275,12 +293,26 @@ class SiteWidgetController
 
         $identity = $this->verifiedIdentity($data['identity'] ?? null);
 
+        /*
+         * What the visitor typed into the opening form, behind what a signature
+         * proved.
+         *
+         * The signed values win where both exist, and that order is the whole
+         * point: one was computed by the site with a secret, the other was typed
+         * into a box on a public page. They are merged rather than chosen
+         * between, so a signed identity carrying only an id still gets a name
+         * from the form — while remaining the thing that decides `identified`,
+         * which the form never touches.
+         */
+        $lead = WidgetLead::forWidget($this->widgets->forRequest($request))
+            ->accept($data['lead'] ?? null);
+
         $message = $this->router->receive(new InboundMessage(
             channel: SiteDriver::KEY,
             body: $this->body($data['body'] ?? null, $file),
-            displayName: $identity['name'] ?? null,
-            phone: $identity['phone'] ?? null,
-            email: $identity['email'] ?? null,
+            displayName: $identity['name'] ?? $lead['name'] ?? null,
+            phone: $identity['phone'] ?? $lead['phone'] ?? null,
+            email: $identity['email'] ?? $lead['email'] ?? null,
             entryPage: $data['page'] ?? null,
             visitorKey: VisitorToken::hash($token),
             botId: $this->answeringBotId($request),

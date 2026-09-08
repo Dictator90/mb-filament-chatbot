@@ -50,6 +50,20 @@ return [
     'expand' => 'Open the picture',
 
     /*
+     * The opening form, where a placement asks for one.
+     *
+     * The intro says why, and says it in one line. A form in front of a chat box
+     * already costs conversations; a paragraph of justification above it costs
+     * more of them than the sentence saves, and "so we can get back to you" is
+     * the only reason a visitor has any interest in.
+     */
+    'lead_intro' => 'Leave your details and we will pick this up.',
+    'lead_name' => 'Name',
+    'lead_phone' => 'Phone',
+    'lead_email' => 'E-mail',
+    'lead_submit' => 'Start the chat',
+
+    /*
      * Why a file was not accepted, said to the visitor.
      *
      * Sent from the server for the same reason every other label here is, and

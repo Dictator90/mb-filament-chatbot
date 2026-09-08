@@ -136,6 +136,11 @@
         receipt_delivered: 'Delivered',
         receipt_read: 'Read',
         expand: 'Open the picture',
+        lead_intro: 'Leave your details and we will pick this up.',
+        lead_name: 'Name',
+        lead_phone: 'Phone',
+        lead_email: 'E-mail',
+        lead_submit: 'Start the chat',
     };
 
     /*
@@ -239,6 +244,13 @@
          * an embedded script must never do on somebody else's site.
          */
         cookies: [],
+        /*
+         * Whether this placement asks who is writing before it lets them write.
+         * Off until the server says otherwise, so a widget whose theme call has
+         * not answered yet shows a chat box rather than a form that might turn
+         * out not to exist.
+         */
+        lead: { enabled: false, fields: [], required: [] },
     };
 
     /**
@@ -284,6 +296,14 @@
             theme.cookies = sent.cookies.filter(function (name) {
                 return typeof name === 'string' && /^[A-Za-z0-9_.\-]{1,64}$/.test(name);
             });
+        }
+
+        if (sent && sent.lead && Array.isArray(sent.lead.fields)) {
+            theme.lead = {
+                enabled: Boolean(sent.lead.enabled) && sent.lead.fields.length > 0,
+                fields: sent.lead.fields,
+                required: Array.isArray(sent.lead.required) ? sent.lead.required : [],
+            };
         }
 
         if (!el.root) {
@@ -340,6 +360,89 @@
         if (!theme.features.attachments) {
             clearAttachment();
         }
+
+        drawLead();
+    }
+
+    /**
+     * Draws or removes the opening form, and hides the composer while it stands.
+     *
+     * **Only ever in front of an empty thread.** A visitor who has already
+     * written — today or last week, from a token this browser still holds — has
+     * a conversation open, and putting a form in front of it would stop them
+     * answering the question the operator has just asked. The form is a way to
+     * start a thread, not a gate on one.
+     *
+     * Rebuilt from scratch on each call rather than toggled, because the fields
+     * come from the server and can change under a page that stays open: a
+     * placement that stops asking for a phone number has to stop showing the
+     * box, not leave a filled-in one that nothing reads.
+     */
+    function drawLead() {
+        if (!el.lead) {
+            return;
+        }
+
+        var asking = theme.lead.enabled && !state.lead && !state.lastId;
+
+        el.lead.hidden = !asking;
+        el.composer.hidden = asking;
+
+        if (!asking) {
+            return;
+        }
+
+        el.leadIntro.textContent = label('lead_intro');
+        el.leadSubmit.textContent = label('lead_submit');
+
+        while (el.leadFields.firstChild) {
+            el.leadFields.removeChild(el.leadFields.firstChild);
+        }
+
+        theme.lead.fields.forEach(function (field) {
+            var box = element('input', 'lead-input');
+
+            box.type = field === 'email' ? 'email' : (field === 'phone' ? 'tel' : 'text');
+            box.name = field;
+            box.placeholder = label('lead_' + field);
+            box.setAttribute('aria-label', label('lead_' + field));
+            box.autocomplete = field === 'name' ? 'name' : field;
+            box.required = theme.lead.required.indexOf(field) >= 0;
+
+            el.leadFields.appendChild(box);
+        });
+    }
+
+    /**
+     * Takes what the opening form collected and gets out of the way.
+     *
+     * The browser enforces "required" on its own — the boxes carry the
+     * attribute, so a submit with an empty one never reaches here. That is the
+     * only enforcement there is on this side, and it is enough: what actually
+     * matters about these values is decided on the server, which keeps the
+     * fields this placement asked for and ignores everything else.
+     *
+     * Nothing is sent at this moment. A form submitted and then abandoned is a
+     * name and a phone number with no conversation attached to them, which is a
+     * record of somebody who never wrote — so the details ride along with the
+     * first message instead, and if there is never one there is nothing.
+     */
+    function acceptLead() {
+        var collected = {};
+
+        el.leadFields.querySelectorAll('input').forEach(function (box) {
+            if (box.value.trim() !== '') {
+                collected[box.name] = box.value.trim();
+            }
+        });
+
+        state.lead = collected;
+
+        drawLead();
+
+        if (el.input) {
+            el.input.focus();
+        }
     }
 
     function label(name) {
@@ -380,6 +483,8 @@
         el.attach.setAttribute('aria-label', labels.attach);
         el.attach.title = labels.attach;
         el.attachRemove.setAttribute('aria-label', labels.remove);
+
+        drawLead();
     }
 
     var POLL_OPEN = 5000;
@@ -394,6 +499,14 @@
         messages: [],
         choices: [],
         file: null,
+        /*
+         * What the visitor typed into the opening form, or null while it is
+         * still standing. Held for the session rather than stored: it is sent
+         * with every message so that the thread keeps the details even if the
+         * first one fails, and a browser that reloads and finds a conversation
+         * already open never sees the form again anyway.
+         */
+        lead: null,
     };
 
     var el = {};
@@ -650,7 +763,31 @@
 
         el.emojiPad = buildEmojiPad();
 
+        /*
+         * The opening form, built whether or not this placement asks for one.
+         *
+         * The alternative is building it when the theme answers, which is one
+         * more path through `build()` and the one that would go untested: the
+         * widget draws itself before that call returns, so a form created later
+         * has to be inserted into a panel that is already on screen and already
+         * has a composer in it. Built hidden costs an empty div.
+         */
+        el.lead = element('form', 'lead');
+        el.lead.hidden = true;
+        el.leadIntro = element('p', 'lead-intro', label('lead_intro'));
+        el.leadFields = element('div', 'lead-fields');
+        el.leadSubmit = element('button', 'lead-submit', label('lead_submit'));
+        el.leadSubmit.type = 'submit';
+        el.lead.appendChild(el.leadIntro);
+        el.lead.appendChild(el.leadFields);
+        el.lead.appendChild(el.leadSubmit);
+        el.lead.addEventListener('submit', function (event) {
+            event.preventDefault();
+            acceptLead();
+        });
+
         var form = element('form', 'composer');
+        el.composer = form;
 
         el.emoji = element('button', 'emoji');
         el.emoji.appendChild(icon('emoji'));
@@ -701,6 +838,7 @@
         el.panel.appendChild(el.notice);
         el.panel.appendChild(el.attached);
         el.panel.appendChild(el.emojiPad);
+        el.panel.appendChild(el.lead);
         el.panel.appendChild(form);
 
         el.root.appendChild(el.panel);
@@ -882,6 +1020,15 @@
             }
 
             state.lastId = message.id;
+
+            /*
+             * A thread with something in it is a thread that has started, and
+             * the opening form has nothing left to ask. This is the branch that
+             * matters on a reload: the widget draws itself, the first poll finds
+             * yesterday's conversation, and without this the visitor would be
+             * asked for their name again above their own transcript.
+             */
+            drawLead();
         }
 
         var from = message.incoming ? 'visitor' : 'agent';
@@ -1288,6 +1435,12 @@
                 });
             }
 
+            if (state.lead) {
+                Object.keys(state.lead).forEach(function (name) {
+                    form.append('lead[' + name + ']', state.lead[name]);
+                });
+            }
+
             request.form = form;
         } else {
             request.body = {
@@ -1296,6 +1449,7 @@
                 body: body,
                 page: window.location.href,
                 cookies: cookies,
+                lead: state.lead,
                 identity: settings.identity.signature ? settings.identity : null,
             };
         }

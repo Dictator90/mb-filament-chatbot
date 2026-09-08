@@ -144,6 +144,20 @@ return [
             'receipts' => 'Delivery ticks',
             'receipts_help' => 'One tick sent, two delivered, two filled in read — beside the visitor\'s own messages, and about their own conversation only. Turn it off where you would rather not show the minute somebody opened the thread and said nothing.',
         ],
+        'lead' => [
+            'heading' => 'Ask before the conversation starts',
+            'description' => 'A short form in place of the message box, until it is filled in. It costs conversations — some of the people who would have asked a question will not fill in a form — and it buys a way to answer the ones who leave at midnight.',
+            'enabled' => 'Ask for contact details first',
+            'enabled_help' => 'Never shown to somebody who already has a thread open, and never on a reload of one.',
+            'fields' => 'What to ask for',
+            'required' => 'Which of them are required',
+            'required_help' => 'Every required field is one more reason to close the window instead. A name and one way to reach somebody is usually the whole of it.',
+            'field_options' => [
+                'name' => 'Name',
+                'phone' => 'Phone',
+                'email' => 'E-mail',
+            ],
+        ],
         'cookies' => [
             'heading' => 'What the page may tell the bot',
             'description' => 'Cookies this placement is allowed to read off the page it is embedded in. Empty by default, and empty means none.',

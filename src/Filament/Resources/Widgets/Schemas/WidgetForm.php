@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace MB\FilamentChatbot\Filament\Resources\Widgets\Schemas;
 
+use Filament\Forms\Components\CheckboxList;
 use Filament\Forms\Components\ColorPicker;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TagsInput;
@@ -21,6 +22,7 @@ use Filament\Schemas\Schema;
 use Filament\Support\Enums\FontFamily;
 use Illuminate\Support\Str;
 use MB\FilamentChatbot\Channels\WidgetFeatures;
+use MB\FilamentChatbot\Channels\WidgetLead;
 use MB\FilamentChatbot\Channels\WidgetTheme;
 use MB\FilamentChatbot\Http\WidgetEmbed;
 use MB\FilamentChatbot\Models\Bot;
@@ -184,6 +186,48 @@ class WidgetForm
              * script collect?" on one screen, in words the person who put it
              * there chose.
              */
+            /*
+             * The opening form, off by default and off on purpose.
+             *
+             * A form in front of a chat box costs conversations — a proportion
+             * of the people who would have asked simply do not — and that trade
+             * belongs to the installation. What it collects is a claim and never
+             * an identity: somebody typed a name into a box on a public page.
+             * The help text says so, because the mistake it prevents is a
+             * scenario built on "we have a phone number, so we know who this
+             * is", which greets a first-time visitor with "good to see you
+             * again" and an empty list of their orders.
+             */
+            Section::make(__('chatbot::panel.site_widgets.lead.heading'))
+                ->description(__('chatbot::panel.site_widgets.lead.description'))
+                ->schema([
+                    Toggle::make('lead.enabled')
+                        ->label(__('chatbot::panel.site_widgets.lead.enabled'))
+                        ->helperText(__('chatbot::panel.site_widgets.lead.enabled_help'))
+                        ->live(),
+
+                    CheckboxList::make('lead.fields')
+                        ->label(__('chatbot::panel.site_widgets.lead.fields'))
+                        ->options(self::leadFields())
+                        ->visible(fn (Get $get): bool => (bool) $get('lead.enabled'))
+                        ->live(),
+
+                    CheckboxList::make('lead.required')
+                        ->label(__('chatbot::panel.site_widgets.lead.required'))
+                        ->helperText(__('chatbot::panel.site_widgets.lead.required_help'))
+                        /*
+                         * Offered from what is being asked rather than from the
+                         * whole list: a field marked required and not asked for
+                         * is a rule that fires on nothing, and the author has no
+                         * way to see that from the screen.
+                         */
+                        ->options(fn (Get $get): array => array_intersect_key(
+                            self::leadFields(),
+                            array_flip((array) $get('lead.fields')),
+                        ))
+                        ->visible(fn (Get $get): bool => (bool) $get('lead.enabled') && (array) $get('lead.fields') !== []),
+                ]),
+
             Section::make(__('chatbot::panel.site_widgets.cookies.heading'))
                 ->description(__('chatbot::panel.site_widgets.cookies.description'))
                 ->schema([
@@ -482,6 +526,27 @@ class WidgetForm
     protected static function themeDefaults(): array
     {
         return WidgetTheme::make()->toArray();
+    }
+
+    /**
+     * The fields an opening form may ask for, read from the value object rather
+     * than listed here.
+     *
+     * A second copy would part company with the first the day either moved, and
+     * the symptom is a checkbox in the panel for a field the endpoint drops in
+     * silence — a placement that appears to collect a phone number and does not.
+     *
+     * @return array<string, string>
+     */
+    protected static function leadFields(): array
+    {
+        $options = [];
+
+        foreach (WidgetLead::FIELDS as $field) {
+            $options[$field] = __("chatbot::panel.site_widgets.lead.field_options.{$field}");
+        }
+
+        return $options;
     }
 
     /**

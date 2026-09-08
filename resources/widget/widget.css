@@ -742,6 +742,57 @@
 }
 
 /*
+ * The opening form, where a placement asks for one. It stands *in place of* the
+ * composer rather than above it: two ways to start typing, one of which is
+ * ignored, is worse than one.
+ */
+.chatbot__lead {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 12px;
+    border-top: 1px solid var(--chatbot-line);
+}
+
+.chatbot__lead-intro {
+    margin: 0;
+    font-size: 13px;
+    line-height: 1.4;
+    opacity: 0.8;
+}
+
+.chatbot__lead-fields {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.chatbot__lead-input {
+    padding: 10px 12px;
+    border: 1px solid var(--chatbot-line);
+    border-radius: 10px;
+    font: inherit;
+    color: inherit;
+    background: var(--chatbot-surface);
+}
+
+.chatbot__lead-input:focus {
+    outline: 2px solid var(--chatbot-accent);
+    outline-offset: -1px;
+}
+
+.chatbot__lead-submit {
+    padding: 10px 16px;
+    border: 0;
+    border-radius: 10px;
+    background: var(--chatbot-accent);
+    color: #ffffff;
+    font: inherit;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+/*
  * A phone gets the whole screen. A 360-pixel panel floating over a page that is
  * already 360 pixels wide is a panel with no page behind it, and the close
  * button ends up under the browser's own chrome.

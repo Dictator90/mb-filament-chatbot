@@ -665,3 +665,115 @@ it('tells the widget which cookies it may read', function (): void {
         ->assertOk()
         ->assertJsonPath('cookies', ['utm_campaign']);
 });
+
+/**
+ * The opening form collects a claim and never an identity, and the distinction
+ * is the whole of why this test exists.
+ *
+ * Somebody typed a name and a phone number into a box on a public page. It fills
+ * the contact fields on the thread — which is what makes a midnight enquiry
+ * answerable — and it does not stamp `identified_at`, which stays reserved for a
+ * channel that proved who this is.
+ *
+ * Learned the expensive way in the application this package grew out of: there,
+ * a lead form plus a host that created a customer record out of what it collected
+ * made every anonymous visitor "a known customer" before the bot ever ran. The
+ * branch offering to sign them in became unreachable, and a first-time visitor
+ * was greeted with "good to see you again" over an empty list of their orders.
+ */
+it('records the opening form as a claim and not as proof of who somebody is', function (): void {
+    $this->widget->forceFill(['lead' => ['enabled' => true, 'fields' => ['name', 'phone']]])->save();
+
+    $this->withHeaders(['Origin' => 'https://shop.example.com'])
+        ->postJson('/chatbot/site/messages', [
+            'widget' => 'demo',
+            'body' => 'is the shop open on Sunday?',
+            'lead' => ['name' => 'Vera', 'phone' => '+7 900 000-00-00', 'email' => 'not@asked.test'],
+        ])
+        ->assertOk();
+
+    $conversation = Conversation::query()->latest('id')->first();
+
+    expect($conversation?->display_name)->toBe('Vera')
+        ->and($conversation?->contact_phone)->toBe('+7 900 000-00-00')
+        ->and($conversation?->contact_email)->toBeNull()
+        ->and($conversation?->identified_at)->toBeNull()
+        ->and($conversation?->isIdentified())->toBeFalse();
+});
+
+/**
+ * A placement that asks nothing collects nothing, however much a caller sends.
+ * The list is checked on the server for the same reason the declared cookies
+ * are: what the widget was told to ask is a hint to a script on a page this
+ * application does not control.
+ */
+it('ignores an opening form a placement never asked for', function (): void {
+    $this->withHeaders(['Origin' => 'https://shop.example.com'])
+        ->postJson('/chatbot/site/messages', [
+            'widget' => 'demo',
+            'body' => 'hello',
+            'lead' => ['name' => 'Vera', 'phone' => '+7 900 000-00-00'],
+        ])
+        ->assertOk();
+
+    expect(Conversation::query()->latest('id')->first()?->display_name)->toBeNull();
+});
+
+/**
+ * A signed identity outranks a typed one where both exist: one was computed by
+ * the site with a secret, the other was typed into a box on a public page.
+ */
+it('prefers a signed name over one typed into the opening form', function (): void {
+    config(['chatbot.widget.identity_secret' => 'a-secret']);
+
+    $this->widget->forceFill(['lead' => ['enabled' => true, 'fields' => ['name']]])->save();
+
+    $identity = ['id' => 'customer-7', 'name' => 'Vera Ivanova', 'phone' => '', 'email' => ''];
+    $identity['signature'] = WidgetIdentity::sign('a-secret', $identity);
+
+    $this->withHeaders(['Origin' => 'https://shop.example.com'])
+        ->postJson('/chatbot/site/messages', [
+            'widget' => 'demo',
+            'body' => 'hello',
+            'lead' => ['name' => 'Somebody Else'],
+            'identity' => $identity,
+        ])
+        ->assertOk();
+
+    expect(Conversation::query()->latest('id')->first()?->display_name)->toBe('Vera Ivanova');
+});
+
+/**
+ * The widget cannot draw a form it has not been told about, so the shape of it
+ * rides with the theme — the one call every embed makes before it draws
+ * anything. A required field that was never asked for is dropped rather than
+ * kept: a rule that fires on nothing is worse on the screen than absent.
+ */
+it('tells the widget what to ask for, and drops a rule about a field it does not ask', function (): void {
+    $this->widget->forceFill(['lead' => [
+        'enabled' => true,
+        'fields' => ['name', 'phone'],
+        'required' => ['phone', 'email'],
+    ]])->save();
+
+    $this->withHeaders(['Origin' => 'https://shop.example.com'])
+        ->getJson('/chatbot/site/theme?widget=demo')
+        ->assertOk()
+        ->assertJsonPath('lead.enabled', true)
+        ->assertJsonPath('lead.fields', ['name', 'phone'])
+        ->assertJsonPath('lead.required', ['phone']);
+});
+
+/**
+ * A form switched on with no fields is not a form. Answering "yes" to it would
+ * give the visitor a panel with a submit button and nothing above it — and no
+ * way to type the message they came to type.
+ */
+it('does not ask a form with nothing in it', function (): void {
+    $this->widget->forceFill(['lead' => ['enabled' => true, 'fields' => []]])->save();
+
+    $this->withHeaders(['Origin' => 'https://shop.example.com'])
+        ->getJson('/chatbot/site/theme?widget=demo')
+        ->assertOk()
+        ->assertJsonPath('lead.enabled', false);
+});

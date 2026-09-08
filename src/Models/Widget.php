@@ -44,6 +44,7 @@ class Widget extends Model
             'labels' => 'array',
             'features' => 'array',
             'cookies' => 'array',
+            'lead' => 'array',
         ];
     }
 
