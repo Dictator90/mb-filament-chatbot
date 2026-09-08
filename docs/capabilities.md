@@ -92,6 +92,15 @@ Describe the input any other way and every new action would arrive as a
 key-value box with a free-text value, and the author would learn the field names
 from documentation instead of from the screen.
 
+That is not hypothetical — for a while it was exactly what the editor did. The
+descriptors reached the browser and nothing drew them, so an author typed
+`due_in_hours` into a key box, mistyped it, and the call refused mid-conversation
+with the correct spelling printed in its own error message. Found by installing
+the package into an application that had real actions to register. The node's
+input is a `capability_input` field now: it reads the chosen action's descriptors
+and draws them. An action whose package has since been removed falls back to the
+key-value box, so a scenario naming one can still be read and repaired.
+
 The factory methods: `text`, `textarea`, `number`, `select`, `toggle`, `list`,
 `keyValue`, `variable`, `scenario`, `dataResource`, `capability`. Chainable
 modifiers: `label`, `hint`, `placeholder`, `default`, `options`, `multiple`,
