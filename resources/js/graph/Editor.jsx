@@ -16,7 +16,16 @@ import SideForm from './SideForm';
 import StepNode from './StepNode';
 import StepPicker from './StepPicker';
 import { arrange } from './layout';
-import { IN_HANDLE, handleIndex, newNode, problemsByKey, pruneEdges, toFlow, toPayload } from './model';
+import {
+    IN_HANDLE,
+    handleIndex,
+    insertRecipe,
+    newNode,
+    problemsByKey,
+    pruneEdges,
+    toFlow,
+    toPayload,
+} from './model';
 import { colorOf, describe, text } from './types';
 
 /*
@@ -90,6 +99,7 @@ function Canvas({ config, graph, sandbox: opening, wire }) {
     const [busy, setBusy] = useState(false);
     const [selectedId, setSelectedId] = useState(null);
     const [picker, setPicker] = useState(null);
+    const [recipesOpen, setRecipesOpen] = useState(false);
     const [sandbox, setSandbox] = useState(opening || NO_CONVERSATION);
     const [sandboxBusy, setSandboxBusy] = useState(false);
 
@@ -505,6 +515,48 @@ function Canvas({ config, graph, sandbox: opening, wire }) {
     }, [commit, flow]);
 
     /**
+     * Puts a recipe's nodes on the board and lays the whole thing out again.
+     *
+     * **Auto-arranged rather than placed.** The server sends the nodes without
+     * coordinates on purpose: chosen there, they would land on top of whatever
+     * the author already has, and the first thing anybody would do is drag six
+     * boxes out from under six others.
+     *
+     * Nothing is saved. The nodes arrive as an ordinary unsaved change, marked
+     * dirty like any edit, so an author who inserted the wrong one leaves the
+     * page and loses exactly what they would expect to lose.
+     */
+    const useRecipe = useCallback(
+        async (key) => {
+            setBusy(true);
+            setRecipesOpen(false);
+
+            try {
+                const recipe = await wire.recipe(key);
+
+                if (!recipe || !Array.isArray(recipe.nodes) || recipe.nodes.length === 0) {
+                    return;
+                }
+
+                commit(({ nodes: currentNodes, edges: currentEdges }) => {
+                    const { nodes: merged, edges: mergedEdges } = insertRecipe(
+                        recipe,
+                        currentNodes,
+                        currentEdges,
+                    );
+
+                    return { nodes: arrange(merged, mergedEdges), edges: mergedEdges };
+                });
+
+                window.requestAnimationFrame(() => flow.fitView({ duration: 300 }));
+            } finally {
+                setBusy(false);
+            }
+        },
+        [commit, flow, wire],
+    );
+
+    /**
      * The draft as the server reads it.
      *
      * Groups are deliberately absent. The server only touches the canvas
@@ -672,6 +724,13 @@ function Canvas({ config, graph, sandbox: opening, wire }) {
      */
     const savedViewport = graph.viewport?.zoom ? graph.viewport : null;
 
+    /*
+     * An installation that registered none gets no button at all, rather than a
+     * button that opens on an empty list — which reads as the feature being
+     * broken rather than as nothing being offered.
+     */
+    const recipes = config.recipes || [];
+
     return (
         <div className="chatbot-graph__shell" ref={wrapper}>
             <div className="chatbot-graph__bar">
@@ -685,6 +744,35 @@ function Canvas({ config, graph, sandbox: opening, wire }) {
                 <button type="button" onClick={addNote} className="chatbot-graph__button">
                     {text('add_note')}
                 </button>
+                {recipes.length > 0 ? (
+                    <div className="chatbot-graph__recipes">
+                        <button
+                            type="button"
+                            onClick={() => setRecipesOpen((open) => !open)}
+                            disabled={busy}
+                            className={`chatbot-graph__button ${recipesOpen ? 'is-active' : ''}`}
+                        >
+                            {text('recipes')}
+                        </button>
+
+                        {recipesOpen ? (
+                            <div className="chatbot-graph__recipe-list">
+                                {recipes.map((recipe) => (
+                                    <button
+                                        key={recipe.key}
+                                        type="button"
+                                        onClick={() => useRecipe(recipe.key)}
+                                        className="chatbot-graph__recipe"
+                                    >
+                                        <span className="chatbot-graph__recipe-name">{recipe.label}</span>
+                                        <span className="chatbot-graph__recipe-note">{recipe.description}</span>
+                                    </button>
+                                ))}
+                            </div>
+                        ) : null}
+                    </div>
+                ) : null}
+
                 <button type="button" onClick={autoArrange} className="chatbot-graph__button">
                     {text('auto_arrange')}
                 </button>

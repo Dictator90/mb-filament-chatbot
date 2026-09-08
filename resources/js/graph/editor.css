@@ -866,3 +866,60 @@
     font-size: 0.6875rem;
     font-weight: 700;
 }
+
+/*
+ * The recipe menu.
+ *
+ * A dropdown rather than a modal: it is opened on an empty canvas by somebody
+ * who does not yet know what they are looking for, and a dialog that takes over
+ * the screen hides the thing they were about to start from.
+ *
+ * Each entry carries its one-line description under the name, because the name
+ * alone does not distinguish "greeting and a menu" from "answer from the
+ * knowledge base" for anybody who has not seen either.
+ */
+.chatbot-graph__recipes {
+    position: relative;
+}
+
+.chatbot-graph__recipe-list {
+    position: absolute;
+    z-index: 20;
+    top: calc(100% + 0.35rem);
+    left: 0;
+    display: flex;
+    flex-direction: column;
+    min-width: 20rem;
+    padding: 0.35rem;
+    border: 1px solid var(--chatbot-border);
+    border-radius: 0.6rem;
+    background: var(--chatbot-surface);
+    box-shadow: 0 12px 32px rgb(0 0 0 / 0.18);
+}
+
+.chatbot-graph__recipe {
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+    padding: 0.5rem 0.6rem;
+    border: 0;
+    border-radius: 0.45rem;
+    background: transparent;
+    color: var(--chatbot-text);
+    text-align: left;
+    cursor: pointer;
+}
+
+.chatbot-graph__recipe:hover {
+    background: var(--chatbot-sunken);
+}
+
+.chatbot-graph__recipe-name {
+    font-weight: 600;
+}
+
+.chatbot-graph__recipe-note {
+    color: var(--chatbot-muted);
+    font-size: 0.8125rem;
+    line-height: 1.35;
+}

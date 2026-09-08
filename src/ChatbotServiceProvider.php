@@ -29,6 +29,9 @@ use MB\FilamentChatbot\Bot\Conditions\Fields\WorkingHoursCondition;
 use MB\FilamentChatbot\Bot\Graph\GraphConfig;
 use MB\FilamentChatbot\Bot\Graph\ScenarioGraph;
 use MB\FilamentChatbot\Bot\Graph\ScenarioVersions;
+use MB\FilamentChatbot\Bot\Recipes\CallbackFormRecipe;
+use MB\FilamentChatbot\Bot\Recipes\GreetingMenuRecipe;
+use MB\FilamentChatbot\Bot\Recipes\KnowledgeDeskRecipe;
 use MB\FilamentChatbot\Bot\Slots\BuiltInSlots;
 use MB\FilamentChatbot\Bot\Steps\Types\ActionStep;
 use MB\FilamentChatbot\Bot\Steps\Types\AiStep;
@@ -167,6 +170,7 @@ class ChatbotServiceProvider extends ServiceProvider
         $this->registerBuiltInSlots();
         $this->registerBuiltInConditions();
         $this->registerBuiltInVariableSources();
+        $this->registerBuiltInRecipes();
         $this->registerPolicies();
         $this->registerAssets();
 
@@ -320,6 +324,24 @@ class ChatbotServiceProvider extends ServiceProvider
 
             $registry->registerSlot($slot);
         }
+    }
+
+    /**
+     * Adds the three shapes the canvas offers on an empty board.
+     *
+     * Three and not fifteen. What a company actually starts from is its own
+     * conversation, written by whoever knows the wording and registered by the
+     * host; what the package can honestly ship is the general shapes an author
+     * has to see once to understand — a menu, a knowledge desk, a form. Fifteen
+     * would be a list to read rather than a shortcut past a blank canvas.
+     */
+    protected function registerBuiltInRecipes(): void
+    {
+        $this->app->make(ChatbotRegistry::class)->registerRecipes([
+            GreetingMenuRecipe::class,
+            KnowledgeDeskRecipe::class,
+            CallbackFormRecipe::class,
+        ]);
     }
 
     /**

@@ -6,6 +6,7 @@ namespace MB\FilamentChatbot\Registry;
 
 use InvalidArgumentException;
 use MB\FilamentChatbot\Bot\Conditions\ConditionField;
+use MB\FilamentChatbot\Bot\Recipes\Recipe;
 use MB\FilamentChatbot\Bot\Slots\Slot;
 use MB\FilamentChatbot\Bot\Steps\StepType;
 use MB\FilamentChatbot\Bot\Variables\VariableSource;
@@ -499,5 +500,81 @@ class ChatbotRegistry
     public function doctorChecks(): array
     {
         return $this->doctorChecks;
+    }
+
+    /**
+     * Scenarios worth starting from, by key.
+     *
+     * @var array<string, class-string<Recipe>>
+     */
+    protected array $recipes = [];
+
+    /**
+     * @var array<string, Recipe>
+     */
+    protected array $resolvedRecipes = [];
+
+    /**
+     * Adds a shape the canvas can offer as a starting point.
+     *
+     * A host's own recipes are the useful half of this. What the package ships
+     * are three general shapes; what a company actually starts from is its own
+     * refund conversation, its own booking check — written once by whoever knows
+     * the wording, and offered to every colleague who opens a blank canvas
+     * afterwards.
+     *
+     * A claimed key is left alone, like a capability and unlike a step type. A
+     * recipe is a piece of somebody's copywriting, and two packages claiming one
+     * key is not a customised built-in — it is one company's wording silently
+     * replacing another's on the board.
+     *
+     * @param  class-string<Recipe>  $recipe
+     */
+    public function registerRecipe(string $recipe): static
+    {
+        if (! is_subclass_of($recipe, Recipe::class)) {
+            throw new InvalidArgumentException(
+                "[{$recipe}] must implement ".Recipe::class.' to be registered as a recipe.',
+            );
+        }
+
+        $this->recipes[$recipe::key()] ??= $recipe;
+
+        return $this;
+    }
+
+    /**
+     * @param  iterable<class-string<Recipe>>  $recipes
+     */
+    public function registerRecipes(iterable $recipes): static
+    {
+        foreach ($recipes as $recipe) {
+            $this->registerRecipe($recipe);
+        }
+
+        return $this;
+    }
+
+    public function recipe(string $key): ?Recipe
+    {
+        if (! isset($this->recipes[$key])) {
+            return null;
+        }
+
+        return $this->resolvedRecipes[$key] ??= app($this->recipes[$key]);
+    }
+
+    /**
+     * @return array<string, Recipe>
+     */
+    public function recipes(): array
+    {
+        $recipes = [];
+
+        foreach (array_keys($this->recipes) as $key) {
+            $recipes[$key] = $this->recipe($key);
+        }
+
+        return $recipes;
     }
 }

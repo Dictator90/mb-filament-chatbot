@@ -676,7 +676,43 @@ return [
      * every node kind — which costs no extra request and keeps the wording in
      * the same files as the rest of the panel.
      */
+    /*
+     * Scenarios worth starting from, offered on an empty canvas.
+     *
+     * The wording is what an author reads first, keeps, and edits into their
+     * own — so it is written to be kept: no placeholders, no "TODO", nothing
+     * that reads as unfinished if it reaches a customer before the author
+     * comes back to it.
+     */
+    'recipes' => [
+        'greeting_menu' => [
+            'label' => 'Greeting and a menu',
+            'description' => 'Says hello, offers three choices, and fetches a person for anything it does not handle.',
+            'hello' => 'Hello! I can answer a few things here, or fetch a colleague.',
+            'question' => 'What would you like to do?',
+            'option_question' => 'Ask a question',
+            'option_order' => 'About my order',
+            'option_human' => 'Talk to a person',
+            'anything_else' => 'Anything else I can help with?',
+            'human' => 'One moment — I will fetch a colleague.',
+        ],
+        'knowledge_desk' => [
+            'label' => 'Answer from the knowledge base',
+            'description' => 'Sends whatever is typed to the knowledge base, and hands the thread over when it does not know.',
+            'more' => 'Anything else?',
+            'sorry' => 'I do not have that one. Let me fetch a colleague.',
+        ],
+        'callback_form' => [
+            'label' => 'Take a name and a phone number',
+            'description' => 'Asks for the details the desk needs to call somebody back, then hands the thread over.',
+            'why' => 'Leave your details and we will call you back.',
+            'thanks' => 'Thank you — a colleague will be in touch.',
+        ],
+    ],
+
     'canvas' => [
+        'recipes' => 'Start from',
+        'recipe_inserted' => 'Added to the canvas. Nothing is saved until you press Save.',
         'add_step' => 'Add step',
         'add_note' => 'Add note',
         'auto_arrange' => 'Auto-arrange',

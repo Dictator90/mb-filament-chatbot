@@ -13,6 +13,7 @@ use Illuminate\Contracts\Support\Htmlable;
 use MB\FilamentChatbot\Bot\Graph\GraphConfig;
 use MB\FilamentChatbot\Bot\Graph\ScenarioGraph;
 use MB\FilamentChatbot\Bot\Graph\ScenarioVersions;
+use MB\FilamentChatbot\Bot\Recipes\RecipeGraph;
 use MB\FilamentChatbot\Exceptions\ScenarioNotPublishable;
 use MB\FilamentChatbot\Filament\Resources\Scenarios\ScenarioResource;
 use MB\FilamentChatbot\Models\Conversation;
@@ -103,6 +104,25 @@ class EditScenarioGraph extends Page
     public function graphConfig(): array
     {
         return app(GraphConfig::class)->forScenario($this->scenario());
+    }
+
+    /**
+     * One recipe's nodes and arrows, for the canvas to drop onto the board.
+     *
+     * Fetched when a recipe is picked rather than sent with the config: three
+     * whole diagrams would ride along with every page load of every scenario
+     * and be used on almost none of them.
+     *
+     * Nothing is written here. What comes back is a drawing the author may
+     * rearrange, rename and delete, and it becomes a scenario only through the
+     * ordinary Save — with the same defect checks and the same publish button
+     * as anything drawn by hand.
+     *
+     * @return array<string, mixed>|null
+     */
+    public function recipeGraph(string $key): ?array
+    {
+        return app(RecipeGraph::class)->graph($key);
     }
 
     /**

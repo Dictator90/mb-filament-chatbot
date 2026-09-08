@@ -198,3 +198,69 @@ export function problemsByKey(issues = []) {
 export function hasStart(nodes) {
     return nodes.filter((node) => node.type === 'step' && node.data.type === 'start').length === 1;
 }
+
+/**
+ * Drops a recipe's nodes onto a canvas that already has something on it.
+ *
+ * **Every key is renamed against what is already there, and the arrows are
+ * renamed with them.** A recipe's own keys are what the recipe author wrote;
+ * inserted next to a scenario that already has a node called `start`, they
+ * collide, and a collision here is not a duplicate node — it is one node
+ * silently replacing another, with the arrows of both pointing at whichever
+ * survived.
+ *
+ * The rename is the same `freeKey` an author gets when adding a node by hand, so
+ * an inserted `ask` becomes `ask-2` exactly as it would if they had clicked the
+ * button — and the key stays something readable in the run journal rather than
+ * a random string.
+ *
+ * A second start node is dropped rather than renamed. A scenario has exactly one
+ * entry point; a recipe carrying its own would arrive as `start-2`, which is a
+ * node nothing can ever reach and a defect the author then has to be told about.
+ * Onto an empty canvas its start is the first one and is kept.
+ */
+export function insertRecipe(recipe, nodes, edges) {
+    const alreadyStarted = hasStart(nodes);
+    const coming = (recipe.nodes || []).filter(
+        (node) => !(alreadyStarted && node.type === 'start'),
+    );
+
+    const renamed = {};
+    let taken = nodes;
+
+    const added = coming.map((node) => {
+        const key = freeKey(taken, node.key);
+
+        renamed[node.key] = key;
+
+        const placed = {
+            id: key,
+            type: 'step',
+            position: { x: 0, y: 0 },
+            data: {
+                key,
+                type: node.type,
+                body: node.body || '',
+                config: node.config || {},
+                options: node.options || [],
+                problem: null,
+            },
+        };
+
+        taken = [...taken, placed];
+
+        return placed;
+    });
+
+    const addedEdges = (recipe.edges || [])
+        .filter((edge) => renamed[edge.from] && renamed[edge.to])
+        .map((edge) => ({
+            id: `${renamed[edge.from]}:${edge.slot}:${renamed[edge.to]}`,
+            source: renamed[edge.from],
+            target: renamed[edge.to],
+            sourceHandle: outHandle(edge.slot),
+            targetHandle: IN_HANDLE,
+        }));
+
+    return { nodes: [...nodes, ...added], edges: [...edges, ...addedEdges] };
+}

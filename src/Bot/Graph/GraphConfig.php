@@ -7,6 +7,7 @@ namespace MB\FilamentChatbot\Bot\Graph;
 use BladeUI\Icons\Factory as IconFactory;
 use MB\FilamentChatbot\Bot\Conditions\ConditionField;
 use MB\FilamentChatbot\Bot\Conditions\ConditionKind;
+use MB\FilamentChatbot\Bot\Recipes\RecipeGraph;
 use MB\FilamentChatbot\Bot\Slots\Slot;
 use MB\FilamentChatbot\Bot\Steps\StepType;
 use MB\FilamentChatbot\Bot\Variables\VariableSource;
@@ -84,6 +85,13 @@ class GraphConfig
             'dangling' => $this->graph->danglingKeys($scenario),
             'unreachable' => $this->graph->unreachableKeys($scenario),
             'canvas' => $this->canvas(),
+            /*
+             * The shapes offered on a blank board — names and one-liners, not
+             * the diagrams. Three whole drawings would ride along with every
+             * page load of every scenario and be used on almost none of them;
+             * the nodes are fetched when one is actually picked.
+             */
+            'recipes' => app(RecipeGraph::class)->all(),
             'strings' => $this->strings(),
         ];
     }

@@ -70,6 +70,7 @@ function mount() {
         check: (payload) => component?.call('checkGraph', payload),
         say: (said) => component?.call('sandboxSay', said),
         reset: () => component?.call('sandboxReset'),
+        recipe: (key) => component?.call('recipeGraph', key),
     };
 
     element.dataset.mounted = 'yes';
