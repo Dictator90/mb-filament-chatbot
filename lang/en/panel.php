@@ -652,4 +652,54 @@ return [
             'pair' => 'Two fixed exits',
         ],
     ],
+
+    /*
+     * "Why is the bot silent", answered on one screen.
+     *
+     * Every sentence here names something that can be done. The tiles say what
+     * is true and the list below says what to do about it; a tile that reads
+     * "fine" still says what fine means, because a green box with no words
+     * under it is a box the reader has to interpret.
+     */
+    'readiness' => [
+        'title' => 'Is the bot ready',
+        'heading' => 'Is the bot ready',
+        'subheading' => 'Everything that decides whether a message gets an answer, on one screen.',
+        'what_next' => 'What next',
+        'open' => 'Open',
+        'answering' => 'Answering',
+        'silent' => 'Silent',
+        'enabled_note' => '{1} One bot is switched on|[2,*] :count bots are switched on',
+        'disabled_note' => 'Nothing answers on any channel. The scenarios are all still here.',
+        'no_scenarios' => 'Not one switched on',
+        'scenarios_note' => 'published: :live · running as a draft: :drafts',
+        'no_problems' => 'Arrows and branches all lead somewhere',
+        'has_problems' => 'Branches that stop and arrows that point at nothing',
+        'no_checks' => 'None saved',
+        'checks_note' => 'matched: :passed · differed: :failed · waiting to be run: :waiting',
+        'no_runs' => 'The bot has not run once this week',
+        'runs_note' => 'reached the end: :closed · handed over: :handed · broke off: :broken',
+        'no_knowledge' => 'No topics at all',
+        'knowledge_silent' => '{1} 1 topic with no answer|[2,*] :count topics with no answer',
+        'knowledge_answered' => 'Every topic has an answer',
+        'tiles' => [
+            'enabled' => 'The bot',
+            'scenarios' => 'Scenarios running',
+            'problems' => 'Diagrams with faults',
+            'quality' => 'Saved checks',
+            'runs' => 'Runs this week',
+            'knowledge' => 'Topics in the knowledge base',
+        ],
+        'todo' => [
+            'no_bot' => 'Nothing is answering: switch a bot on, or turn the bot back on in the config.',
+            'no_scenario' => 'No scenario is switched on, so every conversation goes straight to a person.',
+            'flawed' => '“:scenario” cannot run as drawn: :problem',
+            'unpublished' => '“:scenario” is running as a draft — every edit reaches customers as it is saved.',
+            'check_failed' => '“:check” does not match what the bot says now.',
+            'check_stale' => '“:check” was recorded against an older version of its scenario. Run it again.',
+            'knowledge_silent' => 'Some topics have no answer, so the bot finds them and says nothing.',
+            'no_model' => 'No language model is configured. Nothing here needs one — words and the knowledge base work without it.',
+            'all_clear' => 'Nothing is in the way. The bot answers, the scenarios are published and the checks match.',
+        ],
+    ],
 ];

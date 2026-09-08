@@ -6,6 +6,7 @@ namespace MB\FilamentChatbot;
 
 use Filament\Contracts\Plugin;
 use Filament\Panel;
+use MB\FilamentChatbot\Filament\Pages\BotReadinessPage;
 use MB\FilamentChatbot\Filament\Pages\ChatInbox;
 use MB\FilamentChatbot\Filament\Pages\Sandbox;
 use MB\FilamentChatbot\Filament\Resources\Bots\BotResource;
@@ -86,6 +87,7 @@ class ChatbotPlugin implements Plugin
         return [
             ChatInbox::class,
             Sandbox::class,
+            BotReadinessPage::class,
         ];
     }
 
