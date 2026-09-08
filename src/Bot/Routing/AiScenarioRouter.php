@@ -7,6 +7,7 @@ namespace MB\FilamentChatbot\Bot\Routing;
 use Illuminate\Support\Collection;
 use MB\FilamentChatbot\Ai\AiGatewayFactory;
 use MB\FilamentChatbot\Ai\AiPrompt;
+use MB\FilamentChatbot\Ai\Redactor;
 use MB\FilamentChatbot\Models\Conversation;
 use MB\FilamentChatbot\Models\Scenario;
 
@@ -48,7 +49,10 @@ use MB\FilamentChatbot\Models\Scenario;
  */
 class AiScenarioRouter implements ScenarioRouter
 {
-    public function __construct(private readonly AiGatewayFactory $gateways) {}
+    public function __construct(
+        private readonly AiGatewayFactory $gateways,
+        private readonly Redactor $redactor,
+    ) {}
 
     /**
      * @param  Collection<int, Scenario>  $scenarios
@@ -73,9 +77,15 @@ class AiScenarioRouter implements ScenarioRouter
             return null;
         }
 
+        /*
+         * Which scenario fits is a question about the shape of the sentence,
+         * never about the number in it. A phone number, a booking reference or
+         * a passport adds nothing the router can use and would leave the
+         * machine on every unmatched message — the busiest path there is.
+         */
         $reply = $gateway->ask(new AiPrompt(
             instruction: (string) config('chatbot.ai.routing.instruction', ''),
-            question: $said,
+            question: $this->redactor->clean($said),
             context: $this->contractsOf($offered),
             schema: ['scenario' => 'the key of the scenario that fits, or null when none of them do'],
         ));

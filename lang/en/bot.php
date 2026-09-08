@@ -40,4 +40,18 @@ return [
         'yes' => ['yes', 'yeah', 'yep', 'ok', 'okay', 'sure', 'confirm', 'confirmed', 'agree'],
         'no' => ['no', 'nope', 'nah', 'cancel', 'stop', 'decline', 'abort'],
     ],
+
+    /**
+     * What replaces a piece of personal data on its way to a language model.
+     *
+     * Translated because the model reads them: an English placeholder dropped
+     * into a Russian sentence is one more word it has to make sense of. Kept in
+     * square brackets so that a person reading the transcript afterwards can
+     * tell a redaction from something the visitor typed.
+     */
+    'redacted' => [
+        'email' => '[email]',
+        'phone' => '[phone]',
+        'number' => '[number]',
+    ],
 ];

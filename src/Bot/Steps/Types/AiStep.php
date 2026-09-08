@@ -8,6 +8,7 @@ use MB\FilamentChatbot\Ai\AiGatewayFactory;
 use MB\FilamentChatbot\Ai\AiPrompt;
 use MB\FilamentChatbot\Ai\KnowledgeSource;
 use MB\FilamentChatbot\Ai\NullKnowledgeSource;
+use MB\FilamentChatbot\Ai\Redactor;
 use MB\FilamentChatbot\Bot\Fields\Field;
 use MB\FilamentChatbot\Bot\Steps\StepContext;
 use MB\FilamentChatbot\Bot\Steps\StepResult;
@@ -57,6 +58,7 @@ final class AiStep extends StepType
      */
     public function __construct(
         private readonly AiGatewayFactory $gateways,
+        private readonly Redactor $redactor,
         ?KnowledgeSource $knowledge = null,
     ) {
         $this->knowledge = $knowledge ?? new NullKnowledgeSource;
@@ -177,9 +179,16 @@ final class AiStep extends StepType
             ]);
         }
 
+        /*
+         * The knowledge search above runs on what the visitor actually wrote —
+         * a booking reference is exactly the kind of token that finds the right
+         * article. What leaves the machine is the cleaned version: the model is
+         * being asked to explain the agency's own material, and nothing in that
+         * job needs the number.
+         */
         $prompt = new AiPrompt(
             instruction: $this->instruction($context),
-            question: $said,
+            question: $this->redactor->clean($said),
             context: $candidates,
         );
 

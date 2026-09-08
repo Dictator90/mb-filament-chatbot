@@ -6,6 +6,7 @@ namespace MB\FilamentChatbot\Bot\Steps\Types;
 
 use MB\FilamentChatbot\Ai\AiGatewayFactory;
 use MB\FilamentChatbot\Ai\AiPrompt;
+use MB\FilamentChatbot\Ai\Redactor;
 use MB\FilamentChatbot\Bot\Fields\Field;
 use MB\FilamentChatbot\Bot\Steps\Concerns\WritesRecordVariables;
 use MB\FilamentChatbot\Bot\Steps\StepContext;
@@ -40,6 +41,19 @@ use MB\FilamentChatbot\Models\Step;
  * **nothing is written on that path**. Writing partial or invented values would
  * be worse than not extracting at all: the conversation would carry on
  * confidently against a passenger count nobody said.
+ *
+ * **This is the one node that does not redact what the visitor wrote**, and the
+ * exception is deliberate rather than overlooked. Everywhere else a message
+ * leaves the machine — the knowledge answer, the scenario router — a phone
+ * number, a reference and a passport are replaced first
+ * ({@see Redactor}), because none of those paths need
+ * them. Here they are frequently the whole point: "pull the booking reference
+ * out of this sentence" is what the node is for, and a redacted question would
+ * hand the model `[number]` and give back an empty extraction that looks
+ * exactly like a provider being down.
+ *
+ * So the choice belongs to whoever draws the scenario, and it is visible where
+ * they make it: the schema on this node is the list of what is being asked for.
  */
 final class AiTaskStep extends StepType
 {

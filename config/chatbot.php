@@ -312,6 +312,28 @@ return [
     'ai' => [
         'default' => env('CHATBOT_AI_DRIVER', 'null'),
 
+        /*
+         * What is struck out of the visitor's own words before they reach a
+         * provider.
+         *
+         * The package composes a prompt out of the question and the knowledge
+         * fragments it may answer from, and nothing else — but the question is
+         * typed by a person, and people put their phone number, their booking
+         * reference and occasionally their passport in it. Those are removed on
+         * the two paths that do not need them: the knowledge answer and the
+         * scenario router. The extraction node deliberately keeps them, because
+         * pulling such a value out is what that node is for.
+         *
+         * `patterns` are the host's own shapes — an order number, a policy, a
+         * ticket — as `'/regex/' => 'replacement'`. They run first, before the
+         * built-in rules, which is what stops an eight-digit reference from
+         * being eaten by the phone rule and coming back as "[number]".
+         */
+        'redact' => [
+            'enabled' => true,
+            'patterns' => [],
+        ],
+
         'drivers' => [
             'null' => [],
 
