@@ -99,15 +99,15 @@ class DataResourceForm
                         ->helperText(__('chatbot::panel.data_resources.connection_help')),
 
                     Select::make('source_table')
-                        ->label(__('chatbot::panel.data_resources.table'))
+                        ->label(__('chatbot::panel.data_resources.source_table'))
                         ->live()
                         ->searchable()
-                        ->placeholder(__('chatbot::panel.data_resources.table_none'))
+                        ->placeholder(__('chatbot::panel.data_resources.source_table_none'))
                         ->options(fn (Get $get): array => HostModels::including(
                             HostModels::tables($get('connection')),
                             $get('source_table'),
                         ))
-                        ->helperText(__('chatbot::panel.data_resources.table_help')),
+                        ->helperText(__('chatbot::panel.data_resources.source_table_help')),
                 ]),
 
                 /*

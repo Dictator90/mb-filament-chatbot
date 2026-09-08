@@ -400,9 +400,18 @@ return [
         'connection' => 'Database',
         'connection_none' => 'This application',
         'connection_help' => 'Any connection configured in the application. Another host is fine — the credentials stay where they already live.',
-        'table' => 'Table',
-        'table_none' => 'Read through the model',
-        'table_help' => 'Name a table to read a database this application has no model for. Read-only: a write needs a key column, a lock column and a model whose events the host expects.',
+        /*
+         * `source_table` and not `table`, matching the column and for the same
+         * reason. Every resource block in this file carries a `table` key
+         * holding the labels of its list columns, and a second `table` in the
+         * same array is legal PHP: the later one wins, silently. The form asked
+         * for a label and got that array, and the whole "Resource" section died
+         * with a TypeError — on the one screen where a data resource is
+         * declared, and only there.
+         */
+        'source_table' => 'Table',
+        'source_table_none' => 'Read through the model',
+        'source_table_help' => 'Name a table to read a database this application has no model for. Read-only: a write needs a key column, a lock column and a model whose events the host expects.',
         'description_help' => 'For whoever maintains the declaration.',
         'guidance' => 'Guidance for the model',
         'guidance_help' => 'Read by the language model when it decides how to query this resource.',

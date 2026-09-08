@@ -5,6 +5,7 @@ declare(strict_types=1);
 use Filament\Facades\Filament;
 use Livewire\Livewire;
 use MB\FilamentChatbot\ChatbotPlugin;
+use MB\FilamentChatbot\Demo\DemoData;
 use MB\FilamentChatbot\Enums\KnowledgeMode;
 use MB\FilamentChatbot\Filament\Assets\CanvasScript;
 use MB\FilamentChatbot\Filament\Assets\CanvasStyles;
@@ -36,6 +37,62 @@ it('registers every screen the plugin declares, and each one opens', function ()
 
         $this->get($resource::getUrl('index'))->assertOk();
     }
+});
+
+/**
+ * The forms open too, and that is a different question from the list opening.
+ *
+ * A Filament form is assembled at render time out of a hundred calls nobody
+ * makes until somebody opens the page. This suite had exhaustive tests for what
+ * a data resource *does* — its scopes, its ceilings, its refusals — and not one
+ * that opened the screen where a data resource is declared. A label was read
+ * from a key that resolved to an array, the whole section died with a TypeError,
+ * and the only way to find out was to click "New" on a live installation.
+ *
+ * The create form is where a screen dies most often, because it is the only one
+ * that builds every field with nothing behind it: a label read from a key that
+ * does not resolve the way it was meant to, a default computed from a record
+ * that is not there.
+ */
+it('opens the create form of every resource that has one', function (): void {
+    $opened = 0;
+
+    foreach ((new ChatbotPlugin)->resources() as $resource) {
+        $pages = $resource::getPages();
+
+        if (! array_key_exists('create', $pages)) {
+            continue;
+        }
+
+        Livewire::test($pages['create']->getPage())->assertOk();
+        $opened++;
+    }
+
+    expect($opened)->toBeGreaterThan(0);
+});
+
+/**
+ * And the edit form against a real row, which is the other half: a field that
+ * renders empty may still fall over when it is handed a stored value.
+ */
+it('opens the edit form of every resource that has one', function (): void {
+    app(DemoData::class)->seed();
+
+    $opened = 0;
+
+    foreach ((new ChatbotPlugin)->resources() as $resource) {
+        $pages = $resource::getPages();
+        $record = $resource::getModel()::query()->first();
+
+        if (! array_key_exists('edit', $pages) || $record === null) {
+            continue;
+        }
+
+        Livewire::test($pages['edit']->getPage(), ['record' => $record->getKey()])->assertOk();
+        $opened++;
+    }
+
+    expect($opened)->toBeGreaterThan(0);
 });
 
 it('shows the knowledge base entries that exist', function (): void {
