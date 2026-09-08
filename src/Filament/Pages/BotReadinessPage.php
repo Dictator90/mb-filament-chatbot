@@ -14,6 +14,7 @@ use MB\FilamentChatbot\Bot\Readiness;
 use MB\FilamentChatbot\Filament\Concerns\HasChatbotNavigation;
 use MB\FilamentChatbot\Filament\Resources\Bots\BotResource;
 use MB\FilamentChatbot\Filament\Resources\KnowledgeEntries\KnowledgeEntryResource;
+use MB\FilamentChatbot\Filament\Resources\QualityTests\QualityTestResource;
 use MB\FilamentChatbot\Filament\Resources\Scenarios\ScenarioResource;
 use MB\FilamentChatbot\Filament\Resources\Widgets\WidgetResource;
 use MB\FilamentChatbot\Models\Scenario;
@@ -116,15 +117,16 @@ class BotReadinessPage extends Page
                     ? ScenarioResource::getUrl()
                     : ScenarioResource::getUrl('graph', ['record' => $record]),
                 /*
-                 * Saved checks have no screen in this package: they are
-                 * recorded and replayed from the console
-                 * (`php artisan chatbot:quality`). The item still appears and
-                 * still names the check — knowing which one drifted is the
-                 * useful half — it simply has nowhere to lead. Returning a
-                 * plausible-looking link to a resource nobody registered would
-                 * be worse than none.
+                 * Straight to the check that drifted, not to the list of them.
+                 *
+                 * The item names one check out of a suite, and what the reader
+                 * wants next is its transcript. Landing on the list means
+                 * finding the same check again by name — the long way round to
+                 * the screen the sentence was already pointing at.
                  */
-                Readiness::TARGET_QUALITY => null,
+                Readiness::TARGET_QUALITY => $record === null
+                    ? QualityTestResource::getUrl()
+                    : QualityTestResource::getUrl('view', ['record' => $record]),
                 Readiness::TARGET_KNOWLEDGE => KnowledgeEntryResource::getUrl(),
                 Readiness::TARGET_WIDGETS => WidgetResource::getUrl(),
                 default => null,

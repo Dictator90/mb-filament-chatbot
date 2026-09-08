@@ -514,6 +514,7 @@ final class QualityRunner
             'last_outcome' => $result->outcome(),
             'last_mismatches' => $result->mismatches() === [] ? null : $result->mismatches(),
             'last_transcript' => $result->transcript() === [] ? null : $result->transcript(),
+            'last_visited' => $result->visited() === [] ? null : $result->visited(),
             'last_fingerprint' => $scenario === null ? null : $this->versions->fingerprint($scenario),
         ])->save();
 

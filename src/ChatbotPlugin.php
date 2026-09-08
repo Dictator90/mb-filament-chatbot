@@ -12,6 +12,7 @@ use MB\FilamentChatbot\Filament\Pages\Sandbox;
 use MB\FilamentChatbot\Filament\Resources\Bots\BotResource;
 use MB\FilamentChatbot\Filament\Resources\DataResources\DataResourceResource;
 use MB\FilamentChatbot\Filament\Resources\KnowledgeEntries\KnowledgeEntryResource;
+use MB\FilamentChatbot\Filament\Resources\QualityTests\QualityTestResource;
 use MB\FilamentChatbot\Filament\Resources\QuickReplies\QuickReplyResource;
 use MB\FilamentChatbot\Filament\Resources\Runs\RunResource;
 use MB\FilamentChatbot\Filament\Resources\Scenarios\ScenarioResource;
@@ -73,6 +74,7 @@ class ChatbotPlugin implements Plugin
             QuickReplyResource::class,
             DataResourceResource::class,
             RunResource::class,
+            QualityTestResource::class,
         ];
     }
 
