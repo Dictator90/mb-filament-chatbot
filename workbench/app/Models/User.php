@@ -8,6 +8,7 @@ use Filament\Models\Contracts\FilamentUser;
 use Filament\Panel;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
+use Illuminate\Notifications\Notifiable;
 use Workbench\Database\Factories\UserFactory;
 
 /**
@@ -21,6 +22,20 @@ class User extends Authenticatable implements FilamentUser
 {
     /** @use HasFactory<UserFactory> */
     use HasFactory;
+
+    /**
+     * Laravel's own skeleton puts this on `App\Models\User`, and the bell that
+     * says a conversation is waiting for a person needs it: a database
+     * notification goes to a notifiable, and a user model without the trait
+     * cannot receive one at all.
+     *
+     * Written out here rather than assumed. The bell swallows its own failures
+     * — it runs inside the path that stores a customer's message and must never
+     * cost them one — so an operator model missing this trait gives a bell that
+     * is silently dead, and a silently dead bell looks exactly like a quiet
+     * desk. `chatbot:doctor` asks about it for that reason.
+     */
+    use Notifiable;
 
     protected $table = 'users';
 

@@ -18,6 +18,7 @@ use Illuminate\Routing\Middleware\SubstituteBindings;
 use Illuminate\Session\Middleware\StartSession;
 use Illuminate\View\Middleware\ShareErrorsFromSession;
 use MB\FilamentChatbot\ChatbotPlugin;
+use Workbench\App\Models\User;
 
 /**
  * A bare panel with nothing in it but the package.
@@ -57,6 +58,23 @@ class WorkbenchPanelProvider extends PanelProvider
             'driver' => 'session',
             'provider' => 'users',
         ]);
+
+        /*
+         * The provider has to name the workbench's own user, and Testbench's
+         * skeleton names `App\Models\User` — a class this repository does not
+         * contain.
+         *
+         * That is how the package finds the host's member of staff:
+         * `chatbot.user_model` first, `auth.providers.users.model` second. Left
+         * at the skeleton's guess, every relation that reaches for an operator
+         * resolves a class that cannot be autoloaded. The conversation's
+         * assignee then comes back as nothing, and callers that guard
+         * themselves against a broken host — the bell above all, which must not
+         * cost a customer their message — swallow it and go quiet. A workbench
+         * pointed at a missing model therefore makes a working bell and a dead
+         * one look identical.
+         */
+        $this->app['config']->set('auth.providers.users.model', User::class);
 
         parent::register();
     }

@@ -71,6 +71,32 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | The bell
+    |--------------------------------------------------------------------------
+    |
+    | Said in the panel when a conversation is waiting for a person: the bot
+    | handed it over, or a message arrived that the bot did not take. Never on
+    | every message — a thread already waiting does not ring twice.
+    |
+    | `unassigned` decides whether a thread nobody has taken rings the whole
+    | desk. On, because an enquiry from a website arrives with nobody
+    | responsible for it and silence there loses it. Turn it off where a rota
+    | or an escalation rule does that job, and bind `OperatorAudience` instead.
+    |
+    | `max_recipients` is not a tuning knob but a stop. A desk that resolves to
+    | more people than this is not a desk — it is a users table with customers
+    | in it — and the bell goes quiet rather than sending one notification per
+    | customer per enquiry. `chatbot:doctor` says so out loud.
+    |
+    */
+
+    'notifications' => [
+        'unassigned' => true,
+        'max_recipients' => 100,
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | Conversations
     |--------------------------------------------------------------------------
     */

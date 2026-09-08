@@ -30,6 +30,7 @@ final class Doctor
         ScenarioCheck::class,
         BotScenarioCheck::class,
         QueueCheck::class,
+        OperatorBellCheck::class,
         RateLimitStoreCheck::class,
         AssetsCheck::class,
         WidgetCheck::class,

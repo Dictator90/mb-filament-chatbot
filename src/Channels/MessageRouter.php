@@ -8,6 +8,7 @@ use Illuminate\Database\QueryException;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Facades\DB;
 use MB\FilamentChatbot\Bot\BotEngine;
+use MB\FilamentChatbot\Chat\OperatorBell;
 use MB\FilamentChatbot\Contracts\ContactDirectory;
 use MB\FilamentChatbot\Enums\ConversationStatus;
 use MB\FilamentChatbot\Enums\MessageAuthor;
@@ -60,8 +61,18 @@ class MessageRouter
             return $existing;
         }
 
-        $stored = DB::transaction(function () use ($inbound, $body): ?array {
+        $waiting = false;
+
+        $stored = DB::transaction(function () use ($inbound, $body, &$waiting): ?array {
             $conversation = $this->conversation($inbound);
+
+            /*
+             * Read before the message lands, because storing it is what makes
+             * the thread unread. Asked afterwards the answer is always yes, and
+             * the bell would ring on every line of a conversation nobody has
+             * picked up — which is the noise it exists to avoid.
+             */
+            $waiting = $conversation->hasUnread();
 
             $message = $this->store($conversation, $inbound, $body);
 
@@ -82,7 +93,24 @@ class MessageRouter
             return $this->alreadyReceived($inbound);
         }
 
-        $this->engine->handle($stored['conversation']->refresh(), $stored['message']);
+        $conversation = $stored['conversation']->refresh();
+
+        /*
+         * The bell rings only when nothing automatic is coming.
+         *
+         * A thread the bot picked up is not waiting for anybody — it has been
+         * answered, and if the bot runs out of answers it calls a person itself
+         * through the handoff, which rings its own bell. Ringing here as well
+         * would fill the desk with conversations that were about to be handled,
+         * and a bell that cries wolf is one people stop opening.
+         *
+         * Nor on a thread that was already waiting: the second message of an
+         * unanswered conversation is the same person, still waiting, and says
+         * nothing the first bell did not.
+         */
+        if (! $this->engine->handle($conversation, $stored['message']) && ! $waiting) {
+            app(OperatorBell::class)->ring($conversation, $stored['message']);
+        }
 
         return $stored['message'];
     }

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use Illuminate\Support\Facades\Http;
 use MB\FilamentChatbot\Models\Bot;
+use MB\FilamentChatbot\Models\Conversation;
 use MB\FilamentChatbot\Models\Scenario;
 use MB\FilamentChatbot\Models\Step;
 
@@ -171,4 +172,26 @@ it('says plainly what it did not verify when it may not leave the machine', func
         ->assertExitCode(0);
 
     Http::assertNothingSent();
+});
+
+/**
+ * Every way the bell can be dead is silent by construction: it swallows its own
+ * failures because it rings from inside the path that stores a customer's
+ * message, and none of the three mistakes below leave a trace. A desk that
+ * nobody has been told about looks exactly like a quiet afternoon.
+ */
+it('names an operator model that cannot be notified at all', function (): void {
+    config(['chatbot.user_model' => Conversation::class]);
+
+    $this->artisan('chatbot:doctor --check=bell')
+        ->expectsOutputToContain('does not use the Notifiable trait')
+        ->assertExitCode(1);
+});
+
+it('names an unassigned conversation that would ring nobody', function (): void {
+    Conversation::factory()->create();
+
+    $this->artisan('chatbot:doctor --check=bell')
+        ->expectsOutputToContain('Nobody would hear an unassigned conversation')
+        ->assertExitCode(0);
 });

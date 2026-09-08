@@ -490,6 +490,7 @@ return [
         'attachment_download' => 'Download :name',
         'attachment_expand' => 'Open the picture',
         'attachment_close' => 'Close the picture',
+        'open_conversation' => 'Open the conversation',
         'send' => 'Send',
         'closed_notice' => 'This conversation is closed. Reopen it to reply, or wait for the next message.',
         'empty_body' => 'Write something before sending.',

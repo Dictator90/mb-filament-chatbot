@@ -55,6 +55,7 @@ use MB\FilamentChatbot\Bot\Steps\Types\SetStep;
 use MB\FilamentChatbot\Bot\Steps\Types\StartStep;
 use MB\FilamentChatbot\Bot\Steps\Types\TransformStep;
 use MB\FilamentChatbot\Bot\Variables\TalkVariables;
+use MB\FilamentChatbot\Chat\ChatDesk;
 use MB\FilamentChatbot\Chat\NoContactDirectory;
 use MB\FilamentChatbot\Console\Commands\DemoConversationCommand;
 use MB\FilamentChatbot\Console\Commands\DoctorCommand;
@@ -62,6 +63,7 @@ use MB\FilamentChatbot\Console\Commands\RunQualityChecksCommand;
 use MB\FilamentChatbot\Console\Commands\SeedDemoDataCommand;
 use MB\FilamentChatbot\Console\Commands\SyncDataResourcesCommand;
 use MB\FilamentChatbot\Contracts\ContactDirectory;
+use MB\FilamentChatbot\Contracts\OperatorAudience;
 use MB\FilamentChatbot\Filament\Assets\CanvasScript;
 use MB\FilamentChatbot\Filament\Assets\CanvasStyles;
 use MB\FilamentChatbot\Knowledge\KnowledgeBaseSource;
@@ -131,6 +133,14 @@ class ChatbotServiceProvider extends ServiceProvider
          * the failure is a customer's message that did not arrive.
          */
         $this->app->bind(ContactDirectory::class, NoContactDirectory::class);
+
+        /*
+         * Who hears the bell: the assignee, or everybody who may open the desk.
+         * Bound rather than left to the host because the case that needs it most
+         * — an enquiry from a website, arriving with nobody responsible — is
+         * exactly the case a host has not configured yet on day one.
+         */
+        $this->app->bind(OperatorAudience::class, ChatDesk::class);
     }
 
     public function boot(): void

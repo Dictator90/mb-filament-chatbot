@@ -7,6 +7,7 @@ namespace MB\FilamentChatbot\Bot;
 use MB\FilamentChatbot\Bot\Steps\StepContext;
 use MB\FilamentChatbot\Bot\Steps\StepFlow;
 use MB\FilamentChatbot\Bot\Variables\Variables;
+use MB\FilamentChatbot\Chat\OperatorBell;
 use MB\FilamentChatbot\Enums\BotState;
 use MB\FilamentChatbot\Enums\ConversationStatus;
 use MB\FilamentChatbot\Enums\RunOutcome;
@@ -429,6 +430,22 @@ class BotEngine
             'bot_step_key' => null,
             'bot_handed_off_at' => now(),
         ])->save();
+
+        /*
+         * The one moment the bell is honest, and every road to a person goes
+         * through here: the node, the handoff words, a scenario running out, a
+         * step that failed. Ringing at each of those call sites instead would be
+         * five copies of one rule, and the copy somebody forgot would be the
+         * branch that goes quiet.
+         *
+         * The last message rather than the visitor's own, because a handoff
+         * often follows the bot's own apology and what the operator needs from
+         * the bell is where the conversation got to.
+         */
+        app(OperatorBell::class)->ring(
+            $conversation,
+            $conversation->messages()->reorder()->latest('id')->first(),
+        );
     }
 
     protected function closeConversation(Conversation $conversation): void
