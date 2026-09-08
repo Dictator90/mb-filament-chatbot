@@ -308,6 +308,39 @@ return [
     ],
 
     'knowledge' => [
+        /*
+         * The round trip through a spreadsheet. An answer is the company's own
+         * voice and nobody writes a hundred and seventy of them through a form,
+         * so without this the base stays half empty and the bot keeps saying it
+         * does not know.
+         */
+        'exchange' => [
+            'export' => 'Export to a file',
+            'import' => 'Load from a file',
+            'import_heading' => 'Load the knowledge base from a file',
+            'import_description' => 'A topic is recognised by its key: a known one is updated, an unknown one is created. An empty cell erases nothing.',
+            'write' => 'Write',
+            'file' => 'The exported file',
+            'file_help' => 'The same file the export button gave you, with the answers written in.',
+            'choose_file' => 'Choose a file and this will say what happens to the base.',
+            'unreadable' => 'The file could not be read. Choose it again.',
+            'nothing_loaded' => 'Nothing in that file could be loaded.',
+            'loaded' => 'The knowledge base has been updated',
+            'more_warnings' => '…and :count more rows with something wrong.',
+            'plan_created' => 'new topics: :count',
+            'plan_updated' => 'updated: :count',
+            'plan_skipped' => 'rows dropped: :count',
+            'plan_kept' => 'answers left as they were: :count',
+            'empty_file' => 'The file is empty: there is not even a header row in it.',
+            'no_key_column' => 'The file has no “Topic key” column — a topic is recognised by it, and without it there is nothing to load.',
+            'too_many_rows' => 'The file has more than :max rows; the rest were not read.',
+            'row_no_key' => 'Row :row: no topic key, skipped.',
+            'row_repeated' => 'Row :row: the key “:key” has already appeared in this file, skipped.',
+            'row_refused' => 'Row :row: :reason',
+            'unknown_mode' => 'unknown answering mode “:mode”, skipped.',
+            'unknown_flag' => '“:value” in the “Switched on” column — only yes and no are understood, skipped.',
+            'new_without_question' => 'a new topic with no question, skipped.',
+        ],
         'label' => 'knowledge topic',
         'plural' => 'knowledge base',
         'bot' => 'Bot',
