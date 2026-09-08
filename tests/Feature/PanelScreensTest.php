@@ -6,6 +6,8 @@ use Filament\Facades\Filament;
 use Livewire\Livewire;
 use MB\FilamentChatbot\ChatbotPlugin;
 use MB\FilamentChatbot\Enums\KnowledgeMode;
+use MB\FilamentChatbot\Filament\Assets\CanvasScript;
+use MB\FilamentChatbot\Filament\Assets\CanvasStyles;
 use MB\FilamentChatbot\Filament\Resources\KnowledgeEntries\Pages\CreateKnowledgeEntry;
 use MB\FilamentChatbot\Filament\Resources\KnowledgeEntries\Pages\ListKnowledgeEntries;
 use MB\FilamentChatbot\Filament\Resources\Runs\RunResource;
@@ -124,6 +126,38 @@ it('never asks the default guard who is signed in', function (): void {
         .'which answers null on a panel with its own guard. Use Filament::auth(): '
         .implode(', ', $offenders),
     );
+});
+
+/**
+ * The canvas bundle is addressed by the file, not by the package's version.
+ *
+ * Filament stamps `?v=` with the installed version of the package, which is
+ * right for a tagged release and useless on a branch: every installation
+ * tracking `dev-master` gets the same address for the life of that branch.
+ * Rebuild the editor, publish it, reload — and the browser serves the copy it
+ * cached weeks ago.
+ *
+ * What that looks like is not a stale screen but the new server talking to the
+ * old editor: a field kind the bundle has never heard of falls through to a
+ * plain text box, and the feature just written appears to be broken. It cost an
+ * afternoon the first time, and nothing on the screen said which half was out
+ * of date.
+ */
+it('addresses the canvas bundle by the file rather than by the release number', function (): void {
+    $script = new CanvasScript('chatbot-graph', dirname(__DIR__, 2).'/dist/chatbot-graph.js');
+    $styles = new CanvasStyles('chatbot-graph', dirname(__DIR__, 2).'/dist/chatbot-graph.css');
+
+    expect($script->getVersion())->toBe((string) filemtime($script->getPath()))
+        ->and($styles->getVersion())->toBe((string) filemtime($styles->getPath()));
+
+    /*
+     * A file that is not there falls back rather than throwing: that is the
+     * pruned-vendor case, where the asset does not load at all and its address
+     * is the least of anybody's problems.
+     */
+    $missing = new CanvasScript('chatbot-graph', dirname(__DIR__, 2).'/dist/gone.js');
+
+    expect($missing->getVersion())->not->toBe('');
 });
 
 /**

@@ -4,8 +4,6 @@ declare(strict_types=1);
 
 namespace MB\FilamentChatbot;
 
-use Filament\Support\Assets\Css;
-use Filament\Support\Assets\Js;
 use Filament\Support\Facades\FilamentAsset;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\ServiceProvider;
@@ -64,6 +62,8 @@ use MB\FilamentChatbot\Console\Commands\RunQualityChecksCommand;
 use MB\FilamentChatbot\Console\Commands\SeedDemoDataCommand;
 use MB\FilamentChatbot\Console\Commands\SyncDataResourcesCommand;
 use MB\FilamentChatbot\Contracts\ContactDirectory;
+use MB\FilamentChatbot\Filament\Assets\CanvasScript;
+use MB\FilamentChatbot\Filament\Assets\CanvasStyles;
 use MB\FilamentChatbot\Knowledge\KnowledgeBaseSource;
 use MB\FilamentChatbot\Policies\Policies;
 use MB\FilamentChatbot\Registry\ChatbotRegistry;
@@ -193,8 +193,8 @@ class ChatbotServiceProvider extends ServiceProvider
     protected function registerAssets(): void
     {
         FilamentAsset::register([
-            Js::make('chatbot-graph', __DIR__.'/../dist/chatbot-graph.js')->loadedOnRequest(),
-            Css::make('chatbot-graph', __DIR__.'/../dist/chatbot-graph.css')->loadedOnRequest(),
+            CanvasScript::make('chatbot-graph', __DIR__.'/../dist/chatbot-graph.js')->loadedOnRequest(),
+            CanvasStyles::make('chatbot-graph', __DIR__.'/../dist/chatbot-graph.css')->loadedOnRequest(),
         ], package: 'mb4it/filament-chatbot');
     }
 

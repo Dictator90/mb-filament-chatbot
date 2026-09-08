@@ -53,6 +53,19 @@ final class Field implements Arrayable
     /** A picker over the capabilities the host has registered. */
     public const CAPABILITY = 'capability';
 
+    /**
+     * The chosen capability's own input, drawn from the descriptors it declares.
+     *
+     * This is the point of describing an action's input with `Field` at all,
+     * and for a while it was a promise the editor did not keep: an action
+     * declared `Field::number('due_in_hours')->max(720)`, and the author still
+     * got a box of free-text key/value pairs — learning the field names from
+     * documentation rather than from the screen, and mistyping one into a call
+     * that then refused at runtime with the name spelled correctly in its own
+     * error message.
+     */
+    public const CAPABILITY_INPUT = 'capability_input';
+
     private string $label;
 
     private ?string $hint = null;
@@ -76,6 +89,9 @@ final class Field implements Arrayable
 
     /** @var array{field: string, values: list<mixed>}|null */
     private ?array $visibleWhen = null;
+
+    /** For a capability input: the sibling field naming the chosen action. */
+    private ?string $from = null;
 
     private function __construct(
         private readonly string $name,
@@ -141,6 +157,22 @@ final class Field implements Arrayable
     public static function capability(string $name): self
     {
         return new self($name, self::CAPABILITY);
+    }
+
+    /**
+     * The input of whichever capability the sibling field names.
+     *
+     * `$from` is the name of that sibling — the field holding the chosen
+     * action's key — and it is passed rather than assumed, because a node is
+     * free to call it whatever it likes and a guessed name would silently give
+     * every author the fallback box instead of the fields.
+     */
+    public static function capabilityInput(string $name, string $from): self
+    {
+        $field = new self($name, self::CAPABILITY_INPUT);
+        $field->from = $from;
+
+        return $field;
     }
 
     public function label(string $label): self
@@ -280,6 +312,7 @@ final class Field implements Arrayable
             'max' => $this->max,
             'rows' => $this->rows,
             'visible_when' => $this->visibleWhen,
+            'from' => $this->from,
         ], static fn (mixed $value): bool => $value !== null);
     }
 

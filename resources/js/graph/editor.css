@@ -496,6 +496,16 @@
     gap: 0.25rem;
 }
 
+/*
+    The chosen action's own fields, set in from the node's settings so that
+    "this belongs to the action" is visible rather than inferred from the order
+    the fields happen to appear in.
+*/
+.chatbot-graph__capability-input {
+    padding-left: 0.5rem;
+    border-left: 2px solid var(--chatbot-border);
+}
+
 .chatbot-graph__variable-group {
     margin-bottom: 0.5rem;
 }

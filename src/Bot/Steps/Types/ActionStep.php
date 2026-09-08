@@ -97,7 +97,20 @@ final class ActionStep extends StepType
                 ->required()
                 ->options(fn (): array => $this->options()),
 
-            Field::keyValue('input')
+            /*
+             * The chosen action's own fields, not a box of free-text pairs.
+             *
+             * An action describes its input with the same descriptors a node
+             * uses precisely so the editor can draw it — and for a while the
+             * editor did not: the author typed `due_in_hours` into a key box,
+             * having learnt the name from documentation, and a typo became a
+             * call refused at runtime with the correct spelling printed in the
+             * refusal itself.
+             *
+             * The sibling field is named rather than assumed; see
+             * `Field::capabilityInput()`.
+             */
+            Field::capabilityInput('input', 'capability')
                 ->label(__('chatbot::nodes.steps.action.fields.input.label'))
                 ->hint(__('chatbot::nodes.steps.action.fields.input.hint')),
 

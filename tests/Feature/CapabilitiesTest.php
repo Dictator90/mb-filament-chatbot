@@ -285,6 +285,28 @@ it('pins the action with its version, not by key alone', function (): void {
 });
 
 /**
+ * The node's input points at a field the node actually declares.
+ *
+ * The editor draws the chosen action's own descriptors by looking up the
+ * sibling field this one names. A name matching nothing is a typo with no
+ * symptom: the lookup finds no capability, every author silently gets the
+ * fallback box of free-text pairs, and the promise that an action's input is
+ * drawn from its descriptors quietly stops being kept — which is the state this
+ * package was in until somebody installed it into a real application and looked
+ * at the screen.
+ */
+it('points the action input at a field the node declares', function (): void {
+    $fields = collect(app(ActionStep::class)->fields())
+        ->mapWithKeys(fn (Field $field): array => [$field->name() => $field->toArray()]);
+
+    $input = $fields->get('input');
+
+    expect($input['type'])->toBe(Field::CAPABILITY_INPUT)
+        ->and($input['from'])->toBe('capability')
+        ->and($fields->has($input['from']))->toBeTrue();
+});
+
+/**
  * The editor cannot see the graph from inside the gateway, so this is where a
  * write without a confirmation above it is named. A blocking defect for an
  * action that is not there at all, because that node fails on every single

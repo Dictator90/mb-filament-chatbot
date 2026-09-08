@@ -325,7 +325,57 @@ function lookupItems(config, type) {
     return (config.capabilities || []).map((item) => ({ value: item.key, label: item.label || item.key }));
 }
 
-function FieldWidget({ field, value, config, onChange }) {
+/**
+ * The chosen capability's own input, drawn from the descriptors it declared.
+ *
+ * The whole reason an action describes its input with the same descriptors a
+ * node uses — and for a while the promise this file did not keep. The author
+ * got a box of free-text key/value pairs: they learnt `due_in_hours` from
+ * documentation, mistyped it, and the call refused at runtime with the correct
+ * spelling printed in its own error message.
+ *
+ * Values are merged into the same map the key/value box wrote, so a scenario
+ * saved before this drawing existed opens unchanged and a field this widget
+ * does not draw keeps whatever it held.
+ *
+ * **Falls back to the key/value box when the capability is unknown.** That is
+ * the shape of a scenario whose action came from a package since removed, and
+ * an author looking at it has to be able to see and fix what it stored — an
+ * empty panel would hide the settings while quietly keeping them.
+ */
+function CapabilityInputWidget({ field, value, config, settings, onChange }) {
+    const chosen = settings?.[field.from] ?? null;
+    const action = (config.capabilities || []).find((item) => item.key === chosen) || null;
+    const stored = value && typeof value === 'object' && !Array.isArray(value) ? value : {};
+
+    if (action === null) {
+        return <KeyValueWidget value={value} onChange={onChange} />;
+    }
+
+    const declared = action.input || [];
+
+    if (declared.length === 0) {
+        return <p className="chatbot-graph__hint">{text('capability_no_input')}</p>;
+    }
+
+    return (
+        <div className="chatbot-graph__capability-input">
+            {declared.map((inner) => (
+                <Labelled field={inner} key={inner.name}>
+                    <FieldWidget
+                        field={inner}
+                        config={config}
+                        settings={settings}
+                        value={stored[inner.name] ?? inner.default ?? null}
+                        onChange={(next) => onChange({ ...stored, [inner.name]: next })}
+                    />
+                </Labelled>
+            ))}
+        </div>
+    );
+}
+
+function FieldWidget({ field, value, config, settings, onChange }) {
     switch (field.type) {
         case 'textarea':
             return (
@@ -362,6 +412,17 @@ function FieldWidget({ field, value, config, onChange }) {
 
         case 'key_value':
             return <KeyValueWidget value={value} onChange={onChange} />;
+
+        case 'capability_input':
+            return (
+                <CapabilityInputWidget
+                    field={field}
+                    value={value}
+                    config={config}
+                    settings={settings}
+                    onChange={onChange}
+                />
+            );
 
         case 'variable':
             return <VariableWidget value={value} variables={config.variables} onChange={onChange} />;
@@ -815,6 +876,7 @@ export default function SideForm({ node, config, onChange, onRename, onDelete })
                                     key={`${node.id}:${field.name}`}
                                     field={field}
                                     config={config}
+                                    settings={settings}
                                     value={settings[field.name] ?? field.default ?? null}
                                     onChange={(value) => setSetting(field.name, value)}
                                 />

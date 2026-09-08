@@ -721,6 +721,7 @@ return [
         'say_to_start' => 'Say something to start.',
         'say_placeholder' => 'Say something to the bot',
         'walked' => 'Nodes it walked',
+        'capability_no_input' => 'This action takes no settings.',
         'scenario_variables' => 'Collected by this scenario',
         'variables_heading' => 'Variables you can use',
         'variables_hint' => 'Click one to paste it where you were typing. In a message they are written {{ name }} — a name that matches nothing prints as an empty gap.',
