@@ -144,6 +144,12 @@ return [
             'receipts' => 'Delivery ticks',
             'receipts_help' => 'One tick sent, two delivered, two filled in read — beside the visitor\'s own messages, and about their own conversation only. Turn it off where you would rather not show the minute somebody opened the thread and said nothing.',
         ],
+        'cookies' => [
+            'heading' => 'What the page may tell the bot',
+            'description' => 'Cookies this placement is allowed to read off the page it is embedded in. Empty by default, and empty means none.',
+            'names' => 'Cookie names',
+            'help' => 'A scenario can branch on these — the campaign somebody arrived through, the plan their account is on. They are claims and not proof: anybody can set a cookie on a page, so use them to shorten a path or route to the right team, never as the gate in front of somebody\'s data.',
+        ],
         'colours' => [
             'heading' => 'Colours',
             'description' => 'Hex only. Everything here ends up in a style attribute on somebody else\'s page, so anything that is not a colour is dropped and the default used instead.',

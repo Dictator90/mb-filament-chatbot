@@ -588,6 +588,7 @@ return [
         ],
         'channel' => ['label' => 'Канал'],
         'identified' => ['label' => 'Посетитель узнан'],
+        'has_contact' => ['label' => 'Связан с записью'],
         'returning' => ['label' => 'Уже писал раньше'],
         'working_hours' => ['label' => 'В рабочие часы'],
         'time' => [
@@ -623,6 +624,10 @@ return [
         'page' => [
             'label' => 'Страница, с которой открыли чат',
             'hint' => '/pricing',
+        ],
+        'cookie' => [
+            'label' => 'Cookie со страницы',
+            'hint' => 'utm_campaign',
         ],
         'handed_off' => ['label' => 'Уже передан человеку'],
     ],

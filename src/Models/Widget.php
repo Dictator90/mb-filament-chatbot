@@ -43,7 +43,35 @@ class Widget extends Model
             'theme' => 'array',
             'labels' => 'array',
             'features' => 'array',
+            'cookies' => 'array',
         ];
+    }
+
+    /**
+     * The cookie names this placement may read off the page it sits on, with
+     * anything that is not a cookie name dropped.
+     *
+     * Cleaned here rather than trusted from the column, because the same list is
+     * read twice for opposite purposes: it is sent to a script on somebody
+     * else's page telling it what to read, and it is the allow-list the server
+     * checks the answer against. A name that passed one reading and not the
+     * other would be a hole in the second.
+     *
+     * @return list<string>
+     */
+    public function cookieNames(): array
+    {
+        $names = [];
+
+        foreach ((array) $this->cookies as $name) {
+            $name = trim((string) $name);
+
+            if (preg_match('/^[A-Za-z0-9_.\-]{1,64}$/', $name) === 1) {
+                $names[$name] = $name;
+            }
+        }
+
+        return array_values($names);
     }
 
     protected static function newFactory(): Factory

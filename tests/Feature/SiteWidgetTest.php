@@ -576,3 +576,92 @@ it('takes the sites that may embed it from one environment variable', function (
         ->and($read(''))->toBe([])
         ->and($read(null))->toBe([]);
 });
+
+/**
+ * The declared cookies, and only those.
+ *
+ * **The list is checked here as well as sent out, and the second check is the
+ * one that counts.** What the widget was told to read is a hint to a script on
+ * a page this application does not control; what arrives is whatever the caller
+ * decided to put in the field. Trusting it would mean any page could write any
+ * name into a conversation's context, and every cookie condition in every
+ * scenario would be reading a value the visitor chose.
+ */
+it('keeps the cookies a widget declared and drops the rest', function (): void {
+    $this->widget->forceFill(['cookies' => ['utm_campaign']])->save();
+
+    $this->withHeaders(['Origin' => 'https://shop.example.com'])
+        ->postJson('/chatbot/site/messages', [
+            'widget' => 'demo',
+            'body' => 'hello',
+            'cookies' => [
+                'utm_campaign' => 'spring-sale',
+                'session' => 'not-yours-to-read',
+            ],
+        ])
+        ->assertOk();
+
+    expect(Conversation::query()->latest('id')->first()?->meta['cookies'] ?? [])
+        ->toBe(['utm_campaign' => 'spring-sale']);
+});
+
+/**
+ * A placement that declared nothing collects nothing, which is what makes the
+ * feature something a customer can have on their site: it is off until somebody
+ * names a cookie, and a widget installed before the field existed stays off.
+ */
+it('collects no cookies for a widget that declared none', function (): void {
+    $this->withHeaders(['Origin' => 'https://shop.example.com'])
+        ->postJson('/chatbot/site/messages', [
+            'widget' => 'demo',
+            'body' => 'hello',
+            'cookies' => ['utm_campaign' => 'spring-sale'],
+        ])
+        ->assertOk();
+
+    expect(Conversation::query()->latest('id')->first()?->meta['cookies'] ?? [])->toBe([]);
+});
+
+/**
+ * The value as the thread opened, not as it is now — the same rule the entry
+ * page follows. A visitor keeps browsing while they type, and a scenario that
+ * read the current value would take the same question down different branches
+ * depending on how long they spent writing it.
+ */
+it('keeps the cookies the thread opened with', function (): void {
+    $this->widget->forceFill(['cookies' => ['utm_campaign']])->save();
+
+    $send = fn (string $campaign) => $this->withHeaders(['Origin' => 'https://shop.example.com'])
+        ->postJson('/chatbot/site/messages', [
+            'widget' => 'demo',
+            'body' => 'hello',
+            'cookies' => ['utm_campaign' => $campaign],
+        ]);
+
+    $token = $send('spring-sale')->json('token');
+
+    $this->withHeaders(['Origin' => 'https://shop.example.com', 'X-Chatbot-Token' => $token])
+        ->postJson('/chatbot/site/messages', [
+            'widget' => 'demo',
+            'body' => 'still here',
+            'cookies' => ['utm_campaign' => 'winter-sale'],
+        ])
+        ->assertOk();
+
+    expect(Conversation::query()->latest('id')->first()?->meta['cookies'])
+        ->toBe(['utm_campaign' => 'spring-sale']);
+});
+
+/**
+ * The widget cannot read a cookie it was not told about, so the list has to
+ * reach it. Sent with the theme because that is the one call every embed makes
+ * before it draws anything.
+ */
+it('tells the widget which cookies it may read', function (): void {
+    $this->widget->forceFill(['cookies' => ['utm_campaign', 'not a cookie name']])->save();
+
+    $this->withHeaders(['Origin' => 'https://shop.example.com'])
+        ->getJson('/chatbot/site/theme?widget=demo')
+        ->assertOk()
+        ->assertJsonPath('cookies', ['utm_campaign']);
+});

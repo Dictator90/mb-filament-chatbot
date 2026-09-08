@@ -11,9 +11,11 @@ use MB\FilamentChatbot\Ai\AiGateway;
 use MB\FilamentChatbot\Ai\AiGatewayFactory;
 use MB\FilamentChatbot\Ai\KnowledgeSource;
 use MB\FilamentChatbot\Bot\Conditions\Fields\ChannelCondition;
+use MB\FilamentChatbot\Bot\Conditions\Fields\CookieCondition;
 use MB\FilamentChatbot\Bot\Conditions\Fields\DateCondition;
 use MB\FilamentChatbot\Bot\Conditions\Fields\DayCondition;
 use MB\FilamentChatbot\Bot\Conditions\Fields\HandedOffCondition;
+use MB\FilamentChatbot\Bot\Conditions\Fields\HasContactCondition;
 use MB\FilamentChatbot\Bot\Conditions\Fields\IdentifiedCondition;
 use MB\FilamentChatbot\Bot\Conditions\Fields\MonthCondition;
 use MB\FilamentChatbot\Bot\Conditions\Fields\OnlyGreetingCondition;
@@ -334,6 +336,7 @@ class ChatbotServiceProvider extends ServiceProvider
             VariableCondition::class,
             ChannelCondition::class,
             IdentifiedCondition::class,
+            HasContactCondition::class,
             ReturningCondition::class,
             WorkingHoursCondition::class,
             TimeCondition::class,
@@ -344,6 +347,7 @@ class ChatbotServiceProvider extends ServiceProvider
             TurnsCondition::class,
             OnlyGreetingCondition::class,
             PageCondition::class,
+            CookieCondition::class,
             HandedOffCondition::class,
         ];
 

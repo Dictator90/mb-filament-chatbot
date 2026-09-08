@@ -232,3 +232,63 @@ it('takes the first branch that matches, not the last', function (): void {
     expect($result->flow)->toBe(StepFlow::Goto)
         ->and($result->target)->toBe('one');
 });
+
+/**
+ * "Linked to a record" and "identified" are different questions, and a scenario
+ * that treats them as one is wrong in both directions.
+ *
+ * A thread an operator filed against a customer card, or one the host's
+ * directory recognised by phone number, is linked and unproven: good enough to
+ * fetch an order's status, nowhere near good enough to read somebody their own
+ * invoice. And a visitor whose identity the site signed is proven and unlinked
+ * whenever the host keeps no record of them.
+ */
+it('tells being linked to a record apart from being identified', function (): void {
+    $conversation = Conversation::factory()->create([
+        'contact_type' => 'demo_record',
+        'contact_id' => 42,
+        'identified_at' => null,
+    ]);
+
+    $linked = fn (string $field): bool => app(ConditionEvaluator::class)->evaluate(
+        ['field' => $field, 'operator' => 'yes'],
+        $conversation,
+        runtimeFor($conversation),
+    );
+
+    expect($linked('has_contact'))->toBeTrue()
+        ->and($linked('identified'))->toBeFalse();
+
+    $signed = Conversation::factory()->create(['identified_at' => now()]);
+
+    $proven = fn (string $field): bool => app(ConditionEvaluator::class)->evaluate(
+        ['field' => $field, 'operator' => 'yes'],
+        $signed,
+        runtimeFor($signed),
+    );
+
+    expect($proven('identified'))->toBeTrue()
+        ->and($proven('has_contact'))->toBeFalse();
+});
+
+/**
+ * A cookie the placement declared, branched on by name.
+ *
+ * Named rather than fixed, like a collected variable: which cookies exist is
+ * the site's business, and the package cannot have a condition per campaign.
+ */
+it('branches on a cookie the page handed over', function (): void {
+    $conversation = Conversation::factory()->create([
+        'meta' => ['cookies' => ['utm_campaign' => 'spring-sale']],
+    ]);
+
+    $answers = fn (string $name, string $value): bool => app(ConditionEvaluator::class)->evaluate(
+        ['field' => 'cookie', 'name' => $name, 'operator' => 'equals', 'value' => $value],
+        $conversation,
+        runtimeFor($conversation),
+    );
+
+    expect($answers('utm_campaign', 'spring-sale'))->toBeTrue()
+        ->and($answers('utm_campaign', 'winter-sale'))->toBeFalse()
+        ->and($answers('plan', 'spring-sale'))->toBeFalse();
+});

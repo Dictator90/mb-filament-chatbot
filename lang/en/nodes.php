@@ -609,6 +609,7 @@ return [
         ],
         'channel' => ['label' => 'Channel'],
         'identified' => ['label' => 'Visitor is identified'],
+        'has_contact' => ['label' => 'Linked to a record'],
         'returning' => ['label' => 'Has written before'],
         'working_hours' => ['label' => 'Within working hours'],
         'time' => [
@@ -644,6 +645,10 @@ return [
         'page' => [
             'label' => 'Page the chat was opened from',
             'hint' => '/pricing',
+        ],
+        'cookie' => [
+            'label' => 'Cookie from the page',
+            'hint' => 'utm_campaign',
         ],
         'handed_off' => ['label' => 'Already handed to a person'],
     ],

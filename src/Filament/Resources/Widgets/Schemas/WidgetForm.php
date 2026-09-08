@@ -172,6 +172,27 @@ class WidgetForm
                             ->live(),
                     ]),
                 ]),
+
+            /*
+             * The cookie names this placement may read off the page it sits on,
+             * empty until somebody fills it in on purpose.
+             *
+             * A list rather than a switch, because a switch would say "read the
+             * page's cookies" — and an embed on a customer's site that reads
+             * every cookie there is is not a support widget, whatever the panel
+             * calls it. Naming each one keeps the answer to "what does this
+             * script collect?" on one screen, in words the person who put it
+             * there chose.
+             */
+            Section::make(__('chatbot::panel.site_widgets.cookies.heading'))
+                ->description(__('chatbot::panel.site_widgets.cookies.description'))
+                ->schema([
+                    TagsInput::make('cookies')
+                        ->label(__('chatbot::panel.site_widgets.cookies.names'))
+                        ->placeholder('utm_campaign')
+                        ->helperText(__('chatbot::panel.site_widgets.cookies.help'))
+                        ->nestedRecursiveRules(['string', 'max:64', 'regex:/^[A-Za-z0-9_.\-]+$/']),
+                ]),
         ];
     }
 

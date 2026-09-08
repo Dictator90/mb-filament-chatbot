@@ -232,6 +232,13 @@
              */
             receipts: true,
         },
+        /*
+         * The cookie names this placement was told it may read off the page it
+         * sits on. Empty until the server says otherwise, and empty is the
+         * honest default: reading a cookie nobody asked for is precisely what
+         * an embedded script must never do on somebody else's site.
+         */
+        cookies: [],
     };
 
     /**
@@ -264,6 +271,18 @@
                 if (Object.prototype.hasOwnProperty.call(sent.features, name)) {
                     theme.features[name] = Boolean(sent.features[name]);
                 }
+            });
+        }
+
+        /*
+         * Replaced wholesale rather than merged, unlike the flags above. This is
+         * a permission and not a preference: a name taken off the list in the
+         * panel has to stop being read here on the next load, and a merge would
+         * keep collecting it for as long as the page stayed open.
+         */
+        if (sent && Array.isArray(sent.cookies)) {
+            theme.cookies = sent.cookies.filter(function (name) {
+                return typeof name === 'string' && /^[A-Za-z0-9_.\-]{1,64}$/.test(name);
             });
         }
 
@@ -387,6 +406,53 @@
      */
     function storageKey(name) {
         return settings.prefix + ':' + name;
+    }
+
+    /**
+     * The declared cookies, read off the page the widget is embedded in.
+     *
+     * Only the names the server listed, and the loop is over that list rather
+     * than over `document.cookie`: iterating what the page has and keeping what
+     * looks interesting is how a support widget turns into something a customer
+     * would be right to remove from their site.
+     *
+     * Nothing here is a secret, and nothing here proves anything. These are
+     * values a browser held on a page anybody can set cookies on; the server
+     * checks the names again when they arrive, and a scenario branching on one
+     * is branching on a claim.
+     */
+    function pageCookies() {
+        if (!theme.cookies.length || typeof document.cookie !== 'string') {
+            return null;
+        }
+
+        var jar = {};
+        var pairs = document.cookie.split(';');
+
+        theme.cookies.forEach(function (name) {
+            for (var at = 0; at < pairs.length; at++) {
+                var pair = pairs[at];
+                var split = pair.indexOf('=');
+
+                if (split < 0) {
+                    continue;
+                }
+
+                if (pair.slice(0, split).trim() !== name) {
+                    continue;
+                }
+
+                try {
+                    jar[name] = decodeURIComponent(pair.slice(split + 1).trim()).slice(0, 255);
+                } catch (error) {
+                    jar[name] = pair.slice(split + 1).trim().slice(0, 255);
+                }
+
+                return;
+            }
+        });
+
+        return Object.keys(jar).length ? jar : null;
     }
 
     function readToken() {
@@ -1205,6 +1271,7 @@
         append({ id: null, body: body || (file ? file.name : ''), incoming: true });
 
         var request = { method: 'POST' };
+        var cookies = pageCookies();
 
         if (file) {
             var form = new FormData();
@@ -1215,6 +1282,12 @@
             form.append('page', window.location.href);
             form.append('attachment', file);
 
+            if (cookies) {
+                Object.keys(cookies).forEach(function (name) {
+                    form.append('cookies[' + name + ']', cookies[name]);
+                });
+            }
+
             request.form = form;
         } else {
             request.body = {
@@ -1222,6 +1295,7 @@
                 bot: settings.bot,
                 body: body,
                 page: window.location.href,
+                cookies: cookies,
                 identity: settings.identity.signature ? settings.identity : null,
             };
         }

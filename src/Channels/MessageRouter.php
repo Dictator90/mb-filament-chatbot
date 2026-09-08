@@ -217,9 +217,40 @@ class MessageRouter
         }
 
         $this->mergeContacts($conversation, $inbound);
+        $this->rememberCookies($conversation, $inbound);
         $this->identify($conversation, $inbound);
 
         return $conversation;
+    }
+
+    /**
+     * The page context a channel declared, kept as it was when the thread
+     * opened.
+     *
+     * The first reading and not the latest, for the reason the entry page is
+     * the entry page: a visitor keeps browsing while they type, and a condition
+     * reading whatever the cookie says now would send the same question down
+     * different branches depending on how long they took to write it. What a
+     * scenario branches on has to be a fact about the conversation, not about
+     * the second it was asked in.
+     *
+     * Merged into `meta` rather than replacing it, because that column already
+     * carries the marks that hide a rehearsal from every query in the package —
+     * and a thread that stopped being hidden would put a test conversation on
+     * somebody's desk.
+     */
+    private function rememberCookies(Conversation $conversation, InboundMessage $inbound): void
+    {
+        $cookies = (array) ($inbound->meta['cookies'] ?? []);
+        $meta = (array) $conversation->meta;
+
+        if ($cookies === [] || ($meta['cookies'] ?? []) !== []) {
+            return;
+        }
+
+        $meta['cookies'] = $cookies;
+
+        $conversation->forceFill(['meta' => $meta])->save();
     }
 
     /**

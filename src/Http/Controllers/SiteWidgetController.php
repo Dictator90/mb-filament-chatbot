@@ -8,6 +8,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Validation\ValidationException;
+use MB\FilamentChatbot\Bot\Conditions\Fields\CookieCondition;
 use MB\FilamentChatbot\Channels\Drivers\SiteDriver;
 use MB\FilamentChatbot\Channels\InboundMessage;
 use MB\FilamentChatbot\Channels\MessageRouter;
@@ -85,6 +86,18 @@ class SiteWidgetController
              */
             'features' => WidgetFeatures::forWidget($widget)->toArray(),
             'labels' => array_filter((array) ($widget?->labels ?? [])),
+            /*
+             * The cookie names this placement was told it may read, and no
+             * others. The script could read every cookie on the page it sits
+             * on; what makes it acceptable that it reads any is that it is told
+             * which by the person who set the placement up, and that the same
+             * list is checked again when the answer comes back.
+             *
+             * Empty for a widget that cannot talk here, like everything else on
+             * this response: a script this installation will not answer has no
+             * business collecting anything for it.
+             */
+            'cookies' => $widget?->cookieNames() ?? [],
         ]);
     }
 
@@ -240,6 +253,8 @@ class SiteWidgetController
             'bot' => ['nullable', 'string', 'max:191'],
             'widget' => ['nullable', 'string', 'max:64'],
             'page' => ['nullable', 'string', 'max:2048'],
+            'cookies' => ['nullable', 'array', 'max:20'],
+            'cookies.*' => ['nullable', 'string', 'max:255'],
             'identity' => ['nullable', 'array'],
             'identity.id' => ['nullable', 'string', 'max:191'],
             'identity.signature' => ['nullable', 'string', 'max:191'],
@@ -278,6 +293,7 @@ class SiteWidgetController
              * pass it.
              */
             identified: $identity !== [],
+            meta: $this->declaredCookies($request, $data['cookies'] ?? null),
         ));
 
         if ($file instanceof UploadedFile && $message instanceof Message) {
@@ -519,6 +535,50 @@ class SiteWidgetController
     private function verifiedIdentity(?array $identity): array
     {
         return WidgetIdentity::verify($identity) ?? [];
+    }
+
+    /**
+     * The cookies this placement was allowed to read, kept — and everything
+     * else the request offered, dropped.
+     *
+     * **The list is checked here as well as sent out, and the second check is
+     * the one that matters.** What the widget was told to read is a hint to a
+     * script running on a page this application does not control; what arrives
+     * is whatever the caller decided to put in the field. Trusting it would
+     * mean any page could write any name into a conversation's context and any
+     * scenario reading a cookie condition would be reading a value the visitor
+     * chose.
+     *
+     * They are still not trustworthy after the check — a cookie is a value the
+     * browser held and the page could set, so a condition on one may steer a
+     * conversation and must never open anything
+     * ({@see CookieCondition}). What
+     * the check buys is a bounded, declared set of names instead of an open
+     * channel into the record.
+     *
+     * @param  array<string, mixed>|null  $sent
+     * @return array<string, mixed>
+     */
+    private function declaredCookies(Request $request, ?array $sent): array
+    {
+        $widget = $this->widgets->forRequest($request);
+
+        if ($sent === null || $sent === [] || ! $this->widgets->reachable($widget, $request)) {
+            return [];
+        }
+
+        $allowed = $widget?->cookieNames() ?? [];
+        $kept = [];
+
+        foreach ($allowed as $name) {
+            $value = $sent[$name] ?? null;
+
+            if (is_string($value) && trim($value) !== '') {
+                $kept[$name] = trim($value);
+            }
+        }
+
+        return $kept === [] ? [] : ['cookies' => $kept];
     }
 
     /**

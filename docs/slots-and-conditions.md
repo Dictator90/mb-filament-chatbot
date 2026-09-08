@@ -201,6 +201,7 @@ reading the canvas has no way to see that.
 | `variable` | text, needs a name | Branches on something the bot collected |
 | `channel` | choice | Which channel this thread arrived on |
 | `identified` | flag | Has the host told us who this person is |
+| `has_contact` | flag | Is this thread filed against a record |
 | `returning` | flag | Has this person written before |
 | `working_hours` | flag | Is the bot inside its own working hours |
 | `time` | clock | Time of day |
@@ -211,6 +212,7 @@ reading the canvas has no way to see that.
 | `turns` | number | How many messages the visitor has sent |
 | `only_greeting` | flag | They said hello and nothing else |
 | `page` | text | The page the chat was opened from |
+| `cookie` | text, needs a name | A cookie the placement declared |
 | `handed_off` | flag | The thread already belongs to a person |
 
 Several of these look redundant next to each other and are not.
@@ -230,6 +232,17 @@ personal, and it asks the conversation rather than looking for contact details. 
 phone number typed into the widget was typed by whoever was at the keyboard; a
 branch built on "we have a phone number" would read somebody their own data only
 by luck. `identified` is your application saying it authenticated the visitor.
+
+**`has_contact` versus `identified`.** Different questions, and a scenario that
+treats them as one is wrong in both directions. `identified` asks whether anybody
+proved who this is; `has_contact` asks whether the thread has been filed against
+a record. A thread an operator attached to a customer card by hand, or one your
+`ContactDirectory` recognised by phone number, is linked and unproven — good
+enough to fetch an order's status into a variable, nowhere near good enough to
+read somebody their own invoice. A visitor whose identity your site signed is
+proven and unlinked whenever you keep no record of them. So `has_contact` is the
+condition in front of anything that *reads a record*, and `identified` stays the
+condition in front of anything *personal*. A scenario that wants both says both.
 
 **`returning`** is answered from the contact you linked, not from the thread. One
 person writes from the site today and from Telegram tomorrow, and each channel
@@ -253,6 +266,19 @@ at a single moment.
 looking at now. People keep browsing while they type, and branching on the
 current page would make the same question take different routes depending on how
 long somebody took to write it.
+
+**`cookie`** is a value the embedding page was allowed to hand over: the campaign
+somebody arrived through, the plan their account is on, the branch they picked.
+Only cookies the widget declared ever arrive — you list them by name on the
+placement, and that list is what keeps an embed on a customer's site from being a
+reader of every cookie on it. It is checked twice: once when the widget is told
+what to read, and again on the server when the answer comes back.
+
+A cookie may steer a conversation and must never open anything. Anybody can set
+one on a page, so a branch reading `plan = enterprise` is reading a claim by
+whoever was at the keyboard: use it to shorten a path, choose a tone or route to
+the right team, and use `identified` for the gate in front of somebody's data.
+Like `page`, it is read as the thread opened rather than as it is now.
 
 **`handed_off`** looks useless — the engine stops the bot when a thread goes to a
 person, so a running scenario never sees it true. It is needed in the two places
