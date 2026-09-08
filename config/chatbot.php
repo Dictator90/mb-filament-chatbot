@@ -433,6 +433,24 @@ return [
         'candidates' => 5,
         'min_score' => 0.2,
         'min_gap' => 0.25,
+
+        /*
+         * The second pass, by the shape of the question rather than its words.
+         *
+         * It runs only where matching words found nothing — a typo, two words
+         * run together, an inflection nothing strips — and never to break a tie
+         * between two topics that matched equally. Closeness is a cosine over
+         * three-character pieces, computed here and not by a provider, so the
+         * knowledge base keeps working with the model switched off.
+         *
+         * `min_similarity` is high on purpose: this is the last thing standing
+         * between a question and an honest "I do not know", and answering the
+         * wrong topic there is worse than answering nothing. The right number
+         * depends on the language and on how alike the topics of a given base
+         * are, which is why it is here at all.
+         */
+        'similarity' => true,
+        'min_similarity' => 0.42,
         'stop_words' => [
             'about', 'after', 'all', 'also', 'and', 'any', 'are', 'ask', 'been',
             'before', 'being', 'but', 'can', 'could', 'did', 'does', 'doing',

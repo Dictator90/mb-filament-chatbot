@@ -10,6 +10,7 @@ use MB\FilamentChatbot\Bot\Steps\StepResult;
 use MB\FilamentChatbot\Bot\Steps\Types\AnswerStep;
 use MB\FilamentChatbot\Demo\DemoData;
 use MB\FilamentChatbot\Knowledge\KnowledgeFinder;
+use MB\FilamentChatbot\Knowledge\KnowledgeVerdict;
 use MB\FilamentChatbot\Models\Conversation;
 use MB\FilamentChatbot\Models\KnowledgeEntry;
 use MB\FilamentChatbot\Models\RunStep;
@@ -229,4 +230,121 @@ it('costs the same number of queries whether the base holds five topics or forty
     }
 
     expect(knowledgeQueries($ask))->toBe($small);
+});
+
+/**
+ * The second pass: what a question looks like, once matching its words has
+ * found nothing.
+ *
+ * A typo is not an unusual question, it is the ordinary one. "waranty" shares
+ * no root with anything in the base — the root search is silent, the bot says
+ * it does not know and fetches a person — while the letters say plainly which
+ * topic was meant.
+ */
+it('recognises a question the root search could not, by its shape', function (): void {
+    $verdict = knowledgeFinder()->find($this->bot->getKey(), 'how long is the waranty on hardwear?');
+
+    expect($verdict)->not->toBeNull()
+        ->and($verdict->entry()->topic_key)->toBe('warranty')
+        ->and($verdict->via())->toBe(KnowledgeVerdict::BY_SHAPE)
+        ->and($verdict->roots())->toBe([]);
+});
+
+/**
+ * A misspelling in every word of the question at once, which is what a message
+ * typed on a phone looks like. Root matching needs one word spelled right.
+ */
+it('recognises a question misspelled throughout', function (): void {
+    $verdict = knowledgeFinder()->find($this->bot->getKey(), 'do you shipp internationaly?');
+
+    expect($verdict)->not->toBeNull()
+        ->and($verdict->entry()->topic_key)->toBe('international-shipping');
+});
+
+/**
+ * Two topics genuinely indistinguishable — close on words and equally close on
+ * shape, because they are written to be. This is the case the honest "I do not
+ * know" exists for, and shape must not talk it into an answer.
+ */
+it('stays silent when shape is as undecided as the words were', function (): void {
+    foreach (['battery-refill', 'battery-replace'] as $key) {
+        KnowledgeEntry::factory()->create([
+            'bot_id' => $this->bot->getKey(),
+            'topic_key' => $key,
+            'question' => 'What about the battery pack?',
+            'keywords' => ['battery pack'],
+            'scenario_slug' => null,
+        ]);
+    }
+
+    expect(knowledgeFinder()->find($this->bot->getKey(), 'battery pack'))->toBeNull();
+});
+
+/**
+ * Distant topics are dropped rather than returned as the best of a bad set.
+ * This pass runs where the bot would otherwise say honestly that it does not
+ * know, and answering the wrong topic there is worse than answering nothing.
+ */
+it('still finds nothing for a question the base has no topic for', function (): void {
+    expect(knowledgeFinder()->find($this->bot->getKey(), 'do you sell bicycles for toddlers?'))
+        ->toBeNull();
+});
+
+/**
+ * A host that would rather have the honest silence can have it, and the first
+ * pass is untouched by the switch.
+ */
+it('can be switched off without taking the word search with it', function (): void {
+    config()->set('chatbot.knowledge.similarity', false);
+
+    expect(knowledgeFinder()->find($this->bot->getKey(), 'how long is the waranty on hardwear?'))->toBeNull()
+        ->and(knowledgeFinder()->find($this->bot->getKey(), 'where is my refund for this order')?->entry()->topic_key)
+        ->toBe('refund-status');
+});
+
+/**
+ * Roots are compared truncated, and truncation invents ties: "shipp" is the
+ * root of both the shipping topic and the international one, so a question
+ * about shipping abroad matches them equally and the bot goes quiet. Spelled
+ * out, the two are not close at all.
+ *
+ * The tie is settled and not overturned: the topic that wins is one of the two
+ * the words tied, and it wins by a margin the words never had.
+ */
+it('lets shape settle a tie the truncated roots invented', function (): void {
+    $verdict = knowledgeFinder()->find($this->bot->getKey(), 'do you shipp internationaly?');
+
+    expect($verdict)->not->toBeNull()
+        ->and($verdict->entry()->topic_key)->toBe('international-shipping')
+        ->and($verdict->via())->toBe(KnowledgeVerdict::BY_SHAPE);
+});
+
+/**
+ * Shape may break a tie and never overturn one. A topic the word search did not
+ * put on the table cannot arrive from the second pass: that would be the
+ * stronger match overruled by the weaker one, on a question the words had
+ * already understood.
+ */
+it('never answers with a topic the words did not put on the table', function (): void {
+    foreach (['battery-refill', 'battery-replace'] as $key) {
+        KnowledgeEntry::factory()->create([
+            'bot_id' => $this->bot->getKey(),
+            'topic_key' => $key,
+            'question' => 'What about the battery pack?',
+            'keywords' => ['battery pack'],
+            'scenario_slug' => null,
+        ]);
+    }
+
+    KnowledgeEntry::factory()->create([
+        'bot_id' => $this->bot->getKey(),
+        'topic_key' => 'batery-shaped-topic',
+        'question' => 'battery pack',
+        'keywords' => [],
+        'scenario_slug' => null,
+    ]);
+
+    $verdict = knowledgeFinder()->find($this->bot->getKey(), 'battery pack');
+
+    expect($verdict?->entry()->topic_key)->not->toBe('batery-shaped-topic');
 });

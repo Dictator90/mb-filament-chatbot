@@ -19,15 +19,34 @@ use MB\FilamentChatbot\Models\KnowledgeEntry;
 final class KnowledgeVerdict
 {
     /**
+     * How the topic was found. Recorded rather than inferred, because the two
+     * passes score on different scales — a weighted share of the question's
+     * roots, and a cosine between letter pieces — and a number read without
+     * knowing which is a number nobody can interpret. It is also the first
+     * thing worth knowing when a match is disputed: a word match and a shape
+     * match are wrong for different reasons and are fixed in different places.
+     */
+    public const BY_WORDS = 'roots';
+
+    public const BY_SHAPE = 'shape';
+
+    /**
      * @param  list<string>  $roots  the roots of the question that matched
      * @param  list<array{topic_key: string, score: float}>  $alternatives  the runners-up, best first
+     * @param  string  $via  self::BY_WORDS or self::BY_SHAPE
      */
     public function __construct(
         private readonly KnowledgeEntry $entry,
         private readonly float $score,
         private readonly array $roots,
         private readonly array $alternatives = [],
+        private readonly string $via = self::BY_WORDS,
     ) {}
+
+    public function via(): string
+    {
+        return $this->via;
+    }
 
     public function entry(): KnowledgeEntry
     {

@@ -231,6 +231,13 @@ final class AnswerStep extends StepType
         return array_merge([
             'topic' => $verdict->entry()->topic_key,
             'mode' => $verdict->entry()->mode->value,
+            /*
+             * Which pass found it, beside the score. The two score on different
+             * scales — a weighted share of the question's roots against a
+             * cosine between letter pieces — so a number recorded without it is
+             * a number nobody reading the journal afterwards can interpret.
+             */
+            'via' => $verdict->via(),
             'score' => round($verdict->score(), 4),
             'roots' => $verdict->roots(),
             'alternatives' => $verdict->alternatives(),

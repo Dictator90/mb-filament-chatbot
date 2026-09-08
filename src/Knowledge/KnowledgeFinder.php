@@ -25,7 +25,10 @@ use MB\FilamentChatbot\Models\KnowledgeEntry;
  */
 final class KnowledgeFinder
 {
-    public function __construct(private readonly RootExtractor $extractor) {}
+    public function __construct(
+        private readonly RootExtractor $extractor,
+        private readonly KnowledgeVectors $vectors,
+    ) {}
 
     /**
      * The topic behind a question, or null when the base does not know.
@@ -38,32 +41,22 @@ final class KnowledgeFinder
             return null;
         }
 
-        $asked = $this->extractor->roots($said);
-
-        if ($asked === []) {
-            return null;
-        }
-
         $entries = $this->entries($botId, $category);
 
         if ($entries->isEmpty()) {
             return null;
         }
 
-        $scored = $this->score($entries, $asked);
+        $asked = $this->extractor->roots($said);
+        $scored = $asked === [] ? [] : $this->score($entries, $asked);
+        $best = $scored[0] ?? null;
 
-        if ($scored === []) {
-            return null;
-        }
-
-        $best = $scored[0];
-
-        if ($best['score'] < $this->threshold('min_score', 0.2)) {
-            return null;
+        if ($best === null || $best['score'] < $this->threshold('min_score', 0.2)) {
+            return $this->byShape($said, $entries);
         }
 
         if ($this->tooClose($best['score'], $scored[1]['score'] ?? 0.0)) {
-            return null;
+            return $this->settle($said, $entries, $scored);
         }
 
         return new KnowledgeVerdict(
@@ -72,6 +65,106 @@ final class KnowledgeFinder
             $best['matched'],
             $this->alternatives($scored),
         );
+    }
+
+    /**
+     * The second pass: what the question looks like, once matching its words
+     * has found nothing.
+     *
+     * Reached from two silences that look different and are the same. Either no
+     * topic shares a single root with the question — a typo, two words run
+     * together, an inflection the extractor does not strip — or one does and so
+     * weakly that the score is noise. Both end with the bot saying it does not
+     * know, and both are frequently a question the base can answer perfectly
+     * well ({@see KnowledgeVectors}).
+     *
+     * The verdict carries no matched roots, because there were none. That is
+     * not a gap to fill with something plausible: the journal shows how the
+     * topic was found, and a list of roots invented here would make a shape
+     * match indistinguishable from a word match when somebody comes to ask why
+     * this topic was chosen.
+     *
+     * @param  Collection<int, KnowledgeEntry>  $entries
+     */
+    private function byShape(?string $said, Collection $entries): ?KnowledgeVerdict
+    {
+        if (! config('chatbot.knowledge.similarity', true)) {
+            return null;
+        }
+
+        $nearest = $this->vectors->nearest(
+            $said,
+            $entries,
+            max(1, (int) config('chatbot.knowledge.candidates', 5)),
+        );
+
+        if ($nearest === []) {
+            return null;
+        }
+
+        return new KnowledgeVerdict(
+            $nearest[0]['entry'],
+            $nearest[0]['score'],
+            [],
+            array_values(array_map(
+                static fn (array $row): array => [
+                    'topic_key' => (string) $row['entry']->topic_key,
+                    'score' => round($row['score'], 4),
+                ],
+                array_slice($nearest, 1),
+            )),
+            KnowledgeVerdict::BY_SHAPE,
+        );
+    }
+
+    /**
+     * A tie between topics that matched the words equally, settled by shape —
+     * but only when shape is not itself in two minds.
+     *
+     * The tie rule exists because two topics fitting a question equally usually
+     * means the word that would separate them is missing, and answering either
+     * is a confident reply about something nobody asked. It is not always that,
+     * though: roots are compared truncated, so "shipp internationaly" ties the
+     * shipping topic against the international one on a prefix, while the full
+     * spelling separates them six to one. Refusing there loses a question the
+     * base can answer, in favour of a safety that was not being threatened.
+     *
+     * Two conditions keep it safe, and both are needed:
+     *
+     * - **the winner has to be one of the tied topics.** Shape may break a tie,
+     *   never overturn it: a third topic arriving from nowhere would be the
+     *   word search overruled by the weaker pass.
+     * - **shape has to be decisive by the same margin the words failed by.**
+     *   Two topics close on words and close on shape are genuinely
+     *   indistinguishable, and that is the case the honest "I do not know"
+     *   was written for.
+     *
+     * @param  Collection<int, KnowledgeEntry>  $entries
+     * @param  list<array{entry: KnowledgeEntry, score: float, matched: list<string>}>  $scored
+     */
+    private function settle(?string $said, Collection $entries, array $scored): ?KnowledgeVerdict
+    {
+        $shape = $this->byShape($said, $entries);
+
+        if ($shape === null) {
+            return null;
+        }
+
+        $tied = array_map(
+            static fn (array $row): string => (string) $row['entry']->topic_key,
+            array_values(array_filter(
+                $scored,
+                static fn (array $row): bool => $row['score'] > 0.0,
+            )),
+        );
+
+        if (! in_array((string) $shape->entry()->topic_key, $tied, true)) {
+            return null;
+        }
+
+        $runnerUp = (float) ($shape->alternatives()[0]['score'] ?? 0.0);
+
+        return $this->tooClose($shape->score(), $runnerUp) ? null : $shape;
     }
 
     /**
