@@ -754,6 +754,18 @@
     border-top: 1px solid var(--chatbot-line);
 }
 
+/*
+ * Both of these need their own `[hidden]`, and the reason catches everyone
+ * once: a class that sets `display: flex` beats the browser's own
+ * `[hidden] { display: none }`, so the attribute is simply ignored. The symptom
+ * is the form standing above a composer that was told to go away — two ways to
+ * start typing, one of which does nothing.
+ */
+.chatbot__lead[hidden],
+.chatbot__composer[hidden] {
+    display: none;
+}
+
 .chatbot__lead-intro {
     margin: 0;
     font-size: 13px;
