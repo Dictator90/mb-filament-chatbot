@@ -632,6 +632,26 @@ return [
         'disk' => env('CHATBOT_ATTACHMENT_DISK', 'local'),
         'path' => 'chatbot/attachments',
 
+        /*
+         * Photographs are rewritten smaller in place, rather than kept whole
+         * with a thumbnail beside them.
+         *
+         * A picture from a phone is twelve megapixels and five megabytes, looked
+         * at in a panel the width of a hand. A thumbnail alongside the original
+         * does not save that space, it doubles it — a conversation has no expiry
+         * and the original is never opened again.
+         *
+         * Fifteen hundred on the long side is where a flight number is still
+         * readable in a photograph of a ticket and a document number in a scan.
+         * Below that an attachment stops being a document.
+         *
+         * Needs GD, which nearly every PHP install has. Where it is missing —
+         * or where the store is object storage, which has no path on this
+         * machine — files are kept exactly as they arrived.
+         */
+        'shrink_images' => true,
+        'max_image_side' => 1500,
+
         'mimes' => [
             'image/jpeg',
             'image/png',

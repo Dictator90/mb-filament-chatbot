@@ -8,6 +8,7 @@ use Illuminate\Support\Facades\Storage;
 use Illuminate\Testing\TestResponse;
 use Livewire\Livewire;
 use MB\FilamentChatbot\Channels\WidgetFeatures;
+use MB\FilamentChatbot\Chat\AttachmentStore;
 use MB\FilamentChatbot\Filament\Pages\ChatInbox;
 use MB\FilamentChatbot\Http\VisitorToken;
 use MB\FilamentChatbot\Models\Attachment;
@@ -341,4 +342,108 @@ it('reads a widget with no features stored as the shipped defaults', function ()
 
     expect(WidgetFeatures::forWidget($widget)->emoji())->toBeTrue()
         ->and(WidgetFeatures::forWidget($widget)->attachments())->toBeFalse();
+});
+
+/**
+ * A photograph, with real pixels in it.
+ */
+function imageOfSize(int $width, int $height): string
+{
+    $canvas = imagecreatetruecolor($width, $height);
+
+    imagefilledrectangle($canvas, 0, 0, $width - 1, $height - 1, imagecolorallocate($canvas, 30, 90, 200));
+
+    $path = tempnam(sys_get_temp_dir(), 'chatbot-image').'.jpg';
+
+    imagejpeg($canvas, $path, 92);
+    imagedestroy($canvas);
+
+    return $path;
+}
+
+/**
+ * A picture from a phone is twelve megapixels of resolution nobody will ever
+ * look at, and a conversation has no expiry: whatever is kept is kept forever.
+ *
+ * The recorded size is checked alongside the dimensions on purpose. The row is
+ * written before the file is rewritten, so a shrink that forgot to correct it
+ * leaves the desk showing five megabytes for a file that is now two hundred
+ * kilobytes — and every disk-usage question answered from that column is wrong
+ * for as long as nobody opens the file.
+ */
+it('cuts a photograph down to something worth keeping', function (): void {
+    $file = new UploadedFile(imageOfSize(3000, 2000), 'holiday.jpg', 'image/jpeg', null, true);
+
+    $message = Message::factory()->create([
+        'conversation_id' => Conversation::factory()->create()->getKey(),
+    ]);
+
+    $attachment = app(AttachmentStore::class)->store($message, $file);
+
+    $stored = Storage::disk('local')->path($attachment->path);
+    [$width, $height] = getimagesize($stored);
+
+    expect($width)->toBe(1500)
+        ->and($height)->toBe(1000)
+        ->and($attachment->refresh()->size)->toBe(filesize($stored));
+});
+
+/**
+ * A picture already small enough is left exactly as it arrived. Re-encoding it
+ * would cost a generation of quality for nothing — and on a scan of a document,
+ * a generation of JPEG is the difference between a readable number and an
+ * argument about one.
+ */
+it('leaves a picture that is already small enough alone', function (): void {
+    $path = imageOfSize(800, 600);
+    $before = file_get_contents($path);
+
+    $message = Message::factory()->create([
+        'conversation_id' => Conversation::factory()->create()->getKey(),
+    ]);
+
+    $attachment = app(AttachmentStore::class)->store(
+        $message,
+        new UploadedFile($path, 'small.jpg', 'image/jpeg', null, true),
+    );
+
+    expect(Storage::disk('local')->get($attachment->path))->toBe($before);
+});
+
+/**
+ * Anything that is not an image comes through untouched. A PDF handed to an
+ * image library is a PDF that either fails or, worse, succeeds at producing
+ * something that is no longer the document somebody sent.
+ */
+it('does not touch a file that is not a picture', function (): void {
+    $file = uploadedWithContent('invoice.pdf', '%PDF-1.4 not really a pdf but close enough', 'application/pdf');
+
+    $message = Message::factory()->create([
+        'conversation_id' => Conversation::factory()->create()->getKey(),
+    ]);
+
+    $attachment = app(AttachmentStore::class)->store($message, $file);
+
+    expect(Storage::disk('local')->get($attachment->path))
+        ->toBe('%PDF-1.4 not really a pdf but close enough');
+});
+
+/**
+ * A host that would rather keep originals says so, and the switch is obeyed at
+ * the one place files land.
+ */
+it('keeps originals when a host asks it to', function (): void {
+    config()->set('chatbot.attachments.shrink_images', false);
+
+    $file = new UploadedFile(imageOfSize(3000, 2000), 'holiday.jpg', 'image/jpeg', null, true);
+
+    $message = Message::factory()->create([
+        'conversation_id' => Conversation::factory()->create()->getKey(),
+    ]);
+
+    $attachment = app(AttachmentStore::class)->store($message, $file);
+
+    [$width] = getimagesize(Storage::disk('local')->path($attachment->path));
+
+    expect($width)->toBe(3000);
 });

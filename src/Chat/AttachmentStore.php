@@ -124,7 +124,7 @@ class AttachmentStore
             Str::random(40).$this->extensionFor($file),
         );
 
-        return Attachment::create([
+        $attachment = Attachment::create([
             'uuid' => (string) Str::uuid(),
             'message_id' => $message->getKey(),
             'conversation_id' => $message->conversation_id,
@@ -134,6 +134,21 @@ class AttachmentStore
             'mime' => $mime,
             'size' => (int) $file->getSize(),
         ]);
+
+        /*
+         * Shrunk here, which is the reason this class is "the one place a file
+         * enters a conversation" rather than three of them. A photograph from a
+         * phone is five megabytes of resolution nobody will ever look at, and
+         * the alternative — shrinking at each of the roads in — is two roads
+         * that do it and one that quietly does not.
+         *
+         * After the row exists rather than before, so the recorded size can be
+         * corrected to what ends up on disk. It never throws: what could fail
+         * there is an optimisation, and the customer's file is already stored.
+         */
+        app(ImageShrinker::class)->shrink($attachment);
+
+        return $attachment;
     }
 
     /**
