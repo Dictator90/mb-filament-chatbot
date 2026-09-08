@@ -313,6 +313,20 @@ class MessageRouter
             $changes['bot_id'] = $inbound->botId;
         }
 
+        /*
+         * Stamped once, and never taken back.
+         *
+         * Proof arrives at a moment — the message that carried a signature the
+         * host's site produced — and the thread stays proved afterwards, because
+         * the person did not stop being themselves when they sent the next line
+         * without it. Re-stamping on every message would move the timestamp to
+         * mean "last proved" rather than "proved since", and the desk reads it
+         * as the second.
+         */
+        if ($inbound->identified && $conversation->identified_at === null) {
+            $changes['identified_at'] = now();
+        }
+
         if ($changes === []) {
             return;
         }

@@ -43,6 +43,16 @@ final class InboundMessage
          */
         public readonly ?string $visitorKey = null,
         public readonly ?int $botId = null,
+        /**
+         * Whether the channel proved who this is, rather than being told.
+         *
+         * The one thing on this object that is not a claim, and separate from
+         * the contact fields for exactly that reason: a phone number is a phone
+         * number whether it was signed or typed, and only this says which. A
+         * channel with nothing to prove it with leaves it false, which is the
+         * honest answer for every public chat box there is.
+         */
+        public readonly bool $identified = false,
         public readonly array $meta = [],
     ) {}
 }

@@ -13,6 +13,7 @@ use MB\FilamentChatbot\Channels\InboundMessage;
 use MB\FilamentChatbot\Channels\MessageRouter;
 use MB\FilamentChatbot\Channels\Outbox;
 use MB\FilamentChatbot\Channels\WidgetFeatures;
+use MB\FilamentChatbot\Channels\WidgetIdentity;
 use MB\FilamentChatbot\Channels\WidgetResolver;
 use MB\FilamentChatbot\Channels\WidgetTheme;
 use MB\FilamentChatbot\Chat\AttachmentRefused;
@@ -268,6 +269,15 @@ class SiteWidgetController
             entryPage: $data['page'] ?? null,
             visitorKey: VisitorToken::hash($token),
             botId: $this->answeringBotId($request),
+            /*
+             * A checked signature is the one act that proves who this is, so it
+             * is the one place the flag may be raised. It used to be raised
+             * nowhere at all: the identity verified, the name and phone were
+             * recorded, and the condition the package calls the gate in front of
+             * anything personal stayed shut for the only visitors entitled to
+             * pass it.
+             */
+            identified: $identity !== [],
         ));
 
         if ($file instanceof UploadedFile && $message instanceof Message) {
@@ -491,40 +501,24 @@ class SiteWidgetController
      * does not check out.** Everything in it arrives from a script running on a
      * page this application does not control, where the visitor can edit it
      * before it is sent; taken at face value, "who this is" would be whatever
-     * the visitor typed into their own console. The host signs the id with the
-     * shared secret on its own server, which is the only part of the round trip
-     * the visitor cannot reach.
+     * the visitor typed into their own console. The host signs on its own
+     * server, which is the only part of the round trip the visitor cannot
+     * reach.
      *
      * With no secret configured there is nothing to check against, so nothing is
      * accepted — the same direction as the empty origin list, and for the same
      * reason.
      *
+     * The checking itself lives in {@see WidgetIdentity}, because the host's own
+     * site computes the same signature and one description of it is the only way
+     * the two stay in step.
+     *
      * @param  array<string, mixed>|null  $identity
-     * @return array<string, string>
+     * @return array<string, mixed>
      */
     private function verifiedIdentity(?array $identity): array
     {
-        if ($identity === null) {
-            return [];
-        }
-
-        $secret = trim((string) config('chatbot.widget.identity_secret', ''));
-        $id = trim((string) ($identity['id'] ?? ''));
-        $signature = trim((string) ($identity['signature'] ?? ''));
-
-        if ($secret === '' || $id === '' || $signature === '') {
-            return [];
-        }
-
-        if (! hash_equals(hash_hmac('sha256', $id, $secret), $signature)) {
-            return [];
-        }
-
-        return array_filter([
-            'name' => trim((string) ($identity['name'] ?? '')),
-            'phone' => trim((string) ($identity['phone'] ?? '')),
-            'email' => trim((string) ($identity['email'] ?? '')),
-        ], static fn (string $value): bool => $value !== '');
+        return WidgetIdentity::verify($identity) ?? [];
     }
 
     /**

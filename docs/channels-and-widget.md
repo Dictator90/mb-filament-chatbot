@@ -451,11 +451,19 @@ application does not control, where the visitor can edit it before it is sent.
 Taken at face value, "who this is" would be whatever the visitor typed into their
 own console.
 
-So the host signs its own id on its own server — the only part of the round trip
-the visitor cannot reach:
+So the host signs on its own server — the only part of the round trip the
+visitor cannot reach — and signs **every field it is asserting**, not just the
+id:
 
 ```php
-$signature = hash_hmac('sha256', (string) $user->id, config('chatbot.widget.identity_secret'));
+use MB\FilamentChatbot\Channels\WidgetIdentity;
+
+$signature = WidgetIdentity::sign(config('chatbot.widget.identity_secret'), [
+    'id' => (string) $user->id,
+    'name' => $user->name,
+    'phone' => $user->phone,
+    'email' => $user->email,
+]);
 ```
 
 ```blade
@@ -464,13 +472,30 @@ $signature = hash_hmac('sha256', (string) $user->id, config('chatbot.widget.iden
         data-auth-id="{{ $user->id }}"
         data-auth-sig="{{ $signature }}"
         data-auth-name="{{ $user->name }}"
+        data-auth-phone="{{ $user->phone }}"
         data-auth-email="{{ $user->email }}"></script>
 ```
+
+**Signing the id alone was the earlier scheme, and it was a hole.** A visitor
+reads their own valid pair out of their own network tab, puts a stranger's phone
+number beside it, and the pair still verifies — the number is then recorded as
+*proved*, a contact directory files the thread against that stranger's record,
+and every resource scoped on the conversation's contact answers with their data.
+One signature, obtained legitimately, opened every account whose phone number its
+holder could guess.
+
+Use `WidgetIdentity::sign()` rather than writing the hash by hand: it is the
+same function the server verifies with, and two descriptions of one signature in
+two applications diverge on the first field somebody adds.
 
 An unsigned identity is ignored entirely, and so is one whose signature does not
 check out. **With no `identity_secret` configured there is nothing to check
 against, so nothing is accepted** — the same direction as the empty origin list
 below, and for the same reason.
+
+A verified identity is also the only thing that marks a conversation as
+identified, which is what the `identified` condition branches on. A phone number
+typed into the box is a claim, however plausible it looks.
 
 ### The origin allow-list
 

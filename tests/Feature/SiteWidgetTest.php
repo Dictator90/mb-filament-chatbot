@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use MB\FilamentChatbot\Channels\WidgetIdentity;
 use MB\FilamentChatbot\Enums\MessageAuthor;
 use MB\FilamentChatbot\Enums\MessageDirection;
 use MB\FilamentChatbot\Http\VisitorToken;
@@ -211,6 +212,74 @@ it('fetches its own stylesheet, because the embed is one tag', function (): void
  * missing — the person who unticked it has been told the bot is off their pages
  * and has no reason to check, and it answers every visitor exactly as before.
  */
+/**
+ * A signed visitor is marked as proved, and everything signed is covered by the
+ * signature.
+ *
+ * Two failures, and the second is the dangerous one.
+ *
+ * The signature used to cover the id alone. Anyone could read their own valid
+ * pair out of their own browser's network tab, put a stranger's phone number
+ * beside it, and this application would record that number as *verified*
+ * contact data — after which a contact directory matches the thread to the
+ * stranger's record and every scoped read answers with their orders. One
+ * signature, obtained legitimately, opened every account whose phone number the
+ * holder could guess.
+ *
+ * And a properly signed visitor was never marked identified, so the condition
+ * the package calls the gate in front of anything personal stayed shut for the
+ * only people entitled to pass it.
+ */
+it('marks a signed visitor as identified and refuses a signature that covers less than it carries', function (): void {
+    config(['chatbot.widget.identity_secret' => 'shared']);
+
+    $identity = [
+        'id' => 'customer-4711',
+        'name' => 'Anna Petrova',
+        'phone' => '+7 900 000-00-00',
+        'email' => 'anna@example.test',
+    ];
+
+    $this->withHeaders(['Origin' => 'https://shop.example.com'])
+        ->postJson('/chatbot/site/messages', [
+            'widget' => 'demo',
+            'body' => 'hello',
+            'identity' => $identity + ['signature' => WidgetIdentity::sign('shared', $identity)],
+        ])
+        ->assertOk();
+
+    $signed = Conversation::query()->latest('id')->firstOrFail();
+
+    expect($signed->isIdentified())->toBeTrue()
+        ->and($signed->contact_phone)->toBe('+7 900 000-00-00');
+
+    /*
+     * The same signature with somebody else's number beside it. Nothing about
+     * the request is malformed — it is the exact shape the widget sends.
+     */
+    $this->flushHeaders();
+
+    $this->withHeaders(['Origin' => 'https://shop.example.com'])
+        ->postJson('/chatbot/site/messages', [
+            'widget' => 'demo',
+            'body' => 'hello',
+            'identity' => [
+                'id' => 'customer-4711',
+                'name' => 'Anna Petrova',
+                'phone' => '+7 999 111-22-33',
+                'email' => 'anna@example.test',
+                'signature' => WidgetIdentity::sign('shared', $identity),
+            ],
+        ])
+        ->assertOk();
+
+    $forged = Conversation::query()->latest('id')->firstOrFail();
+
+    expect($forged->getKey())->not->toBe($signed->getKey())
+        ->and($forged->isIdentified())->toBeFalse()
+        ->and($forged->contact_phone)->toBeNull();
+});
+
 /**
  * Every control the widget names has a word for it on the server, and no word
  * on the server names a control that no longer exists.
