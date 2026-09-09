@@ -56,9 +56,9 @@ final class KnowledgeVectors
     private ?array $weights = null;
 
     /**
-     * Parsed topics: the entry's key to its vector.
+     * Parsed topics: the entry's key to one vector per text of it.
      *
-     * @var array<int, array<string, float>>
+     * @var array<int, list<array<string, float>>>
      */
     private array $vectors = [];
 
@@ -98,7 +98,11 @@ final class KnowledgeVectors
         $scored = [];
 
         foreach ($entries as $entry) {
-            $score = $this->cosine($asked, $this->entryVector($entry));
+            $score = 0.0;
+
+            foreach ($this->entryVectors($entry) as $vector) {
+                $score = max($score, $this->cosine($asked, $vector));
+            }
 
             if ($score >= $near) {
                 $scored[] = ['entry' => $entry, 'score' => $score];
@@ -120,16 +124,27 @@ final class KnowledgeVectors
      * that answer than to its own topic, purely because a long text resembles
      * everything a little. A question is matched against a question.
      *
-     * @return array<string, float>
+     * **Each text is vectorised on its own, and the closest one speaks for the
+     * topic.** Gluing the question, a dozen keywords and four example phrasings
+     * into one string and measuring the visitor's six words against that makes
+     * the score a function of how much has been written: the more carefully a
+     * topic is filled in, the further every question sits from it. A phrasing
+     * recorded character for character as the question being asked scored under
+     * a third — far below the threshold — because it was one line among sixteen.
+     *
+     * That is the opposite of what the phrasings are for. "How customers ask
+     * this" is a list of questions, and the useful comparison is against each of
+     * them separately. An exact one then scores about one, which is what anybody
+     * filling in that field expects.
+     *
+     * @return list<array<string, float>>
      */
-    private function entryVector(KnowledgeEntry $entry): array
+    private function entryVectors(KnowledgeEntry $entry): array
     {
-        return $this->vectors[(int) $entry->getKey()] ??= $this->vectorOf($this->textOf($entry));
-    }
-
-    private function textOf(KnowledgeEntry $entry): string
-    {
-        return implode(' ', $entry->searchableTexts());
+        return $this->vectors[(int) $entry->getKey()] ??= array_values(array_filter(array_map(
+            fn (string $text): array => $this->vectorOf($text),
+            $entry->searchableTexts(),
+        )));
     }
 
     /**
@@ -189,7 +204,19 @@ final class KnowledgeVectors
         foreach ($entries as $entry) {
             $topics++;
 
-            foreach (array_keys($this->vectorOf($this->textOf($entry))) as $gram) {
+            /*
+             * Counted once per topic, not once per text: a piece that occurs in
+             * three of a topic's phrasings is not thereby rarer or commoner
+             * across the base, and counting it three times would make a
+             * thoroughly filled-in topic quietly reweight the whole index.
+             */
+            $grams = [];
+
+            foreach ($this->entryVectors($entry) as $vector) {
+                $grams += $vector;
+            }
+
+            foreach (array_keys($grams) as $gram) {
                 $seen[$gram] = ($seen[$gram] ?? 0) + 1;
             }
         }
@@ -240,8 +267,22 @@ final class KnowledgeVectors
      */
     private function threshold(): float
     {
-        $value = config('chatbot.knowledge.min_similarity', 0.42);
+        $value = config('chatbot.knowledge.min_similarity', self::DEFAULT_SIMILARITY);
 
-        return is_numeric($value) ? (float) $value : 0.42;
+        return is_numeric($value) ? (float) $value : self::DEFAULT_SIMILARITY;
     }
+
+    /**
+     * The fallback matters more than it looks, and it has to track the shipped
+     * config rather than being a second opinion about it.
+     *
+     * `mergeConfigFrom` merges one level deep. A host that published this
+     * config before a key existed has a `knowledge` array of its own, so the
+     * whole sub-array is theirs and a key added later never reaches them: the
+     * installation runs on the number written here, not on the one in the file
+     * whoever raised it was reading. That is how a live installation went on
+     * answering unrelated questions from a threshold that could not be found by
+     * reading its own configuration.
+     */
+    private const float DEFAULT_SIMILARITY = 0.65;
 }

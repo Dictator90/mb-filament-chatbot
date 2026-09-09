@@ -10,6 +10,7 @@ use MB\FilamentChatbot\Bot\Steps\StepResult;
 use MB\FilamentChatbot\Bot\Steps\Types\AnswerStep;
 use MB\FilamentChatbot\Demo\DemoData;
 use MB\FilamentChatbot\Knowledge\KnowledgeFinder;
+use MB\FilamentChatbot\Knowledge\KnowledgeVectors;
 use MB\FilamentChatbot\Knowledge\KnowledgeVerdict;
 use MB\FilamentChatbot\Knowledge\RootExtractor;
 use MB\FilamentChatbot\Models\Conversation;
@@ -402,4 +403,52 @@ it('lets the host replace the stemming, on the question and on the topic alike',
     $verdict = knowledgeFinder()->find($this->bot->getKey(), 'swimming');
 
     expect($verdict?->entry()->topic_key)->toBe('pool-hours');
+});
+
+/**
+ * A phrasing recorded as "how customers ask this" is measured against on its own.
+ *
+ * That is the entire purpose of the field, and it did not work. A topic was one
+ * vector glued out of everything written about it — its question, a dozen
+ * keywords, every phrasing — so closeness measured how much had been written
+ * rather than how near the question was: the more carefully a topic was filled
+ * in, the further every question sat from it. A phrasing recorded character for
+ * character scored under a third and never cleared the threshold, which on a
+ * real base meant the bot not knowing the questions somebody had sat down and
+ * listed for it.
+ *
+ * Asserted on the shape pass directly rather than through the finder, because
+ * the finder only reaches it when matching words has gone quiet — which needs a
+ * base of a few hundred topics to happen naturally, and would make this a test
+ * about the size of the demo data.
+ *
+ * The thorough topic is the point: it is the one the old code punished.
+ */
+it('scores a recorded phrasing on its own merits, not against everything else written', function (): void {
+    $thorough = KnowledgeEntry::factory()->create([
+        'bot_id' => $this->bot->getKey(),
+        'topic_key' => 'pool-opening',
+        'question' => 'Pool opening times',
+        'keywords' => [
+            'pool', 'water', 'towel', 'lifeguard', 'lane', 'sauna',
+            'jacuzzi', 'changing', 'locker', 'depth', 'children',
+        ],
+        'variants' => [
+            'Until what time is the pool open?',
+            'Is the pool heated?',
+            'Can children use the pool?',
+        ],
+        'answer' => 'The pool is open from seven.',
+        'scenario_slug' => null,
+    ]);
+
+    $nearest = app(KnowledgeVectors::class)->nearest(
+        'Until what time is the pool open?',
+        KnowledgeEntry::query()->where('bot_id', $this->bot->getKey())->get(),
+        3,
+    );
+
+    expect($nearest)->not->toBeEmpty()
+        ->and($nearest[0]['entry']->topic_key)->toBe($thorough->topic_key)
+        ->and($nearest[0]['score'])->toBeGreaterThan(0.9);
 });

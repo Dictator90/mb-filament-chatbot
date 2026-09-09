@@ -222,7 +222,7 @@ final class KnowledgeFinder
         $scored = [];
 
         foreach ($entries as $index => $entry) {
-            $matched = array_values(array_intersect($asked, $roots[$index]));
+            $matched = $this->matched($entry, $asked, $roots[$index]);
 
             if ($matched === []) {
                 continue;
@@ -244,6 +244,83 @@ final class KnowledgeFinder
         usort($scored, static fn (array $a, array $b): int => $b['score'] <=> $a['score']);
 
         return $scored;
+    }
+
+    /**
+     * The roots of a topic that the question actually reached — with a
+     * multi-word keyword counting only when the question contains all of it.
+     *
+     * **A keyword of several words is a phrase, and treating it as separate
+     * roots throws away the one tool an author has for pulling two topics
+     * apart.** "Where is the hotel" and "where is your office" both reduce to
+     * one root; the author separates them by writing "hotel located" on the
+     * first, meaning *both* words. Split into "hotel" and "located", it claims
+     * every question with either — so the hotel topic ties with the office topic
+     * on a question that never mentioned a hotel, the tie rule fires, and the
+     * bot answers neither. The author then sees their disambiguation ignored,
+     * with nothing to say why.
+     *
+     * Found on a live base whose author had already done this work by hand:
+     * "dog hotel", "cat hotel", "pet hotel" on the accommodation topic, exactly
+     * so that a bare "can I bring a dog?" would go to the travel topic that
+     * answers it. Every one of those pairs was being read as two loose roots.
+     *
+     * Frequency is deliberately not touched: it still counts every root a topic
+     * mentions anywhere. Making a phrase's roots rare would hand a matched
+     * phrase an enormous weight and turn a disambiguation tool into a way of
+     * winning every tie.
+     *
+     * @param  list<string>  $asked
+     * @param  list<string>  $all  every root of the topic, phrases flattened
+     * @return list<string>
+     */
+    private function matched(KnowledgeEntry $entry, array $asked, array $all): array
+    {
+        $phrases = [];
+        $inPhrases = [];
+
+        foreach ((array) $entry->keywords as $keyword) {
+            $roots = $this->extractor->roots((string) $keyword);
+
+            if (count($roots) < 2) {
+                continue;
+            }
+
+            $phrases[] = $roots;
+
+            foreach ($roots as $root) {
+                $inPhrases[$root] = true;
+            }
+        }
+
+        if ($phrases === []) {
+            return array_values(array_intersect($asked, $all));
+        }
+
+        /*
+         * A root that also appears loose somewhere else in the topic — in its
+         * question, in a variant, in a single-word keyword — stays loose. The
+         * phrase is a way of adding a narrow claim, never of withdrawing a
+         * claim the topic already makes plainly.
+         */
+        $loose = $this->extractor->rootsOfAll(array_merge(
+            [(string) $entry->question],
+            array_map(static fn (mixed $word): string => (string) $word, (array) $entry->variants),
+            array_values(array_filter(
+                array_map(static fn (mixed $word): string => (string) $word, (array) $entry->keywords),
+                fn (string $keyword): bool => count($this->extractor->roots($keyword)) < 2,
+            )),
+        ));
+
+        $reached = array_values(array_intersect($asked, $loose));
+
+        foreach ($phrases as $roots) {
+            if (array_diff($roots, $asked) === []) {
+                $reached = array_merge($reached, $roots);
+            }
+        }
+
+        return array_values(array_unique($reached));
     }
 
     /**

@@ -448,9 +448,18 @@ return [
          * wrong topic there is worse than answering nothing. The right number
          * depends on the language and on how alike the topics of a given base
          * are, which is why it is here at all.
+         *
+         * It was 0.42 while a topic was one vector glued out of all its texts,
+         * and every score was pressed down by however much had been written
+         * about the topic. Compared against each phrasing on its own the scale
+         * is different: a phrasing that is the question scores above 0.9, a
+         * genuinely related question lands around 0.7, and a question about
+         * something else entirely reaches 0.5 on the shape of its opening words
+         * alone — "recommend me a book on astronomy" against "recommend me a
+         * tour". Left at 0.42 the second pass began answering those.
          */
         'similarity' => true,
-        'min_similarity' => 0.42,
+        'min_similarity' => 0.65,
         'stop_words' => [
             'about', 'after', 'all', 'also', 'and', 'any', 'are', 'ask', 'been',
             'before', 'being', 'but', 'can', 'could', 'did', 'does', 'doing',
