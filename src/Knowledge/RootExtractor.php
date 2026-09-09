@@ -31,15 +31,23 @@ namespace MB\FilamentChatbot\Knowledge;
  * which is the whole point: stem one side and not the other and matching gets
  * worse, not better.
  *
- * That seam is not a hedge. It answers something the paragraph above gets wrong
- * the moment the host is not this package: truncation is only "equally crude
- * everywhere" while *both* sides of a comparison are truncated. An application
- * whose keyword lists were milled by a real stemmer for its own language stores
- * roots this class never produces, and the question and the topic are then cut
- * by two different rules. Nothing fails — matching simply stops finding things,
- * and the bot reads as one that does not know half of its own knowledge base.
- * Found exactly that way, installing this package into an application with a
- * Russian knowledge base: six of ten topics with written answers went unmatched.
+ * **The seam is an escape hatch, not a fix for anything observed here, and the
+ * paragraph above is still the advice.** It was opened while chasing a Russian
+ * knowledge base whose topics were not being matched, on the theory that its
+ * keyword lists — milled by a real stemmer, and stored as roots this class
+ * never produces — were being compared against truncated questions. Measured
+ * against the live base, a proper Russian stemmer bound through this seam
+ * changed not one lookup out of eleven. The theory was wrong for the reason the
+ * first paragraph gives: truncation is applied to the stored keyword too, so
+ * both sides are cut by the same rule and a shared five-character prefix is
+ * usually enough. (The topics really were being missed; the cause was a host
+ * that had left the English stop words in place.)
+ *
+ * So: prefer the default, and reach for this only with a measurement in hand.
+ * It exists for the host whose index genuinely is built elsewhere — roots
+ * arriving from a search engine or another service, where this class never sees
+ * the words they came from — and for that host it is the difference between a
+ * knowledge base that matches and one that does not.
  */
 class RootExtractor
 {
