@@ -20,12 +20,28 @@ namespace MB\FilamentChatbot\Knowledge;
  * predict from the word, and when it groups two unrelated words the host fixes
  * it by writing a keyword rather than by learning a rule set.
  *
- * The stop words come from configuration for the same reason. They are the one
- * part of this that genuinely is language-specific, English ships as the
- * default because that is the only language the package can claim to speak, and
- * a host replaces the whole list with one setting.
+ * The stop words come from configuration for the same reason. English ships as
+ * the default because that is the only language the package can claim to speak,
+ * and a host replaces the whole list with one setting.
+ *
+ * **A host that does know its language may replace the stemming as well**, by
+ * extending this class, overriding {@see self::stem()} and binding the result
+ * over `RootExtractor` in the container. Both readers take it through their
+ * constructor, so one binding covers the lookup and the base's own index —
+ * which is the whole point: stem one side and not the other and matching gets
+ * worse, not better.
+ *
+ * That seam is not a hedge. It answers something the paragraph above gets wrong
+ * the moment the host is not this package: truncation is only "equally crude
+ * everywhere" while *both* sides of a comparison are truncated. An application
+ * whose keyword lists were milled by a real stemmer for its own language stores
+ * roots this class never produces, and the question and the topic are then cut
+ * by two different rules. Nothing fails — matching simply stops finding things,
+ * and the bot reads as one that does not know half of its own knowledge base.
+ * Found exactly that way, installing this package into an application with a
+ * Russian knowledge base: six of ten topics with written answers went unmatched.
  */
-final class RootExtractor
+class RootExtractor
 {
     /**
      * Words shorter than this carry no meaning worth matching.
@@ -33,15 +49,16 @@ final class RootExtractor
      * Almost every language's articles, prepositions and pronouns are two
      * letters or fewer, and matching on them means matching on nothing.
      */
-    private const MIN_LENGTH = 3;
+    protected const int MIN_LENGTH = 3;
 
     /**
-     * How much of a word survives.
+     * How much of a word survives the default stemming.
      *
      * Five is short enough to fold an inflected ending away and long enough to
-     * keep "refund" apart from "return".
+     * keep "refund" apart from "return". A subclass that stems properly ignores
+     * this.
      */
-    private const ROOT_LENGTH = 5;
+    protected const int ROOT_LENGTH = 5;
 
     /**
      * The roots of a text, in order of first appearance and without repeats.
@@ -58,14 +75,34 @@ final class RootExtractor
         $roots = [];
 
         foreach ($this->words($text) as $word) {
-            $root = mb_substr($word, 0, self::ROOT_LENGTH);
+            $root = $this->stem($word);
 
-            if (! in_array($root, $roots, true)) {
+            if ($root !== '' && ! in_array($root, $roots, true)) {
                 $roots[] = $root;
             }
         }
 
         return $roots;
+    }
+
+    /**
+     * One word to one root — the only thing a host has to replace to teach this
+     * class a language.
+     *
+     * Deliberately the smallest possible seam. Splitting, lowercasing, the
+     * minimum length and the stop-word list all stay here, because those are the
+     * parts that go wrong quietly when they are reimplemented: a subclass that
+     * forgot to lowercase, or that split on a different character class, would
+     * index the knowledge base by one rule and search it by another and there
+     * would be nothing on any screen to say so.
+     *
+     * An empty answer drops the word. That is how a real stemmer says "this is
+     * a form with nothing left of it" without the caller having to know which
+     * words those are.
+     */
+    protected function stem(string $word): string
+    {
+        return mb_substr($word, 0, static::ROOT_LENGTH);
     }
 
     /**
@@ -93,7 +130,7 @@ final class RootExtractor
      *
      * @return list<string>
      */
-    private function words(?string $text): array
+    protected function words(?string $text): array
     {
         $text = mb_strtolower(trim((string) $text));
 
@@ -105,7 +142,7 @@ final class RootExtractor
         $words = [];
 
         foreach (preg_split('/[^\p{L}\p{N}]+/u', $text, -1, PREG_SPLIT_NO_EMPTY) ?: [] as $word) {
-            if (mb_strlen($word) < self::MIN_LENGTH || isset($stopWords[$word])) {
+            if (mb_strlen($word) < static::MIN_LENGTH || isset($stopWords[$word])) {
                 continue;
             }
 
@@ -118,7 +155,7 @@ final class RootExtractor
     /**
      * @return array<string, true>
      */
-    private function stopWords(): array
+    protected function stopWords(): array
     {
         $configured = config('chatbot.knowledge.stop_words', []);
 

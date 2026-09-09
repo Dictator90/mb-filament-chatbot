@@ -11,6 +11,7 @@ use MB\FilamentChatbot\Bot\Steps\Types\AnswerStep;
 use MB\FilamentChatbot\Demo\DemoData;
 use MB\FilamentChatbot\Knowledge\KnowledgeFinder;
 use MB\FilamentChatbot\Knowledge\KnowledgeVerdict;
+use MB\FilamentChatbot\Knowledge\RootExtractor;
 use MB\FilamentChatbot\Models\Conversation;
 use MB\FilamentChatbot\Models\KnowledgeEntry;
 use MB\FilamentChatbot\Models\RunStep;
@@ -347,4 +348,58 @@ it('never answers with a topic the words did not put on the table', function ():
     $verdict = knowledgeFinder()->find($this->bot->getKey(), 'battery pack');
 
     expect($verdict?->entry()->topic_key)->not->toBe('batery-shaped-topic');
+});
+
+/**
+ * A host that knows its own language may replace the stemming, and one binding
+ * has to reach both readers.
+ *
+ * The default cut is deliberately blunt and stays the default — the package
+ * cannot claim to speak the languages it is installed into. But truncation is
+ * only "equally crude everywhere" while both sides of a comparison are
+ * truncated, and an application whose keyword lists were milled by a real
+ * stemmer stores roots this class never produces. Search then cuts the question
+ * by one rule and the topic by another: nothing fails, matching simply stops
+ * finding things, and the bot reads as one that does not know half of its own
+ * base.
+ *
+ * The assertion is about both sides on purpose. Binding a stemmer that reached
+ * the lookup and not the index would be worse than no seam at all — the two
+ * would disagree by construction, on every topic, for ever.
+ */
+it('lets the host replace the stemming, on the question and on the topic alike', function (): void {
+    /*
+     * An irregular verb, because a regular one would prove nothing here: the
+     * default cut folds "kayaks" and "kayaking" onto "kayak" perfectly well by
+     * accident, and a test built on such a pair passes with the seam bypassed.
+     * "swam" and "swimming" truncate to "swam" and "swimm" — no match at all —
+     * and only a stemmer that knows the language brings them together.
+     *
+     * The subject is one the demo base has never heard of on purpose. A topic
+     * tying with a demo topic would be refused an answer by the rule two tests
+     * above, and this test would then be measuring that rule instead of this
+     * seam.
+     */
+    app()->bind(RootExtractor::class, fn (): RootExtractor => new class extends RootExtractor
+    {
+        protected function stem(string $word): string
+        {
+            return in_array($word, ['swim', 'swims', 'swimming', 'swam', 'swum'], true)
+                ? 'swim'
+                : parent::stem($word);
+        }
+    });
+
+    KnowledgeEntry::factory()->create([
+        'bot_id' => $this->bot->getKey(),
+        'topic_key' => 'pool-hours',
+        'question' => 'When may guests swim?',
+        'keywords' => ['swam'],
+        'answer' => 'The pool is open from seven.',
+        'scenario_slug' => null,
+    ]);
+
+    $verdict = knowledgeFinder()->find($this->bot->getKey(), 'swimming');
+
+    expect($verdict?->entry()->topic_key)->toBe('pool-hours');
 });

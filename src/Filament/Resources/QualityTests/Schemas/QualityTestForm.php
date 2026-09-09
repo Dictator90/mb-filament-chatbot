@@ -155,12 +155,18 @@ class QualityTestForm
 
                         Select::make('expectations.ends_with')
                             ->label(__('chatbot::panel.quality.expected.ends_with'))
+                            /*
+                             * Exactly the four words the runner can answer with
+                             * (`src/Quality/QualityRunner.php`, `ending()`), and
+                             * no others. A fifth in this list would be a choice
+                             * that never matches: the check would fail for ever
+                             * against a bot doing precisely what it was asked.
+                             */
                             ->options([
                                 'closed' => __('chatbot::panel.quality.endings.closed'),
                                 'handed_off' => __('chatbot::panel.quality.endings.handed_off'),
                                 'waiting' => __('chatbot::panel.quality.endings.waiting'),
-                                'running' => __('chatbot::panel.quality.endings.running'),
-                                'off' => __('chatbot::panel.quality.endings.off'),
+                                'finished' => __('chatbot::panel.quality.endings.finished'),
                             ])
                             ->placeholder(__('chatbot::panel.quality.expected.not_checked'))
                             ->helperText(__('chatbot::panel.quality.expected.ends_with_help')),

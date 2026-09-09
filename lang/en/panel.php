@@ -527,8 +527,7 @@ return [
             'closed' => 'Closed',
             'handed_off' => 'With a person',
             'waiting' => 'Waiting for an answer',
-            'running' => 'Still with the bot',
-            'off' => 'Bot switched off',
+            'finished' => 'The scenario ran out',
         ],
 
         'verdicts' => [
