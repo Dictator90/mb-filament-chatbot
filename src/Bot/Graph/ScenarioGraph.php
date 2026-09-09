@@ -468,6 +468,27 @@ class ScenarioGraph
      * something the effect flag alone cannot express — reading a customer's
      * documents out loud, for instance — and overruling it here would make the
      * flag decorative.
+     *
+     * **And the reverse is obeyed too: an action that says it needs no
+     * confirmation does not need one.** The two flags answer different
+     * questions — `effect` says what happens to data, `requiresApproval` says
+     * whether a person must agree to it first — and only the host knows the
+     * second. Plenty of writes are the company filing something about itself: a
+     * task saying "call this person back", a note on the conversation, a
+     * counter. Demanding a confirmation there means asking the visitor who has
+     * just clicked "I need a manager" whether a manager may be called, which is
+     * how a bot teaches people to stop reading its questions.
+     *
+     * Found by porting a real installation onto this package: every one of its
+     * handovers ended in such a write, and the only ways past the check were an
+     * extra confirmation on every handover or declaring the write a read. The
+     * second is the worse outcome by far — it is a lie in the audit trail, told
+     * to satisfy a graph check.
+     *
+     * The strictness that matters is untouched. A `mutate` node writing to a
+     * data resource answers through {@see HasSideEffect} above and has no such
+     * declaration to make: nothing it can say waives its confirmation, which is
+     * the rule the check was written for.
      */
     protected function writes(?StepType $type, Step $step): bool
     {
@@ -478,7 +499,14 @@ class ScenarioGraph
         foreach ($type?->pins($step)['capabilities'] ?? [] as $reference) {
             $action = $this->registry->capability(explode('@', (string) $reference)[0]);
 
-            if ($action?->effect === SideEffect::Write || $action?->requiresApproval === true) {
+            /*
+             * The flag decides on its own, and it can because it has no
+             * default: `requiresApproval` is a required argument of
+             * {@see \MB\FilamentChatbot\Capabilities\CapabilityAction}, so
+             * every action has answered this question deliberately. There is no
+             * "forgot to say" to guard against with the effect flag.
+             */
+            if ($action?->requiresApproval) {
                 return true;
             }
         }

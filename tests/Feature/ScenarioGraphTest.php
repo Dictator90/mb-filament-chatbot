@@ -5,7 +5,9 @@ declare(strict_types=1);
 use MB\FilamentChatbot\Bot\Graph\GraphConfig;
 use MB\FilamentChatbot\Bot\Graph\ScenarioGraph;
 use MB\FilamentChatbot\Bot\Graph\ScenarioVersions;
+use MB\FilamentChatbot\Capabilities\CapabilityAction;
 use MB\FilamentChatbot\Demo\DemoData;
+use MB\FilamentChatbot\Enums\SideEffect;
 use MB\FilamentChatbot\Exceptions\ScenarioNotPublishable;
 use MB\FilamentChatbot\Facades\Chatbot;
 use MB\FilamentChatbot\Models\Scenario;
@@ -398,6 +400,67 @@ it('refuses to publish a write a conversation can reach without a confirmation',
 
     expect(ScenarioVersion::query()->where('scenario_id', $scenario->getKey())->count())->toBe(0)
         ->and($scenario->refresh()->live_version_id)->toBeNull();
+});
+
+/**
+ * A host action decides for itself whether a person has to agree to it.
+ *
+ * The two flags on a capability answer different questions — what happens to
+ * data, and whether somebody must say yes first — and only the host knows the
+ * second. Plenty of writes are the company filing something about itself: a
+ * task saying "call this person back", a note on the thread, a counter. While
+ * the effect flag alone decided, the only ways to ship such an action were a
+ * confirmation on top of every handover, or declaring the write a read — a lie
+ * in the audit trail, told to satisfy a graph check.
+ *
+ * Both directions are asserted, because the useful half of this rule is the one
+ * that still refuses: an action that asks to be confirmed gets a confirmation
+ * even when it only reads.
+ */
+it('lets a host action waive the confirmation, and still forces one where it is asked for', function (): void {
+    Chatbot::registerCapability(new CapabilityAction(
+        key: 'test.file_a_note',
+        version: '1',
+        label: 'File a note',
+        description: 'Writes a note about this conversation and asks nobody.',
+        effect: SideEffect::Write,
+        input: [],
+        requiresApproval: false,
+        handler: static fn (): array => [],
+    ));
+
+    Chatbot::registerCapability(new CapabilityAction(
+        key: 'test.read_out_documents',
+        version: '1',
+        label: 'Read the documents out',
+        description: 'Only reads, and still wants to be asked first.',
+        effect: SideEffect::Read,
+        input: [],
+        requiresApproval: true,
+        handler: static fn (): array => [],
+    ));
+
+    $scenario = Scenario::factory()->create();
+
+    $this->graph->apply($scenario, graphOf(
+        nodes: [
+            ['key' => 'start', 'type' => 'start'],
+            ['key' => 'note', 'type' => 'action', 'config' => ['capability' => 'test.file_a_note']],
+        ],
+        edges: [['from' => 'start', 'slot' => 0, 'to' => 'note']],
+    ));
+
+    expect(issueKeys($this->graph->issues($scenario->refresh()), ScenarioGraph::BLOCKING))->toBe([]);
+
+    $this->graph->apply($scenario, graphOf(
+        nodes: [
+            ['key' => 'start', 'type' => 'start'],
+            ['key' => 'read', 'type' => 'action', 'config' => ['capability' => 'test.read_out_documents']],
+        ],
+        edges: [['from' => 'start', 'slot' => 0, 'to' => 'read']],
+    ));
+
+    expect(issueKeys($this->graph->issues($scenario->refresh()), ScenarioGraph::BLOCKING))->toBe(['read']);
 });
 
 /**
