@@ -245,3 +245,54 @@ it('overwrites the last run instead of accumulating rows', function (): void {
         ->and($check->fresh()->last_fingerprint)->not->toBeNull()
         ->and($check->fresh()->last_transcript)->toHaveCount(2);
 });
+
+/**
+ * A check can rehearse as somebody the application already knows.
+ *
+ * Without it every branch behind "do we know this person" is unreachable from a
+ * saved check, and those are the branches worth checking: everything a bot says
+ * about somebody's own order, booking or balance hangs off one. A check written
+ * for a known customer ran as a stranger, took the "please sign in" exit, and
+ * then passed or failed for reasons that had nothing to do with what it was
+ * written to guard.
+ *
+ * The reference is to a record of the host's, not to data the package makes up.
+ * That is what makes the rehearsal worth holding: the scopes, the directory and
+ * every data resource behave as they do for that person.
+ */
+it('rehearses as a customer the host names, and reaches the branch behind that', function (): void {
+    $scenario = rehearsalScenario([
+        [
+            'key' => 'start',
+            'type' => 'start',
+            'config' => ['trigger' => 'fallback'],
+            'next_key' => 'known',
+        ],
+        [
+            'key' => 'known',
+            'type' => 'condition',
+            'options' => [
+                ['label' => 'Known', 'next' => 'welcome', 'when' => ['field' => 'has_contact', 'operator' => 'yes']],
+            ],
+            'config' => ['else_key' => 'stranger'],
+        ],
+        ['key' => 'welcome', 'type' => 'say', 'body' => 'Your bookings are below.'],
+        ['key' => 'stranger', 'type' => 'say', 'body' => 'Please sign in first.'],
+    ], ['slug' => 'known-or-not', 'is_active' => true]);
+
+    $asStranger = QualityTest::factory()->forScenario($scenario->getKey(), $scenario->slug)->create([
+        'said' => ['hello'],
+        'expectations' => ['visits' => ['stranger']],
+    ]);
+
+    $asCustomer = QualityTest::factory()->forScenario($scenario->getKey(), $scenario->slug)->create([
+        'said' => ['hello'],
+        'context' => ['contact' => ['type' => 'demo-record', 'id' => 7]],
+        'expectations' => ['visits' => ['welcome'], 'says' => ['bookings are below']],
+    ]);
+
+    $runner = app(QualityRunner::class);
+
+    expect($runner->run($asStranger)->outcome())->toBe(QualityOutcome::Passed)
+        ->and($runner->run($asCustomer)->outcome())->toBe(QualityOutcome::Passed);
+});

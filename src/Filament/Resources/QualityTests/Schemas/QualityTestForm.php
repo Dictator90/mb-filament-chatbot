@@ -119,6 +119,26 @@ class QualityTestForm
                             ->helperText(__('chatbot::panel.quality.who.identified_help')),
                     ]),
 
+                    /*
+                     * Naming a record is what makes every branch behind "do we
+                     * know this person" checkable, and those are the branches
+                     * worth checking. Two plain fields rather than a picker: the
+                     * package cannot offer a list of the host's customers
+                     * without knowing what a customer is here, and a wrong guess
+                     * would be a picker that shows the wrong table.
+                     */
+                    Grid::make(2)->schema([
+                        TextInput::make('context.contact.type')
+                            ->label(__('chatbot::panel.quality.who.contact_type'))
+                            ->maxLength(255)
+                            ->helperText(__('chatbot::panel.quality.who.contact_type_help')),
+
+                        TextInput::make('context.contact.id')
+                            ->label(__('chatbot::panel.quality.who.contact_id'))
+                            ->numeric()
+                            ->helperText(__('chatbot::panel.quality.who.contact_id_help')),
+                    ]),
+
                     KeyValue::make('context.variables')
                         ->label(__('chatbot::panel.quality.who.variables'))
                         ->keyLabel(__('chatbot::panel.quality.who.variable_name'))

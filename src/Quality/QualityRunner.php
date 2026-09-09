@@ -225,6 +225,25 @@ final class QualityRunner
         /** @var array<string, mixed> $meta */
         $meta = (array) ($context['meta'] ?? []);
 
+        /*
+         * Who the visitor is, as a record of the host's.
+         *
+         * Without it no branch behind "do we know this person" can be checked at
+         * all, and those are the branches worth checking: everything a bot says
+         * about somebody's own order, booking or balance hangs off one. A check
+         * written for a known customer ran as a stranger, took the "please sign
+         * in" exit, and passed or failed for reasons that had nothing to do with
+         * what it was written for.
+         *
+         * A reference and not fabricated data, because the package has no way to
+         * fabricate a host's records and no business trying. The host names a
+         * row it keeps for exactly this — a demo customer, a fixture, a real one
+         * that never changes — and every scope, directory and data resource then
+         * behaves as it does for that person, which is the point of rehearsing
+         * at all.
+         */
+        $contact = (array) ($context['contact'] ?? []);
+
         return Conversation::query()->create([
             'bot_id' => $check->bot_id,
             'channel' => filled($check->channel) ? (string) $check->channel : 'site',
@@ -232,7 +251,9 @@ final class QualityRunner
             'bot_state' => BotState::Off,
             'display_name' => (string) ($context['display_name'] ?? 'Quality check'),
             'entry_page' => $context['page'] ?? null,
-            'identified_at' => ($context['identified'] ?? false) === true ? now() : null,
+            'identified_at' => ($context['identified'] ?? false) === true || $contact !== [] ? now() : null,
+            'contact_type' => filled($contact['type'] ?? null) ? (string) $contact['type'] : null,
+            'contact_id' => filled($contact['id'] ?? null) ? (int) $contact['id'] : null,
             'bot_answers' => $variables === [] ? null : $variables,
             'meta' => $meta + [Conversation::QUALITY_META_KEY => $check->getKey()],
         ]);
