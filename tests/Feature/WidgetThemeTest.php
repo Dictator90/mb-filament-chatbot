@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use MB\FilamentChatbot\Channels\WidgetTheme;
 use MB\FilamentChatbot\Models\Bot;
+use MB\FilamentChatbot\Models\Widget;
 
 /**
  * A theme is written by whoever can edit a bot and rendered inside a `style`
@@ -157,3 +158,25 @@ it('reads what a bot has stored', function (): void {
         ->and($theme->properties()['--chatbot-width'])->toBe('420px')
         ->and($theme->flags()['bubbles'])->toBe('ios');
 });
+
+/**
+ * The initials in the circle come from the words of a name, not from its first
+ * two characters.
+ *
+ * Two characters off the front give "Ac" for "Acme Corporation" and "Ми" for
+ * "Мир на ладони" — a syllable. It reads as a word cut in half rather than as
+ * initials, and it is wrong beside every other avatar on the customer's screen,
+ * all of which take them from word boundaries.
+ *
+ * Nothing fails when it is wrong: the circle renders, the widget works, and the
+ * company's own name is quietly misspelled on every page it stands on.
+ */
+it('builds the avatar initials from words', function (string $name, string $expected): void {
+    expect(WidgetTheme::forWidget(new Widget(['theme' => ['avatar_label' => $name]]))->flags()['avatar_label'])->toBe($expected);
+})->with([
+    'two words' => ['Acme Corporation', 'AC'],
+    'a preposition in the middle' => ['Мир на ладони', 'МЛ'],
+    'one word keeps two letters' => ['Acme', 'AC'],
+    'punctuation is not a word' => ['Мир — на ладони', 'МЛ'],
+    'nothing stays nothing' => ['', ''],
+]);

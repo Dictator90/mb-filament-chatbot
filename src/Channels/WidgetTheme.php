@@ -251,10 +251,39 @@ final class WidgetTheme
         return filter_var($value, FILTER_VALIDATE_URL) === false ? null : $value;
     }
 
+    /**
+     * The initials drawn where the picture would be.
+     *
+     * **First letters of words, not the first letters of the string.** Two
+     * characters off the front give "Ac" for "Acme Corporation" and "Ми" for
+     * "Мир на ладони" — a syllable, which reads as a word cut in half rather
+     * than as initials, and every other avatar on the customer's screen takes
+     * them from word boundaries.
+     *
+     * Short words are skipped so the second letter is a name and not a
+     * preposition: "Мир на ладони" is МЛ, not МН. A one-word name keeps two
+     * letters of that word, because a single letter in a circle is not initials
+     * either.
+     */
     private static function label(mixed $value): string
     {
         $value = trim((string) $value);
 
-        return $value === '' ? '' : mb_substr($value, 0, 2);
+        if ($value === '') {
+            return '';
+        }
+
+        $words = preg_split('/[^\p{L}\p{N}]+/u', $value, -1, PREG_SPLIT_NO_EMPTY) ?: [];
+
+        $meaningful = array_values(array_filter(
+            $words,
+            static fn (string $word): bool => mb_strlen($word) > 2,
+        )) ?: $words;
+
+        if (count($meaningful) < 2) {
+            return mb_strtoupper(mb_substr($meaningful[0] ?? $value, 0, 2));
+        }
+
+        return mb_strtoupper(mb_substr($meaningful[0], 0, 1).mb_substr($meaningful[1], 0, 1));
     }
 }
