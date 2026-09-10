@@ -17,6 +17,7 @@ use Filament\Support\SupportServiceProvider;
 use Filament\Tables\TablesServiceProvider;
 use Filament\Widgets\WidgetsServiceProvider;
 use Illuminate\Contracts\Config\Repository;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Date;
 use Livewire\LivewireServiceProvider;
 use MB\FilamentChatbot\ChannelsServiceProvider;
@@ -99,10 +100,23 @@ abstract class TestCase extends Orchestra
      * that can hold it to it. Found by installing into a real application that
      * does this; the page died with a `TypeError` where the desk should have
      * been.
+     *
+     * **Lazy loading is forbidden here for exactly the same reason.**
+     * `Model::preventLazyLoading()` outside production is an ordinary line in
+     * an application's service provider, and under it a relation this package
+     * touches without loading it is not slow — it is a 500. That is how it was
+     * found: the readiness page, whose entire job is to be opened when the bot
+     * is behaving oddly, answered with an exception instead of a diagnosis
+     * because it asked each scenario for its live version one at a time.
+     *
+     * Left off, the suite passes forever on a host that is strict, and the
+     * package's own performance rule — a list costs what one row costs — has
+     * nothing enforcing it.
      */
     public function defineEnvironment($app): void
     {
         Date::use(CarbonImmutable::class);
+        Model::preventLazyLoading();
 
         tap($app['config'], function (Repository $config): void {
             $config->set('database.default', 'testing');

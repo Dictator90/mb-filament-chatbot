@@ -85,8 +85,28 @@ final class Readiness
      */
     public function summary(): array
     {
-        $scenarios = Scenario::query()->with('steps')->orderBy('slug')->get();
-        $quality = QualityTest::query()->orderBy('id')->get();
+        /*
+         * The live version is eager-loaded, not reached for per scenario.
+         *
+         * Every active scenario is asked whether it has unpublished changes,
+         * and that question reads the released version — one query each on a
+         * page whose whole purpose is to be opened when something is wrong.
+         * On a host that forbids lazy loading (`Model::preventLazyLoading()`,
+         * which is an ordinary thing for an application to switch on outside
+         * production) it is not slow but fatal: the page answers with a 500 and
+         * says nothing about the bot at all. That is exactly how this was
+         * found.
+         */
+        $scenarios = Scenario::query()->with(['steps', 'liveVersion'])->orderBy('slug')->get();
+        /*
+         * With the scenario **and its steps**: every check is compared against
+         * the fingerprint of the scenario it was recorded on, and that
+         * fingerprint is computed from the nodes. Two relations per check,
+         * asked for one check at a time, on a page that exists to be read
+         * quickly — and on a host that forbids lazy loading, an exception
+         * instead of an answer.
+         */
+        $quality = QualityTest::query()->with('scenario.steps')->orderBy('id')->get();
 
         $active = $scenarios->where('is_active', true);
         $drafts = $active->filter(fn (Scenario $scenario): bool => $this->versions->hasUnpublishedChanges($scenario));

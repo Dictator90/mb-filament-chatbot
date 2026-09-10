@@ -92,6 +92,28 @@ class ChatbotServiceProvider extends ServiceProvider
         $this->mergeConfigFrom(__DIR__.'/../config/chatbot.php', 'chatbot');
 
         /*
+         * Translations and views are attached here rather than in `boot()`,
+         * and the difference is not cosmetic.
+         *
+         * Both of these are `callAfterResolving` underneath: from `register()`
+         * the namespace is attached the moment the translator is first
+         * resolved, whoever resolves it. From `boot()` it is attached when this
+         * provider's turn comes — and a panel plugin registering pages asks for
+         * their labels during the *register* phase, which on some hosts happens
+         * first. The translator then loads the group, finds no such namespace,
+         * caches an empty array, and never looks again: every screen of the
+         * package renders `chatbot::panel.readiness.heading` where a heading
+         * belongs, in the menu, in the tabs, everywhere.
+         *
+         * It is a load-order accident, so it appears on one host and not on the
+         * next, survives a cache clear, and looks like a broken installation
+         * rather than a race. Found on a host that registers the panel before
+         * this provider boots.
+         */
+        $this->loadViewsFrom(__DIR__.'/../resources/views', 'chatbot');
+        $this->loadTranslationsFrom(__DIR__.'/../lang', 'chatbot');
+
+        /*
          * Channels are a second provider registered by this one rather than a
          * second entry in composer's discovery list.
          *
@@ -152,8 +174,6 @@ class ChatbotServiceProvider extends ServiceProvider
     public function boot(): void
     {
         $this->loadMigrationsFrom(__DIR__.'/../database/migrations');
-        $this->loadViewsFrom(__DIR__.'/../resources/views', 'chatbot');
-        $this->loadTranslationsFrom(__DIR__.'/../lang', 'chatbot');
 
         /*
          * The panel's own routes, loaded here rather than through the plugin.
