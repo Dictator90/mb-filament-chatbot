@@ -136,6 +136,14 @@
         receipt_delivered: 'Delivered',
         receipt_read: 'Read',
         expand: 'Open the picture',
+        status_online: 'Online',
+        status_away: 'We answer in the morning',
+        author_you: 'You',
+        author_bot: 'Assistant',
+        author_operator: 'Support',
+        teaser: 'Chat with us',
+        reply: 'Reply',
+        reply_cancel: 'Not this one',
         lead_intro: 'Leave your details and we will pick this up.',
         lead_name: 'Name',
         lead_phone: 'Phone',
@@ -191,6 +199,13 @@
             'm18.375 12.739-7.693 7.693a4.5 4.5 0 0 1-6.364-6.364l10.94-10.94A3 3 0 1 1 19.5 7.372L8.552 18.32m.009-.01-.01.01m5.699-9.941-7.81 7.81a1.5 1.5 0 0 0 2.112 2.13',
         ],
         close: ['M6 18 18 6M6 6l12 12'],
+        /*
+         * The arrow on the round send button. Drawn rather than written,
+         * because in the stacked composer the button is a circle the size of
+         * the two icons beside it and the word "Send" does not fit in one —
+         * the label stays on the button for a screen reader all the same.
+         */
+        send: ['M12 19.5v-15m0 0-6.75 6.75M12 4.5l6.75 6.75'],
     };
 
     var SVG_NS = 'http://www.w3.org/2000/svg';
@@ -214,11 +229,29 @@
         flags: {
             bubbles: 'rounded',
             launcher: 'pill',
+            composer: 'row',
             position: null,
             avatar: null,
             avatar_label: '',
             avatar_show: false,
+            /*
+             * The three parts of the chrome a placement can switch on, and all
+             * three start off — the same direction the server ships them in.
+             * Drawn first and withdrawn when the theme answers, each of them
+             * would be a claim already read: a status line that said "online"
+             * for a moment, a name over a bubble, a sentence over the launcher
+             * on a page whose owner switched it off.
+             */
+            status: false,
+            authors: false,
+            teaser: false,
         },
+        /*
+         * Whether an answer is coming now, for the line under the title. Asked
+         * for again whenever the panel is opened, because that is the moment it
+         * is read — see `refreshTheme`.
+         */
+        presence: 'online',
         /*
          * What this placement lets the visitor do, and the defaults are the ones
          * the server ships. Attachments start off, so the paper clip is absent
@@ -236,6 +269,14 @@
              * have shown a state it then took away.
              */
             receipts: true,
+            /*
+             * Every switch the server can send has to be named here, and not
+             * only for its default: what arrives is merged key by key over this
+             * object, so a switch the widget has never heard of is dropped in
+             * silence. The setting is on in the panel, off on the page, and the
+             * only sign is a button that is not there.
+             */
+            replies: false,
         },
         /*
          * The cookie names this placement was told it may read off the page it
@@ -276,6 +317,10 @@
             });
 
             theme.flags.avatar_show = Boolean(theme.flags.avatar || theme.flags.avatar_label);
+        }
+
+        if (sent && typeof sent.presence === 'string') {
+            theme.presence = sent.presence === 'away' ? 'away' : 'online';
         }
 
         if (sent && sent.features) {
@@ -326,6 +371,12 @@
 
         el.root.setAttribute('data-bubbles', theme.flags.bubbles);
         el.root.setAttribute('data-launcher', theme.flags.launcher);
+        el.root.setAttribute('data-composer', theme.flags.composer);
+        el.root.setAttribute('data-authors', theme.flags.authors ? 'yes' : 'no');
+
+        drawStatus();
+        drawTeaser();
+        repaintRows();
 
         if (!data.position && theme.flags.position) {
             el.root.setAttribute('data-position', theme.flags.position);
@@ -352,6 +403,20 @@
         el.log.querySelectorAll('.' + settings.prefix + '__receipt').forEach(function (mark) {
             mark.hidden = !theme.features.receipts;
         });
+
+        /*
+         * The quote buttons are hidden rather than removed, for the same reason
+         * the ticks are: a placement that gains the setting has to repaint the
+         * transcript already on screen and not only the messages that arrive
+         * afterwards.
+         */
+        el.log.querySelectorAll('.' + settings.prefix + '__reply').forEach(function (button) {
+            button.hidden = !theme.features.replies;
+        });
+
+        if (!theme.features.replies) {
+            cancelQuoting();
+        }
 
         if (!theme.features.emoji) {
             el.emojiPad.hidden = true;
@@ -450,6 +515,100 @@
     }
 
     /**
+     * The wording of the status line for the state the server last reported.
+     *
+     * "Away" is a promise about when, never "nobody is here". A visitor who
+     * reads "offline" closes the tab; one who reads "we answer in the morning"
+     * writes anyway, and that message is the whole reason the line is drawn.
+     */
+    function statusText() {
+        return theme.presence === 'away' ? labels.status_away : labels.status_online;
+    }
+
+    function drawStatus() {
+        if (!el.status) {
+            return;
+        }
+
+        el.status.hidden = !theme.flags.status;
+        el.status.textContent = statusText();
+        el.status.setAttribute('data-state', theme.presence);
+    }
+
+    /**
+     * The sentence beside the launcher, while the panel is shut.
+     *
+     * Taken off screen the moment the chat is open, because at that point it is
+     * a button offering to do what has already been done — sitting behind the
+     * panel, on top of the page, saying "chat with us".
+     */
+    function drawTeaser() {
+        if (!el.teaser) {
+            return;
+        }
+
+        el.teaser.hidden = !theme.flags.teaser || state.open;
+    }
+
+    /**
+     * Which of the three names goes over a bubble.
+     *
+     * The visitor's own line is "you" and not their name: they know who they
+     * are, and a name collected by an opening form is a claim the widget should
+     * not repeat back as fact. Everything the application says is "assistant"
+     * or "support" — never the operator's real name, which is not ours to
+     * publish on somebody else's site.
+     */
+    function authorName(author) {
+        if (author === 'visitor') {
+            return labels.author_you;
+        }
+
+        return author === 'operator' ? labels.author_operator : labels.author_bot;
+    }
+
+    /**
+     * Remembers which message the next one answers, and says so over the
+     * composer.
+     *
+     * The text is kept here rather than looked up when the message is sent: the
+     * bubble it came from can be gone by then — an echo dropped, a transcript
+     * trimmed — and a quote that lost its text between the click and the send
+     * would arrive as a bare id.
+     */
+    function quoteMessage(message, author) {
+        state.replyTo = {
+            id: message.id,
+            author: author,
+            body: String(message.body || '').slice(0, 140),
+        };
+
+        drawQuoting();
+
+        if (el.input) {
+            el.input.focus();
+        }
+    }
+
+    function cancelQuoting() {
+        state.replyTo = null;
+        drawQuoting();
+    }
+
+    function drawQuoting() {
+        if (!el.quoting) {
+            return;
+        }
+
+        var quoting = state.replyTo !== null && theme.features.replies;
+
+        el.quoting.hidden = !quoting;
+        el.quotingText.textContent = quoting
+            ? authorName(state.replyTo.author) + ': ' + state.replyTo.body
+            : '';
+    }
+
+    /**
      * Takes the labels the server sent and redraws whatever they changed.
      *
      * Written back to the elements rather than only into `labels`, because the
@@ -477,13 +636,31 @@
         el.title.textContent = label('title');
         el.close.setAttribute('aria-label', labels.close);
         el.input.placeholder = label('placeholder');
-        el.send.textContent = labels.send;
+        el.sendLabel.textContent = labels.send;
+        el.send.setAttribute('aria-label', labels.send);
         el.emoji.setAttribute('aria-label', labels.emoji);
         el.emoji.title = labels.emoji;
         el.attach.setAttribute('aria-label', labels.attach);
         el.attach.title = labels.attach;
         el.attachRemove.setAttribute('aria-label', labels.remove);
+        el.teaser.textContent = labels.teaser;
+        el.quotingCancel.setAttribute('aria-label', labels.reply_cancel);
+        el.quotingCancel.title = labels.reply_cancel;
 
+        /*
+         * The quote buttons already drawn are renamed too. The transcript is on
+         * screen before the first poll answers, so a label written only into the
+         * variable would leave every bubble already there saying "Reply" in
+         * English under a Russian title.
+         */
+        el.log.querySelectorAll('.' + settings.prefix + '__reply').forEach(function (button) {
+            button.textContent = labels.reply;
+        });
+
+        drawStatus();
+        drawTeaser();
+        drawQuoting();
+        repaintRows();
         drawLead();
     }
 
@@ -499,6 +676,12 @@
         messages: [],
         choices: [],
         file: null,
+        /*
+         * The message the next one answers, or null. Cleared on send rather than
+         * kept: a quote is chosen for one reply, and a chip that survived it
+         * would attach the same quote to every message after it.
+         */
+        replyTo: null,
         /*
          * What the visitor typed into the opening form, or null while it is
          * still standing. Held for the session rather than stored: it is sent
@@ -719,14 +902,40 @@
         el.launcher.setAttribute('aria-expanded', 'false');
         el.launcher.addEventListener('click', toggle);
 
+        /*
+         * The teaser is a sibling of the launcher rather than a part of it: it
+         * is its own button, so a visitor who reads the sentence can press the
+         * sentence. Nested inside the launcher it could not be, and a round
+         * launcher with a caption glued to it stops being round.
+         */
+        el.teaser = element('button', 'teaser', labels.teaser);
+        el.teaser.type = 'button';
+        el.teaser.hidden = true;
+        el.teaser.addEventListener('click', toggle);
+
         el.panel = element('div', 'panel');
         el.panel.setAttribute('role', 'dialog');
         el.panel.setAttribute('aria-label', label('title'));
         el.panel.hidden = true;
 
         var header = element('div', 'header');
+
+        /*
+         * The title and the status line are stacked in their own element rather
+         * than laid straight into the header, which is a row with the close
+         * button at its far end. Added as two children of that row, the status
+         * line would sit *beside* the name and push the close button off the
+         * edge of a narrow panel.
+         */
+        var heading = element('div', 'heading');
+
         el.title = element('span', 'title', label('title'));
-        header.appendChild(el.title);
+        el.status = element('span', 'status', statusText());
+        el.status.hidden = true;
+
+        heading.appendChild(el.title);
+        heading.appendChild(el.status);
+        header.appendChild(heading);
 
         el.close = element('button', 'close');
         el.close.appendChild(icon('close'));
@@ -760,6 +969,27 @@
         el.attachRemove.addEventListener('click', clearAttachment);
         el.attached.appendChild(el.attachedName);
         el.attached.appendChild(el.attachRemove);
+
+        /*
+         * What is being quoted, over the composer.
+         *
+         * Over it rather than inside the box, because the box holds what the
+         * visitor is typing and this is not that. It also has to be visible
+         * while they type — a quote chosen and then forgotten is how somebody
+         * answers the wrong message — and a chip inside the input would be
+         * scrolled out of sight by the second line.
+         */
+        el.quoting = element('div', 'quoting');
+        el.quoting.hidden = true;
+        el.quotingText = element('span', 'quoting-text');
+        el.quotingCancel = element('button', 'quoting-cancel');
+        el.quotingCancel.appendChild(icon('close'));
+        el.quotingCancel.type = 'button';
+        el.quotingCancel.setAttribute('aria-label', labels.reply_cancel);
+        el.quotingCancel.title = labels.reply_cancel;
+        el.quotingCancel.addEventListener('click', cancelQuoting);
+        el.quoting.appendChild(el.quotingText);
+        el.quoting.appendChild(el.quotingCancel);
 
         el.emojiPad = buildEmojiPad();
 
@@ -819,9 +1049,21 @@
         el.input.type = 'text';
         el.input.placeholder = label('placeholder');
         el.input.autocomplete = 'off';
+        el.input.addEventListener('input', markComposer);
 
-        el.send = element('button', 'send', labels.send);
+        /*
+         * The word and the arrow are both on the button, and the stylesheet
+         * shows one of them. The stacked composer draws a circle the size of
+         * the icons beside it, where the word does not fit; dropped rather than
+         * hidden, the button would be an unlabelled arrow to anybody who cannot
+         * see that it points anywhere.
+         */
+        el.send = element('button', 'send');
+        el.sendLabel = element('span', 'send-label', labels.send);
+        el.send.appendChild(icon('send'));
+        el.send.appendChild(el.sendLabel);
         el.send.type = 'submit';
+        el.send.setAttribute('aria-label', labels.send);
 
         form.appendChild(el.emoji);
         form.appendChild(el.attach);
@@ -837,13 +1079,17 @@
         el.panel.appendChild(el.choices);
         el.panel.appendChild(el.notice);
         el.panel.appendChild(el.attached);
+        el.panel.appendChild(el.quoting);
         el.panel.appendChild(el.emojiPad);
         el.panel.appendChild(el.lead);
         el.panel.appendChild(form);
 
         el.root.appendChild(el.panel);
+        el.root.appendChild(el.teaser);
         el.root.appendChild(el.launcher);
         document.body.appendChild(el.root);
+
+        markComposer();
     }
 
     /**
@@ -879,6 +1125,28 @@
         return pad;
     }
 
+    /**
+     * Says whether there is anything to send, for the send button to look like.
+     *
+     * Decoration only — the button stays pressable, and `submit` ignores an
+     * empty message as it always has. A disabled button would take the control
+     * out of the tab order and swallow the click that a visitor whose keyboard
+     * has just inserted an emoji is about to make, and neither is worth a
+     * greyed-out arrow.
+     *
+     * A file with nothing typed counts as something to send: a photograph of a
+     * broken parcel says what it needs to.
+     */
+    function markComposer() {
+        if (!el.composer) {
+            return;
+        }
+
+        var empty = el.input.value.trim() === '' && state.file === null;
+
+        el.composer.setAttribute('data-empty', empty ? 'yes' : 'no');
+    }
+
     function insertEmoji(character) {
         var at = el.input.selectionStart;
         var to = el.input.selectionEnd;
@@ -894,6 +1162,7 @@
         el.input.focus();
         el.input.selectionStart = at + character.length;
         el.input.selectionEnd = at + character.length;
+        markComposer();
     }
 
     /**
@@ -907,6 +1176,7 @@
         state.file = file || null;
         el.attached.hidden = state.file === null;
         el.attachedName.textContent = state.file ? state.file.name : '';
+        markComposer();
         hideNotice();
     }
 
@@ -937,12 +1207,34 @@
         el.panel.hidden = !state.open;
         el.launcher.setAttribute('aria-expanded', state.open ? 'true' : 'false');
 
+        drawTeaser();
+
         if (state.open) {
             el.input.focus();
             markRead();
+
+            /*
+             * The theme is asked for again on every opening, and the status line
+             * is the reason. A marketing page is left open for hours; asked once
+             * at load, the line under the title would still say "online" at ten
+             * at night to somebody who has just opened the chat. Asking on every
+             * poll instead would recompute it every five seconds for a panel
+             * nobody is looking at, and the answer only matters at the moment it
+             * is read.
+             */
+            refreshTheme();
         }
 
         schedule();
+    }
+
+    function refreshTheme() {
+        api('theme?widget=' + encodeURIComponent(settings.widget) + '&bot=' + encodeURIComponent(settings.bot))
+            .then(function (sent) {
+                applyTheme(sent);
+                applyLabels(sent && sent.labels);
+            })
+            .catch(function () {});
     }
 
     /*
@@ -1032,14 +1324,49 @@
         }
 
         var from = message.incoming ? 'visitor' : 'agent';
+
+        /*
+         * The side of the panel and the speaker are two different questions, and
+         * the second one is finer: the bot and an operator both write on the
+         * agent side, and a handoff is the moment they stop being the same
+         * speaker. The runs below are drawn from this, so an operator taking
+         * over starts a group of their own instead of continuing the bot's.
+         */
+        var author = message.author || (message.incoming ? 'visitor' : 'bot');
+
         var row = element('div', 'message');
         row.setAttribute('data-from', from);
+        row.setAttribute('data-author', author);
+
+        /*
+         * The name is written for every message and hidden by the stylesheet —
+         * on the rows that continue a run, and everywhere when the placement
+         * does not show names. Appended only when the switch is on, a theme that
+         * arrived after a message did would leave that message nameless among
+         * named ones, and the first thing on screen is always the greeting.
+         */
+        if (author !== 'system') {
+            row.appendChild(element('div', 'author', authorName(author)));
+        }
 
         if (from === 'agent' && theme.flags.avatar_show) {
             row.appendChild(avatar());
         }
 
-        var bubble = element('div', 'bubble', message.body);
+        var bubble = element('div', 'bubble');
+
+        if (message.reply) {
+            bubble.appendChild(quote(message.reply));
+        }
+
+        /*
+         * The body goes in an element of its own rather than straight into the
+         * bubble, so a quote can sit above it. Left as a bare text node it would
+         * still work — until an attachment or a tick was appended, at which
+         * point the quote, the sentence and the tick would all be siblings with
+         * no way to keep the quote on its own line.
+         */
+        bubble.appendChild(element('span', 'text', message.body));
 
         (message.attachments || []).forEach(function (file) {
             bubble.appendChild(attachment(file));
@@ -1060,6 +1387,16 @@
         }
 
         row.appendChild(bubble);
+
+        /*
+         * A message can only be quoted once the server has given it an id. The
+         * echo of what the visitor has just typed has none — it is drawn locally
+         * so the panel feels immediate — and a quote of it would travel as a
+         * number the server has never issued.
+         */
+        if (tracked) {
+            row.appendChild(replyButton(message, author));
+        }
 
         if (!tracked) {
             row.setAttribute('data-local', 'yes');
@@ -1287,16 +1624,96 @@
     }
 
     /**
+     * The quoted line, inside the bubble that answers it.
+     *
+     * The text comes from the server with every poll rather than being looked up
+     * among the bubbles on screen. A transcript is trimmed to the last fifty
+     * messages, so the line being quoted is quite often not on screen at all —
+     * looked up locally, a quote of an older message would render empty for the
+     * one person who most needs to see what is being answered.
+     */
+    function quote(quoted) {
+        var block = element('div', 'quote');
+
+        block.appendChild(element('span', 'quote-author', authorName(quoted.author)));
+        block.appendChild(element('span', 'quote-text', quoted.body));
+
+        return block;
+    }
+
+    /**
+     * The button that points the next message at this one.
+     *
+     * Beside the bubble rather than inside it: inside, it would sit in the text
+     * of what somebody said, and on a one-word message it would be wider than
+     * the message. It is hidden — not absent — when the placement does not offer
+     * quoting, so that switching the setting on repaints the transcript already
+     * on screen.
+     */
+    function replyButton(message, author) {
+        var button = element('button', 'reply', labels.reply);
+
+        button.type = 'button';
+        button.hidden = !theme.features.replies;
+        button.addEventListener('click', function () {
+            quoteMessage(message, author);
+        });
+
+        return button;
+    }
+
+    /**
      * The bot's face, or its initials when it has no picture.
      */
     function avatar() {
-        var node = element('div', 'avatar', theme.flags.avatar ? '' : (theme.flags.avatar_label || ''));
+        return paintAvatar(element('div', 'avatar'));
+    }
 
-        if (theme.flags.avatar) {
-            node.style.backgroundImage = 'url("' + theme.flags.avatar + '")';
-        }
+    function paintAvatar(node) {
+        node.textContent = theme.flags.avatar ? '' : (theme.flags.avatar_label || '');
+        node.style.backgroundImage = theme.flags.avatar ? 'url("' + theme.flags.avatar + '")' : '';
 
         return node;
+    }
+
+    /**
+     * Brings the transcript already on screen into line with the theme and the
+     * wording that arrived after it was drawn.
+     *
+     * **The first bubble is always drawn before either has arrived.** The widget
+     * paints itself immediately and asks the server afterwards — deliberately,
+     * so that a slow answer costs a moment of default colours rather than a
+     * missing chat — and the greeting is appended in that window. Everything
+     * decided per message was therefore frozen at the defaults for that one
+     * bubble: it was named "Assistant" in English above a Russian panel, and it
+     * had no face while every later reply had one. Nothing about that reads as a
+     * race; it reads as the first message being a different kind of message.
+     */
+    function repaintRows() {
+        if (!el.log) {
+            return;
+        }
+
+        el.log.querySelectorAll('.' + settings.prefix + '__message').forEach(function (row) {
+            var name = row.querySelector('.' + settings.prefix + '__author');
+
+            if (name) {
+                name.textContent = authorName(row.getAttribute('data-author') || 'bot');
+            }
+
+            var face = row.querySelector('.' + settings.prefix + '__avatar');
+            var wanted = row.getAttribute('data-from') === 'agent' && theme.flags.avatar_show;
+
+            if (wanted && face) {
+                paintAvatar(face);
+            } else if (wanted) {
+                row.insertBefore(avatar(), row.querySelector('.' + settings.prefix + '__bubble'));
+            } else if (face) {
+                face.remove();
+            }
+        });
+
+        markRuns();
     }
 
     /**
@@ -1316,7 +1733,15 @@
         var rows = Array.prototype.slice.call(el.log.querySelectorAll('.' + settings.prefix + '__message'));
 
         rows.forEach(function (row, index) {
-            var speaker = row.getAttribute('data-from');
+            /*
+             * The speaker, not the side. The bot and an operator both write on
+             * the agent side, and grouped by side a handoff would put the
+             * operator's first sentence into the bot's block — one tail, one
+             * face and one name over two different people. The name over a run
+             * is what made the difference visible; the grouping was wrong before
+             * it, silently.
+             */
+            var speaker = row.getAttribute('data-author') || row.getAttribute('data-from');
             var previous = rows[index - 1];
             var next = rows[index + 1];
 
@@ -1403,6 +1828,7 @@
     function submit(text) {
         var body = (text || '').trim();
         var file = state.file;
+        var quoting = state.replyTo;
 
         if ((!body && !file) || state.sending) {
             return;
@@ -1410,12 +1836,20 @@
 
         state.sending = true;
         el.input.value = '';
+        markComposer();
         el.emojiPad.hidden = true;
         state.choices = [];
         renderChoices();
         hideNotice();
 
-        append({ id: null, body: body || (file ? file.name : ''), incoming: true });
+        cancelQuoting();
+
+        append({
+            id: null,
+            body: body || (file ? file.name : ''),
+            incoming: true,
+            reply: quoting,
+        });
 
         var request = { method: 'POST' };
         var cookies = pageCookies();
@@ -1428,6 +1862,10 @@
             form.append('body', body);
             form.append('page', window.location.href);
             form.append('attachment', file);
+
+            if (quoting) {
+                form.append('reply_to', String(quoting.id));
+            }
 
             if (cookies) {
                 Object.keys(cookies).forEach(function (name) {
@@ -1447,6 +1885,7 @@
                 widget: settings.widget,
                 bot: settings.bot,
                 body: body,
+                reply_to: quoting ? quoting.id : null,
                 page: window.location.href,
                 cookies: cookies,
                 lead: state.lead,
@@ -1517,12 +1956,7 @@
          * would never appear at all. Drawn first, the worst case is a launcher
          * that settles into its colours a moment later.
          */
-        api('theme?widget=' + encodeURIComponent(settings.widget) + '&bot=' + encodeURIComponent(settings.bot))
-            .then(function (sent) {
-                applyTheme(sent);
-                applyLabels(sent && sent.labels);
-            })
-            .catch(function () {});
+        refreshTheme();
 
         if (settings.greeting) {
             append({ id: null, body: settings.greeting, incoming: false });

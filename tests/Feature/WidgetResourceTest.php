@@ -65,6 +65,39 @@ it('fills the appearance form with the values the widget actually uses', functio
 });
 
 /**
+ * The name for the initials is written out in full, and the form takes it.
+ *
+ * The field asked for two characters, which was right while the widget took the
+ * first two characters of what it was given. It stopped being right when the
+ * initials started coming from the first letter of each word: «Мир на ладони»
+ * no longer fits in the box, so the form refuses to save the very value the
+ * widget is now built to read — and whoever hits that limit types two letters
+ * instead, which is drawn in the circle on every page the widget stands on.
+ *
+ * Saved rather than only filled in: the cap was a validation rule, and a rule
+ * only speaks when something is submitted.
+ */
+it('takes a company name in the box the initials are made from', function (): void {
+    $widget = Widget::factory()->create();
+
+    Livewire::test(EditWidget::class, ['record' => $widget->getKey()])
+        ->fillForm(['theme.avatar_label' => 'Мир на ладони'])
+        ->call('save')
+        ->assertHasNoFormErrors();
+
+    expect($widget->refresh()->theme()->flags()['avatar_label'])->toBe('МЛ');
+
+    /*
+     * And the box still holds the name afterwards. Reduced on the way into
+     * storage, the form would reopen showing «МЛ» under a label asking for a
+     * company name — the answer in place of the question, and the next person
+     * to edit this widget would have no way of knowing what it had been.
+     */
+    expect(Livewire::test(EditWidget::class, ['record' => $widget->getKey()])
+        ->get('data')['theme']['avatar_label'])->toBe('Мир на ладони');
+});
+
+/**
  * The key is filled in from the name once and never touched again.
  *
  * Both halves matter, and the second is the one with teeth. The key is what a

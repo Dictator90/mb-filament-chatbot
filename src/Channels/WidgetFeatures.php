@@ -38,6 +38,7 @@ final class WidgetFeatures
         'emoji' => true,
         'attachments' => false,
         'receipts' => true,
+        'replies' => false,
     ];
 
     /**
@@ -90,6 +91,23 @@ final class WidgetFeatures
     public function receipts(): bool
     {
         return $this->values['receipts'];
+    }
+
+    /**
+     * Whether the visitor may answer one particular message rather than the
+     * conversation.
+     *
+     * Off unless switched on, like attachments and for a related reason: it
+     * changes what arrives at the desk. A quote is only worth offering where
+     * somebody reads the thread — on a desk with one operator and short threads
+     * it is a button that adds a line to every message and answers nothing —
+     * and where the channel behind the widget can carry it. A widget that
+     * offered it and dropped it would have the visitor pointing at a message
+     * nobody at the other end can see them pointing at.
+     */
+    public function replies(): bool
+    {
+        return $this->values['replies'];
     }
 
     /**

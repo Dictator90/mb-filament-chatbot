@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use Illuminate\Support\Carbon;
 use MB\FilamentChatbot\Channels\WidgetIdentity;
 use MB\FilamentChatbot\Enums\MessageAuthor;
 use MB\FilamentChatbot\Enums\MessageDirection;
@@ -776,4 +777,183 @@ it('does not ask a form with nothing in it', function (): void {
         ->getJson('/chatbot/site/theme?widget=demo')
         ->assertOk()
         ->assertJsonPath('lead.enabled', false);
+});
+
+/**
+ * The line under the title reports the hours the installation declared.
+ *
+ * It is the one thing on the widget that makes a promise about people, so what
+ * it is allowed to promise is worth pinning down: the bot's own opening hours,
+ * and never whether somebody is at a desk. Nobody tells this application when
+ * they sit down, and a status computed from who last touched a conversation
+ * would say "away" through a lunch break.
+ */
+it('says under the title whether an answer is coming now', function (): void {
+    $this->bot->update(['hours_from' => '09:00', 'hours_till' => '18:00']);
+
+    Carbon::setTestNow(Carbon::parse('2026-01-05 12:00:00'));
+
+    $this->withHeaders(['Origin' => 'https://shop.example.com'])
+        ->getJson('/chatbot/site/theme?widget=demo')
+        ->assertOk()
+        ->assertJsonPath('presence', 'online');
+
+    Carbon::setTestNow(Carbon::parse('2026-01-05 21:00:00'));
+
+    $this->withHeaders(['Origin' => 'https://shop.example.com'])
+        ->getJson('/chatbot/site/theme?widget=demo')
+        ->assertOk()
+        ->assertJsonPath('presence', 'away');
+
+    Carbon::setTestNow();
+});
+
+/**
+ * A bot with no hours is open; a widget this site may not use is not.
+ *
+ * The two defaults point in opposite directions on purpose. Empty hours mean
+ * "always" everywhere else in the package, so reading them as "closed" here
+ * would hang a "we are shut" sign under every widget nobody has given an
+ * opening time — while a widget that will not answer this page at all has
+ * nothing to promise anybody.
+ */
+it('is open with no hours set and away where it will not answer at all', function (): void {
+    $this->withHeaders(['Origin' => 'https://shop.example.com'])
+        ->getJson('/chatbot/site/theme?widget=demo')
+        ->assertOk()
+        ->assertJsonPath('presence', 'online');
+
+    $this->widget->update(['is_active' => false]);
+
+    $this->withHeaders(['Origin' => 'https://shop.example.com'])
+        ->getJson('/chatbot/site/theme?widget=demo')
+        ->assertOk()
+        ->assertJsonPath('presence', 'away');
+});
+
+/**
+ * The three parts of the chrome a placement can switch on travel with the theme,
+ * and they start off.
+ *
+ * Off is the part worth a test. Each of them adds a claim to a page this
+ * application does not own — that somebody is available, that the widget knows
+ * who is speaking, that the circle in the corner wants pressing — so a release
+ * that switched any of them on by default would add that claim to every widget
+ * already embedded on somebody's site.
+ */
+it('keeps the status line, the names and the teaser off until they are switched on', function (): void {
+    $flags = $this->withHeaders(['Origin' => 'https://shop.example.com'])
+        ->getJson('/chatbot/site/theme?widget=demo')
+        ->assertOk()
+        ->json('flags');
+
+    expect($flags['status'])->toBeFalse()
+        ->and($flags['authors'])->toBeFalse()
+        ->and($flags['teaser'])->toBeFalse();
+
+    $this->widget->update(['theme' => ['status' => true, 'authors' => true, 'teaser' => true]]);
+
+    $flags = $this->withHeaders(['Origin' => 'https://shop.example.com'])
+        ->getJson('/chatbot/site/theme?widget=demo')
+        ->assertOk()
+        ->json('flags');
+
+    expect($flags['status'])->toBeTrue()
+        ->and($flags['authors'])->toBeTrue()
+        ->and($flags['teaser'])->toBeTrue();
+});
+
+/**
+ * A quote is kept when it points inside this thread and dropped when it does not.
+ *
+ * **This is what keeps one visitor's words out of another's chat.** The id
+ * arrives from a script on a page the visitor can edit, and the transcript draws
+ * the quoted line inside the bubble — so an unchecked number would let anybody
+ * have any message in this installation rendered inside their own conversation,
+ * by typing a different number into their own console.
+ *
+ * Dropped rather than refused, and that is deliberate as well: the ordinary
+ * cause is a stale page quoting a message from a thread that has since been
+ * replaced, and throwing away what somebody typed over a decoration would be the
+ * widget losing their message. Both causes end the same way, so neither caller
+ * learns whether the id exists.
+ */
+it('keeps a quote that points inside the thread and silently drops one that does not', function (): void {
+    [$conversation, $token] = visitorThread();
+
+    $mine = Message::create([
+        'conversation_id' => $conversation->getKey(),
+        'direction' => MessageDirection::Outgoing,
+        'author' => MessageAuthor::Operator,
+        'body' => 'Your booking is confirmed for the fourth.',
+    ]);
+
+    $stranger = Message::create([
+        'conversation_id' => Conversation::factory()->create(['channel' => 'site'])->getKey(),
+        'direction' => MessageDirection::Incoming,
+        'author' => MessageAuthor::Visitor,
+        'body' => 'my card number is on this page',
+    ]);
+
+    $this->withHeaders([
+        'Origin' => 'https://shop.example.com',
+        'X-Chatbot-Token' => $token,
+    ])->postJson('/chatbot/site/messages', [
+        'widget' => 'demo',
+        'body' => 'which fourth?',
+        'reply_to' => $mine->getKey(),
+    ])->assertOk();
+
+    $this->withHeaders([
+        'Origin' => 'https://shop.example.com',
+        'X-Chatbot-Token' => $token,
+    ])->postJson('/chatbot/site/messages', [
+        'widget' => 'demo',
+        'body' => 'and this one?',
+        'reply_to' => $stranger->getKey(),
+    ])->assertOk();
+
+    $said = $conversation->messages()->incoming()->orderBy('id')->get();
+
+    expect($said)->toHaveCount(2)
+        ->and($said->first()->reply_to_id)->toBe($mine->getKey())
+        ->and($said->last()->reply_to_id)->toBeNull();
+});
+
+/**
+ * The quoted line travels with the transcript, read from the record and never
+ * echoed back from the request.
+ *
+ * The widget cannot look it up for itself: a transcript is trimmed to the last
+ * fifty messages, so the line being answered is quite often no longer on screen
+ * — and a quote that came out empty for older messages would fail exactly where
+ * it is needed most.
+ */
+it('sends the quoted line with the message that answers it', function (): void {
+    [$conversation, $token] = visitorThread();
+
+    $quoted = Message::create([
+        'conversation_id' => $conversation->getKey(),
+        'direction' => MessageDirection::Outgoing,
+        'author' => MessageAuthor::Operator,
+        'body' => 'Your booking is confirmed for the fourth.',
+    ]);
+
+    Message::create([
+        'conversation_id' => $conversation->getKey(),
+        'direction' => MessageDirection::Incoming,
+        'author' => MessageAuthor::Visitor,
+        'body' => 'which fourth?',
+        'reply_to_id' => $quoted->getKey(),
+    ]);
+
+    $messages = $this->withHeaders([
+        'Origin' => 'https://shop.example.com',
+        'X-Chatbot-Token' => $token,
+    ])->getJson('/chatbot/site/messages')->assertOk()->json('messages');
+
+    expect($messages[0]['reply'])->toBeNull()
+        ->and($messages[1]['reply']['id'])->toBe($quoted->getKey())
+        ->and($messages[1]['reply']['author'])->toBe('operator')
+        ->and($messages[1]['reply']['body'])->toBe('Your booking is confirmed for the fourth.');
 });

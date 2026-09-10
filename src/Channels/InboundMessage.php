@@ -53,6 +53,18 @@ final class InboundMessage
          * honest answer for every public chat box there is.
          */
         public readonly bool $identified = false,
+        /**
+         * The message this one quotes, as the channel claimed it.
+         *
+         * A claim like every other field here, and a more dangerous one than
+         * most: it is an id, the transcript draws the quoted line inside the
+         * reply, and the number arrives from a script on a page the visitor can
+         * edit. Taken at face value it would render a line of somebody else's
+         * conversation inside this one. It is checked against the thread the
+         * message actually lands in, and dropped when it does not belong there
+         * — see the note on `MessageRouter::quoted()`.
+         */
+        public readonly ?int $replyToId = null,
         public readonly array $meta = [],
     ) {}
 }

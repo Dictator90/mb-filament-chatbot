@@ -236,6 +236,43 @@ it('counts the unread badge for the person looking at it', function (): void {
 });
 
 /**
+ * The line a visitor quoted is drawn at the desk as well as in the widget.
+ *
+ * For some replies the quote *is* the content: "this one", against a message
+ * from an hour ago. Without it on this screen the operator reads a two-word
+ * answer with nothing to attach it to, answers the most recent question instead,
+ * and there is no sign anywhere that the visitor had pointed at a different one.
+ *
+ * Counted rather than looked for, and that is the whole difficulty of testing
+ * this screen: the quoted message is in the thread anyway, so `assertSee` of its
+ * text passes whether or not anything quoted it — and the page carries its own
+ * stylesheet, so `assertSeeHtml` of the class name passes on the rule that
+ * styles it. Twice on the page means once as a message and once as a quote.
+ */
+it('shows the operator which message a visitor was answering', function (): void {
+    signIn();
+
+    $conversation = Conversation::factory()->create(['last_message_at' => now()]);
+
+    $quoted = Message::factory()->for($conversation)->create([
+        'author' => MessageAuthor::Operator,
+        'body' => 'Confirmed for the fourth of June',
+    ]);
+
+    Message::factory()->for($conversation)->create([
+        'author' => MessageAuthor::Visitor,
+        'body' => 'which fourth?',
+        'reply_to_id' => $quoted->getKey(),
+    ]);
+
+    $html = Livewire::test(ChatInbox::class)
+        ->call('selectConversation', $conversation->getKey())
+        ->html();
+
+    expect(substr_count($html, 'Confirmed for the fourth of June'))->toBe(2);
+});
+
+/**
  * The property, not a ceiling: twenty conversations must cost what two cost.
  *
  * A ceiling on the number of queries catches a change of decoration; this

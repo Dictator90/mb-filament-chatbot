@@ -337,6 +337,35 @@
         }
 
         /*
+            The quoted line, above the reply that answers it.
+
+            Clamped to one line and drawn in the bubble's own colour at a lower
+            opacity, with a rule down its inner edge — the same shape the widget
+            gives it, so that operator and visitor are looking at the same thing.
+            Allowed to grow, a quote of a long message would be taller than the
+            answer and the answer would read as an afterthought.
+        */
+        .chatbot-inbox__quote {
+            margin-bottom: 0.2rem;
+            padding-inline-start: 0.4rem;
+            border-inline-start: 2px solid currentColor;
+            font-size: 0.72rem;
+            opacity: 0.75;
+        }
+
+        .chatbot-inbox__quote-author {
+            display: block;
+            font-weight: 600;
+        }
+
+        .chatbot-inbox__quote-text {
+            display: block;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        /*
             The three stages differ by weight and opacity rather than by hue.
             A red-green pair would carry the whole meaning in the one channel
             about a twelfth of men cannot separate, and the difference between
@@ -845,6 +874,25 @@
                             ])
                         >
                             <p class="chatbot-inbox__bubble-meta">{{ $this->authorLabel($message, $record) }}</p>
+
+                            {{--
+                                The line this one answers, when the visitor
+                                pointed at one.
+
+                                Shown here and not only in the widget, because
+                                the quote is the whole content of some replies:
+                                "this one" against a message from an hour ago is
+                                unreadable at the desk without it, and the
+                                operator would answer the wrong question with no
+                                sign that a question had been chosen at all.
+                            --}}
+                            @if ($message->replyTo)
+                                <p class="chatbot-inbox__quote">
+                                    <span class="chatbot-inbox__quote-author">{{ $this->authorLabel($message->replyTo, $record) }}</span>
+                                    <span class="chatbot-inbox__quote-text">{{ \Illuminate\Support\Str::limit((string) $message->replyTo->body, 140) }}</span>
+                                </p>
+                            @endif
+
                             <p class="chatbot-inbox__bubble-text">{{ $message->body }}</p>
 
                             {{--

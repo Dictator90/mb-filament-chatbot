@@ -50,6 +50,51 @@ return [
     'expand' => 'Open the picture',
 
     /*
+     * The line under the title, where a placement shows one.
+     *
+     * It reports the hours the installation declared and never a person at a
+     * desk — see the note on `src/Channels/WidgetPresence.php`. "Away" therefore
+     * says when an answer is coming rather than that nobody is there: a visitor
+     * who reads "offline" leaves, and one who reads "in the morning" writes
+     * anyway, which is the message the desk wanted.
+     */
+    'status_online' => 'Online',
+    'status_away' => 'We answer in the morning',
+
+    /*
+     * Who said it, over the first bubble of each run.
+     *
+     * Three names, and none of them a real one. The bot's own name is already on
+     * the title directly above; repeating it over every reply would print it
+     * five times on one screen. An operator's name is not this application's to
+     * publish on somebody else's site — and on a desk where three people share a
+     * shift, naming them would make one conversation look like three.
+     */
+    'author_you' => 'You',
+    'author_bot' => 'Assistant',
+    'author_operator' => 'Support',
+
+    /*
+     * The sentence beside the launcher, where a placement shows one.
+     *
+     * A round launcher is a coloured circle, and a coloured circle in the corner
+     * of a page is not self-evidently a chat. This is what the pill-shaped
+     * launcher says on itself, said next to the circle instead.
+     */
+    'teaser' => 'Chat with us',
+
+    /*
+     * Quoting one message rather than answering the thread.
+     *
+     * `reply` names the button on a bubble; `reply_cancel` is the way out of the
+     * chip it puts over the composer, and it matters more than it looks. Without
+     * it, somebody who quoted the wrong message has no way back except sending
+     * it and then saying "not that one".
+     */
+    'reply' => 'Reply',
+    'reply_cancel' => 'Not this one',
+
+    /*
      * The opening form, where a placement asks for one.
      *
      * The intro says why, and says it in one line. A form in front of a chat box

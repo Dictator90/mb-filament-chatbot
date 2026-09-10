@@ -58,7 +58,10 @@ it('falls back to the first choice when a style is not one it offers', function 
         ->and(WidgetTheme::make(['bubbles' => 'grouped'])->flags()['bubbles'])->toBe('grouped')
         ->and(WidgetTheme::make(['bubbles' => 'whatever'])->flags()['bubbles'])->toBe('rounded')
         ->and(WidgetTheme::make(['position' => 'left'])->flags()['position'])->toBe('left')
-        ->and(WidgetTheme::make(['launcher' => 'circle'])->flags()['launcher'])->toBe('circle');
+        ->and(WidgetTheme::make(['launcher' => 'circle'])->flags()['launcher'])->toBe('circle')
+        ->and(WidgetTheme::make(['composer' => 'card'])->flags()['composer'])->toBe('card')
+        ->and(WidgetTheme::make(['composer' => 'stacked'])->flags()['composer'])->toBe('row')
+        ->and(WidgetTheme::make()->flags()['composer'])->toBe('row');
 });
 
 /**

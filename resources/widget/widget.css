@@ -34,6 +34,18 @@
     --chatbot-bubble-radius: 12px;
     --chatbot-width: 360px;
 
+    /*
+     * A column, so that the two `align-items` below have something to align.
+     *
+     * They were written for a flex box that was never declared one, and an
+     * inert `align-items` looks exactly like a working one until a second thing
+     * is stacked here: the panel is the widest child, so the launcher and the
+     * teaser sat against its left edge while the panel itself hung off the right
+     * of the screen. Nothing about that reads as a missing `display` — it reads
+     * as the launcher having moved when the chat opened.
+     */
+    display: flex;
+    flex-direction: column;
     position: fixed;
     bottom: 20px;
     z-index: 2147483000;
@@ -172,8 +184,82 @@
     visibility: hidden;
 }
 
+.chatbot__heading {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+}
+
 .chatbot__title {
     font-weight: 600;
+}
+
+/*
+ * The line under the name, where a placement shows one.
+ *
+ * Drawn in the header's own colour at a lower opacity rather than in a green of
+ * its own. "Online" written in green on an accent the shop chose is two colours
+ * fighting in a strip forty pixels tall, and on a green accent it is invisible;
+ * the dot carries the state, and it is filled or hollow rather than green or
+ * grey so that the difference survives being looked at by somebody who cannot
+ * separate one colour from another.
+ */
+.chatbot__status {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    line-height: 1.3;
+    opacity: 0.85;
+}
+
+.chatbot__status[hidden] {
+    display: none;
+}
+
+.chatbot__status::before {
+    content: "";
+    flex: none;
+    width: 7px;
+    height: 7px;
+    border: 1px solid currentColor;
+    border-radius: 50%;
+    background: currentColor;
+}
+
+.chatbot__status[data-state="away"]::before {
+    background: transparent;
+}
+
+/*
+ * The sentence beside the launcher.
+ *
+ * A button and not a caption: whoever reads it is being invited to chat, and the
+ * words are the part they will aim at. It carries the panel's colours rather
+ * than the accent so that it reads as a note stuck to the page next to the
+ * button, instead of as a second, differently shaped launcher.
+ */
+.chatbot__teaser {
+    max-width: calc(100vw - 120px);
+    margin-bottom: 10px;
+    padding: 8px 14px;
+    border: 1px solid var(--chatbot-line);
+    border-radius: 999px;
+    background: var(--chatbot-surface);
+    color: var(--chatbot-ink);
+    font: inherit;
+    font-size: 14px;
+    cursor: pointer;
+    box-shadow: 0 8px 20px rgba(15, 23, 42, 0.14);
+}
+
+.chatbot__teaser[hidden] {
+    display: none;
+}
+
+.chatbot__teaser:hover {
+    border-color: var(--chatbot-accent);
+    color: var(--chatbot-accent);
 }
 
 .chatbot__close {
@@ -220,10 +306,105 @@
 
 .chatbot__message {
     display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
 }
 
 .chatbot__message[data-from="visitor"] {
     justify-content: flex-end;
+}
+
+/*
+ * Who is speaking, over the first bubble of their run.
+ *
+ * A whole row of its own rather than a line inside the bubble: inside, it would
+ * be part of what somebody said — selected with it, copied with it, and pushing
+ * the sentence down inside a coloured box that is meant to hold one sentence.
+ * The row wraps, so the name takes the full width and the bubble drops beneath
+ * it without either needing a wrapper element.
+ *
+ * Only over the first of a run, because the run is the group: repeated over
+ * three consecutive replies it reads as three different people, which is the
+ * exact confusion the grouping exists to remove.
+ */
+.chatbot__author {
+    flex: 0 0 100%;
+    margin-bottom: 2px;
+    color: var(--chatbot-muted);
+    font-size: 12px;
+    line-height: 1.3;
+}
+
+.chatbot__message[data-from="visitor"] .chatbot__author {
+    text-align: end;
+}
+
+.chatbot__root[data-authors="no"] .chatbot__author,
+.chatbot__message[data-run="middle"] .chatbot__author,
+.chatbot__message[data-run="last"] .chatbot__author {
+    display: none;
+}
+
+/*
+ * The name sits above the bubble and not above the face beside it, so on the
+ * agent side it is indented by exactly the width of that face plus its margin.
+ * Without this the name starts at the panel's edge while the words it names
+ * start 36 pixels in, and the two read as belonging to different rows.
+ */
+.chatbot__message[data-from="agent"] .chatbot__author {
+    padding-inline-start: 36px;
+}
+
+/*
+ * The button that quotes one message, beside its bubble.
+ *
+ * Invisible until the row is pointed at or something in it is focused — a
+ * transcript with a button against every line is a list of buttons with some
+ * text between them. `visibility` and not `display`, so the row does not change
+ * width when it appears and the bubbles do not shuffle sideways under the
+ * reader's eye.
+ *
+ * It stays visible on a touch screen, where there is no hover and an invisible
+ * control is simply an absent one.
+ */
+.chatbot__reply {
+    flex: none;
+    align-self: center;
+    margin: 0 6px;
+    padding: 2px 4px;
+    border: 0;
+    background: transparent;
+    color: var(--chatbot-muted);
+    font: inherit;
+    font-size: 12px;
+    text-decoration: underline;
+    cursor: pointer;
+    visibility: hidden;
+}
+
+.chatbot__reply[hidden] {
+    display: none;
+}
+
+.chatbot__message:hover .chatbot__reply,
+.chatbot__message:focus-within .chatbot__reply {
+    visibility: visible;
+}
+
+@media (hover: none) {
+    .chatbot__reply {
+        visibility: visible;
+    }
+}
+
+/*
+ * The quoted message keeps to the left of the bubble it is answering, so the
+ * button belongs on the other side of it — otherwise, on the visitor's own
+ * messages, it would sit between the bubble and the edge of the panel where the
+ * ticks already live.
+ */
+.chatbot__message[data-from="visitor"] .chatbot__reply {
+    order: -1;
 }
 
 .chatbot__bubble {
@@ -245,6 +426,84 @@
     background: transparent;
     color: var(--chatbot-muted);
     font-size: 13px;
+}
+
+/*
+ * The line being answered, inside the bubble that answers it.
+ *
+ * One line and then an ellipsis, on purpose: it is a pointer at something the
+ * reader can scroll to, not a second copy of it. Allowed to grow, a quote of a
+ * long message becomes taller than the reply and the answer disappears under
+ * the question.
+ *
+ * Drawn in `currentColor` at a lower opacity with a rule down its inner edge,
+ * so it works in both bubbles — the visitor's, painted in the shop's accent, and
+ * the agent's, painted in a pale grey. A fixed grey would vanish into one of
+ * them, and which one depends on a colour the shop picks.
+ */
+.chatbot__quote {
+    display: block;
+    margin-bottom: 4px;
+    padding-inline-start: 8px;
+    border-inline-start: 2px solid currentColor;
+    font-size: 13px;
+    line-height: 1.35;
+    opacity: 0.75;
+}
+
+.chatbot__quote-author {
+    display: block;
+    font-weight: 600;
+}
+
+.chatbot__quote-text {
+    display: block;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/*
+ * What is about to be quoted, over the composer. Shaped like the attached-file
+ * chip above it, because it is the same kind of thing: something already chosen
+ * that will ride along with the next message, and can be taken off again.
+ */
+.chatbot__quoting {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 0 16px 8px;
+    color: var(--chatbot-muted);
+    font-size: 13px;
+}
+
+.chatbot__quoting[hidden] {
+    display: none;
+}
+
+.chatbot__quoting-text {
+    flex: 1 1 auto;
+    min-width: 0;
+    padding-inline-start: 8px;
+    border-inline-start: 2px solid var(--chatbot-accent);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.chatbot__quoting-cancel {
+    flex: none;
+    padding: 0 4px;
+    border: 0;
+    background: transparent;
+    color: inherit;
+    cursor: pointer;
+}
+
+.chatbot__quoting-cancel svg {
+    display: block;
+    width: 16px;
+    height: 16px;
 }
 
 /*
@@ -739,6 +998,120 @@
     font: inherit;
     font-weight: 600;
     cursor: pointer;
+}
+
+/*
+ * The arrow is on the button in every style and drawn in only one of them. The
+ * word is the button in the row style; in the stacked one it is a circle the
+ * size of the icons beside it, where the word does not fit — and the label stays
+ * in the markup so that the circle still says "send" to anybody who cannot see
+ * which way an arrow points.
+ */
+.chatbot__send svg {
+    display: none;
+    width: 20px;
+    height: 20px;
+}
+
+/*
+ * ------------------------------------------------------------------
+ * The stacked message box
+ * ------------------------------------------------------------------
+ *
+ * One panel with the box across the top, the two icons under it and a round
+ * arrow at the far end — what a phone messenger looks like, and what a visitor
+ * arriving from one reaches for. The row style stays the default: it is what
+ * every widget already embedded somewhere is drawing, and it is the one that
+ * survives a panel narrowed to 280 pixels.
+ *
+ * The parts are the same elements in the same order; only the wrapping changes.
+ * A second set of markup would be a second composer to keep in step, and the
+ * one that broke would be whichever of the two nobody had looked at lately.
+ */
+.chatbot__root[data-composer="card"] .chatbot__composer {
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+    margin: 12px;
+    padding: 8px 10px;
+    border: 1px solid var(--chatbot-line);
+    border-radius: var(--chatbot-radius);
+    background: var(--chatbot-surface);
+}
+
+/*
+ * The focus ring goes on the panel rather than on the box inside it.
+ *
+ * The box has no border of its own here — it is the top half of the card — so
+ * an outline drawn around it would be a rectangle floating inside another
+ * rectangle. Taking the ring away and leaving nothing is the trap: somebody
+ * moving through the widget by keyboard would have no way of knowing they had
+ * arrived at the place where they can type.
+ */
+.chatbot__root[data-composer="card"] .chatbot__composer:focus-within {
+    border-color: var(--chatbot-accent);
+    box-shadow: 0 0 0 2px var(--chatbot-accent);
+}
+
+.chatbot__root[data-composer="card"] .chatbot__input {
+    order: -1;
+    flex: 0 0 100%;
+    padding: 6px 4px 8px;
+    border: 0;
+    background: transparent;
+}
+
+.chatbot__root[data-composer="card"] .chatbot__input:focus {
+    outline: none;
+}
+
+.chatbot__root[data-composer="card"] .chatbot__emoji,
+.chatbot__root[data-composer="card"] .chatbot__attach {
+    width: 30px;
+    height: 30px;
+    border-color: transparent;
+    background: transparent;
+    color: var(--chatbot-muted);
+}
+
+.chatbot__root[data-composer="card"] .chatbot__send {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    margin-inline-start: auto;
+    width: 34px;
+    height: 34px;
+    padding: 0;
+    border-radius: 50%;
+}
+
+.chatbot__root[data-composer="card"] .chatbot__send svg {
+    display: block;
+}
+
+.chatbot__root[data-composer="card"] .chatbot__send-label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+}
+
+/*
+ * A quiet arrow while there is nothing to send.
+ *
+ * Decoration and nothing else: the button stays pressable and the send still
+ * ignores an empty message. Disabled instead, it would leave the tab order and
+ * swallow the click of somebody whose emoji had just gone in — and an arrow
+ * that cannot be pressed is indistinguishable from a chat that has stopped
+ * working.
+ */
+.chatbot__root[data-composer="card"] .chatbot__composer[data-empty="yes"] .chatbot__send {
+    background: var(--chatbot-agent);
+    color: var(--chatbot-muted);
 }
 
 /*

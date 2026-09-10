@@ -168,6 +168,7 @@ class MessageRouter
                 'direction' => MessageDirection::Incoming,
                 'author' => MessageAuthor::Visitor,
                 'body' => $body,
+                'reply_to_id' => $this->quoted($conversation, $inbound),
                 'external_id' => $externalId === '' ? null : $externalId,
                 'meta' => $inbound->meta === [] ? null : $inbound->meta,
             ]);
@@ -180,6 +181,38 @@ class MessageRouter
 
             throw $exception;
         }
+    }
+
+    /**
+     * The message this one may quote: the claimed one, if it is in this thread.
+     *
+     * **Checked here rather than at the channel, because here is where the
+     * thread is known.** The conversation a message lands in is decided a few
+     * lines above this — it can be one opened in this very request — so a check
+     * made at the edge would have been made against a different thread from the
+     * one the row ends up in.
+     *
+     * A number that points elsewhere is dropped and the message is stored
+     * without a quote. Not refused: the ordinary cause is a stale page quoting a
+     * message from a conversation that has since been closed and replaced, and
+     * throwing away what somebody typed over a decoration would be the widget
+     * losing their message. The dangerous cause — an id belonging to a stranger,
+     * sent to have their line drawn inside this transcript — ends the same way,
+     * which is the point of dropping rather than reporting: neither caller
+     * learns whether the id exists.
+     */
+    private function quoted(Conversation $conversation, InboundMessage $inbound): ?int
+    {
+        if ($inbound->replyToId === null) {
+            return null;
+        }
+
+        return Message::query()
+            ->where('id', $inbound->replyToId)
+            ->where('conversation_id', $conversation->getKey())
+            ->exists()
+            ? $inbound->replyToId
+            : null;
     }
 
     /**

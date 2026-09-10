@@ -387,7 +387,13 @@ class ChatInbox extends Page
              * every message has none, so this is one query for the transcript
              * where a relation touched in the view would be fifty.
              */
-            ->with('attachments')
+            /*
+             * The quoted line travels with the message for the same reason. A
+             * thread where every second reply answers a particular message would
+             * otherwise be twenty-five extra queries, and the quote is drawn
+             * inside the bubble where nothing looks expensive.
+             */
+            ->with(['attachments', 'replyTo'])
             ->reorder()
             ->latest('id')
             ->limit((int) config('chatbot.chat.history_limit', 50))

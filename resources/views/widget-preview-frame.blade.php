@@ -114,8 +114,19 @@
                 }));
             }
 
-            function say(body, incoming) {
+            /*
+             * `quoted` is the id the widget said it was answering, and the stub
+             * looks it up in its own log rather than echoing back what it was
+             * sent. That is the same shape the real endpoint has — the quoted
+             * text always comes from the record, never from the request — so the
+             * preview shows a quote of a message that exists and nothing else.
+             */
+            function say(body, incoming, quoted) {
                 nextId += 1;
+
+                var answered = log.filter(function (message) {
+                    return message.id === quoted;
+                })[0];
 
                 log.push({
                     id: nextId,
@@ -123,6 +134,11 @@
                     incoming: incoming,
                     author: incoming ? 'visitor' : 'bot',
                     at: new Date().toISOString(),
+                    reply: answered ? {
+                        id: answered.id,
+                        author: answered.author,
+                        body: answered.body.slice(0, 140),
+                    } : null,
                 });
             }
 
@@ -138,6 +154,8 @@
                     return answer({
                         properties: preview.properties,
                         flags: preview.flags,
+                        features: preview.features,
+                        presence: preview.presence,
                         labels: preview.labels,
                     });
                 }
@@ -155,7 +173,7 @@
                         sent = {};
                     }
 
-                    say(sent.body, true);
+                    say(sent.body, true, sent.reply_to);
                     say(preview.reply, false);
 
                     return answer({});

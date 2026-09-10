@@ -47,6 +47,14 @@ final class WidgetPreview extends Component
                 (string) Filament::getId(),
                 [
                     'theme' => (array) $get('theme'),
+                    /*
+                     * The feature switches travel too, although they are on
+                     * another tab. Two of them decide whether a control exists
+                     * at all — the paper clip, and the button that quotes a
+                     * message — so a preview without them is a picture of a
+                     * different widget from the one being edited.
+                     */
+                    'features' => (array) $get('features'),
                     'labels' => (array) $get('labels'),
                     'greeting' => (string) $get('greeting'),
                 ],

@@ -143,6 +143,8 @@ return [
             'attachments_help' => 'Off unless you turn it on. This is the application taking a file from an anonymous stranger and keeping it: only listed types are accepted, the size ceiling is in the config, and nothing is ever stored where a link alone would open it.',
             'receipts' => 'Delivery ticks',
             'receipts_help' => 'One tick sent, two delivered, two filled in read — beside the visitor\'s own messages, and about their own conversation only. Turn it off where you would rather not show the minute somebody opened the thread and said nothing.',
+            'replies' => 'Answering one message',
+            'replies_help' => 'Puts a reply button on every message and the quoted line inside the answer. Worth switching on where threads run long enough that "no, the other one" is a real exchange; on short conversations it is a button on every line that answers nothing.',
         ],
         'lead' => [
             'heading' => 'Ask before the conversation starts',
@@ -198,14 +200,37 @@ return [
                 'right' => 'Bottom right',
                 'left' => 'Bottom left',
             ],
+            'composer' => 'Message box',
+            'composer_help' => 'The stacked one is what a phone messenger looks like. The row is narrower and is what every widget already embedded somewhere is drawing.',
+            'composer_options' => [
+                'row' => 'One row, button with a word on it',
+                'card' => 'Stacked, with a round arrow',
+            ],
         ],
         'face' => [
             'heading' => 'The bot\'s face',
             'description' => 'Shown beside the last message of each run from the bot. With neither of these filled in, no face is drawn at all.',
             'avatar' => 'Picture',
             'avatar_help' => 'An absolute https address. A path is refused rather than resolved: the widget runs on the customer\'s domain, where a path points at their server and lands on their 404 page.',
-            'avatar_label' => 'Initials',
-            'avatar_label_help' => 'Up to two characters, drawn when there is no picture.',
+            'avatar_label' => 'Name for the initials',
+            /*
+             * The field takes the name and the widget takes the initials off it,
+             * rather than the other way round. Asked for two characters, whoever
+             * fills this in types the first two of the company name — "Ac" for
+             * Acme Corporation — which is a syllable, not initials, and is wrong
+             * beside every other avatar on the screen.
+             */
+            'avatar_label_help' => 'Written out in full: the widget takes the first letter of each word. Drawn when there is no picture.',
+        ],
+        'chrome' => [
+            'heading' => 'Three things the widget can say about itself',
+            'description' => 'All three are off until you switch them on, and each of them puts a claim on somebody else\'s page. Look at the preview before saving: the second one changes the shape of every conversation on the panel.',
+            'status' => 'Line under the title',
+            'status_help' => 'Reports the working hours of the bot behind this widget, and never whether a person is at their desk — nobody tells this application when they sit down. Outside those hours it says when an answer is coming, which keeps the visitor writing.',
+            'authors' => 'Names over the bubbles',
+            'authors_help' => '"You", "assistant", "support" — over the first message of each run. Never an operator\'s real name: that is not ours to publish on a customer\'s site, and on a shared shift it would make one conversation look like three.',
+            'teaser' => 'Sentence beside the launcher',
+            'teaser_help' => 'For the round launcher, which is a coloured circle and not self-evidently a chat. Beside the pill-shaped one it repeats what the button already says.',
         ],
         'wording' => [
             'heading' => 'What the widget says',

@@ -7,6 +7,7 @@ namespace MB\FilamentChatbot\Http\Controllers;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use MB\FilamentChatbot\Bot\Conditions\Fields\CookieCondition;
 use MB\FilamentChatbot\Channels\Drivers\SiteDriver;
@@ -16,6 +17,7 @@ use MB\FilamentChatbot\Channels\Outbox;
 use MB\FilamentChatbot\Channels\WidgetFeatures;
 use MB\FilamentChatbot\Channels\WidgetIdentity;
 use MB\FilamentChatbot\Channels\WidgetLead;
+use MB\FilamentChatbot\Channels\WidgetPresence;
 use MB\FilamentChatbot\Channels\WidgetResolver;
 use MB\FilamentChatbot\Channels\WidgetTheme;
 use MB\FilamentChatbot\Chat\AttachmentRefused;
@@ -86,6 +88,18 @@ class SiteWidgetController
              * that never offered it.
              */
             'features' => WidgetFeatures::forWidget($widget)->toArray(),
+            /*
+             * Whether an answer is coming now, for the line under the title.
+             *
+             * Sent with the theme rather than with every poll, and the widget
+             * asks again each time somebody opens the panel. A poll would
+             * recompute it every five seconds for a page nobody is looking at,
+             * and the answer only ever matters at the moment it is read.
+             *
+             * Away for a widget that cannot talk here, whatever the hours say:
+             * this installation is not going to answer that page at all.
+             */
+            'presence' => $widget === null ? WidgetPresence::AWAY : WidgetPresence::forWidget($widget),
             'labels' => array_filter((array) ($widget?->labels ?? [])),
             /*
              * The cookie names this placement was told it may read, and no
@@ -142,7 +156,7 @@ class SiteWidgetController
          * whole poll and would otherwise be fifty.
          */
         $messages = $conversation->messages()
-            ->with('attachments')
+            ->with(['attachments', 'replyTo'])
             ->where('id', '>', $after)
             ->orderBy('id')
             ->limit((int) config('chatbot.chat.history_limit', 50))
@@ -178,6 +192,7 @@ class SiteWidgetController
                 'author' => $message->author->value,
                 'at' => $message->created_at?->toIso8601String(),
                 'attachments' => $this->attachments($message),
+                'reply' => $this->quoted($message),
             ])->all(),
             'choices' => $this->choices($conversation),
             'labels' => $this->labels(),
@@ -229,6 +244,22 @@ class SiteWidgetController
             'lead_email' => __('chatbot::widget.lead_email'),
             'lead_submit' => __('chatbot::widget.lead_submit'),
             'expand' => __('chatbot::widget.expand'),
+            /*
+             * The status line, the names over the bubbles and the sentence
+             * beside the launcher. Sent whether or not this placement draws
+             * them: the widget asks for wording once and decides what to draw
+             * from the theme, and a label withheld until the switch was on would
+             * arrive one request late — as English text under a Russian title,
+             * for as long as that page stayed open.
+             */
+            'status_online' => __('chatbot::widget.status_online'),
+            'status_away' => __('chatbot::widget.status_away'),
+            'author_you' => __('chatbot::widget.author_you'),
+            'author_bot' => __('chatbot::widget.author_bot'),
+            'author_operator' => __('chatbot::widget.author_operator'),
+            'teaser' => __('chatbot::widget.teaser'),
+            'reply' => __('chatbot::widget.reply'),
+            'reply_cancel' => __('chatbot::widget.reply_cancel'),
         ];
     }
 
@@ -264,6 +295,13 @@ class SiteWidgetController
                 'max:'.(int) config('chatbot.chat.max_message_length', 4000),
             ],
             'attachment' => ['nullable', 'file'],
+            /*
+             * The message being quoted, if any. Validated as a number and
+             * nothing more — whether it is a number this visitor is allowed to
+             * point at is decided in the router, where the conversation is
+             * known. See `claimedReplyTo`.
+             */
+            'reply_to' => ['nullable', 'integer', 'min:1'],
             'bot' => ['nullable', 'string', 'max:191'],
             'widget' => ['nullable', 'string', 'max:64'],
             'page' => ['nullable', 'string', 'max:2048'],
@@ -325,6 +363,7 @@ class SiteWidgetController
              * pass it.
              */
             identified: $identity !== [],
+            replyToId: $this->claimedReplyTo($request),
             meta: $this->declaredCookies($request, $data['cookies'] ?? null),
         ));
 
@@ -504,6 +543,57 @@ class SiteWidgetController
             ])
             ->values()
             ->all();
+    }
+
+    /**
+     * The line this message quotes, as much of it as the widget draws.
+     *
+     * An excerpt rather than the whole body: a quote is a pointer at something
+     * already on screen, and the widget clamps it to one line anyway — sending
+     * four hundred words to be cut to forty is four hundred words down the wire
+     * on every poll that carries the message.
+     *
+     * The quoted line is taken from the relation and never from the id alone,
+     * so a message deleted since simply stops being quoted. The alternative — a
+     * quote block with the id and no text — is a reference to something the
+     * reader cannot see, which reads as the widget having lost the message.
+     *
+     * @return array{id: int, author: string, body: string}|null
+     */
+    private function quoted(Message $message): ?array
+    {
+        $quoted = $message->replyTo;
+
+        if ($quoted === null) {
+            return null;
+        }
+
+        return [
+            'id' => (int) $quoted->getKey(),
+            'author' => $quoted->author->value,
+            'body' => Str::limit(trim((string) $quoted->body), 140),
+        ];
+    }
+
+    /**
+     * The message this one answers, when the visitor pointed at one.
+     *
+     * **The id is a claim and is checked where the truth is** — in the router,
+     * against the conversation the message actually lands in. This method only
+     * says whether the request offered a number at all. It cannot do the check
+     * itself: the thread the visitor writes into is decided further down, and a
+     * check against the thread found *here* would pass on a conversation that is
+     * about to be superseded.
+     *
+     * Left unchecked, the number would be somebody else's message id — the
+     * widget renders the quoted text it is sent, so a stranger could have any
+     * line of any conversation in this installation drawn inside their own.
+     */
+    private function claimedReplyTo(Request $request): ?int
+    {
+        $claimed = (int) $request->input('reply_to', 0);
+
+        return $claimed > 0 ? $claimed : null;
     }
 
     /**

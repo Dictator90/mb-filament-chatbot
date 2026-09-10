@@ -8,6 +8,8 @@ use Filament\Facades\Filament;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Gate;
+use MB\FilamentChatbot\Channels\WidgetFeatures;
+use MB\FilamentChatbot\Channels\WidgetPresence;
 use MB\FilamentChatbot\Channels\WidgetTheme;
 use MB\FilamentChatbot\Http\WidgetDraft;
 use MB\FilamentChatbot\Models\Widget;
@@ -60,6 +62,21 @@ class WidgetPreviewController
             'preview' => [
                 'properties' => $theme->properties(),
                 'flags' => $theme->flags(),
+                /*
+                 * What the draft lets a visitor do, so the preview draws the
+                 * paper clip and the quote buttons exactly when the form says
+                 * it should. Without it the preview answered with nothing here
+                 * and the widget fell back to its shipped defaults — a picture
+                 * that ignored two of the switches on the screen beside it.
+                 */
+                'features' => WidgetFeatures::make((array) ($draft['features'] ?? []))->toArray(),
+                /*
+                 * Always open. The preview has no bot and therefore no hours,
+                 * and the question the form is asking is what the line looks
+                 * like — not whether the office is shut at the moment somebody
+                 * happens to be choosing a colour.
+                 */
+                'presence' => WidgetPresence::ONLINE,
                 'labels' => $this->labels((array) ($draft['labels'] ?? [])),
                 'transcript' => $this->transcript(),
                 'reply' => (string) __('chatbot::panel.site_widgets.preview.sample_reply'),
@@ -120,6 +137,21 @@ class WidgetPreviewController
             'send' => __('chatbot::widget.send'),
             'close' => __('chatbot::widget.close'),
             'failed' => __('chatbot::widget.failed'),
+            /*
+             * The wording of the three parts of the chrome the form switches on
+             * and off. Left out, the preview would draw them in the script's own
+             * built-in English — so somebody switching on the status line on a
+             * Russian installation would be shown "Online" and reasonably
+             * conclude the setting is not translated.
+             */
+            'status_online' => __('chatbot::widget.status_online'),
+            'status_away' => __('chatbot::widget.status_away'),
+            'author_you' => __('chatbot::widget.author_you'),
+            'author_bot' => __('chatbot::widget.author_bot'),
+            'author_operator' => __('chatbot::widget.author_operator'),
+            'teaser' => __('chatbot::widget.teaser'),
+            'reply' => __('chatbot::widget.reply'),
+            'reply_cancel' => __('chatbot::widget.reply_cancel'),
         ];
 
         $chosen = [];

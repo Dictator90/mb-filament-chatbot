@@ -172,6 +172,11 @@ class WidgetForm
                             ->default(WidgetFeatures::defaults()['receipts'])
                             ->helperText(__('chatbot::panel.site_widgets.features.receipts_help'))
                             ->live(),
+                        Toggle::make('features.replies')
+                            ->label(__('chatbot::panel.site_widgets.features.replies'))
+                            ->default(WidgetFeatures::defaults()['replies'])
+                            ->helperText(__('chatbot::panel.site_widgets.features.replies_help'))
+                            ->live(),
                     ]),
                 ]),
 
@@ -308,6 +313,13 @@ class WidgetForm
                         ->default($defaults['position'])
                         ->selectablePlaceholder(false)
                         ->live(),
+                    Select::make('theme.composer')
+                        ->label(__('chatbot::panel.site_widgets.shape.composer'))
+                        ->options(self::choices('composer', WidgetTheme::COMPOSERS))
+                        ->default($defaults['composer'])
+                        ->helperText(__('chatbot::panel.site_widgets.shape.composer_help'))
+                        ->selectablePlaceholder(false)
+                        ->live(),
                 ]),
             ]),
 
@@ -328,11 +340,53 @@ class WidgetForm
                             ->placeholder('https://example.com/bot.png')
                             ->helperText(__('chatbot::panel.site_widgets.face.avatar_help'))
                             ->live(onBlur: true),
+                        /*
+                         * The name in full, not the two letters.
+                         *
+                         * The field used to cap at two characters, and that cap
+                         * outlived the widget it was written for: the initials
+                         * are now taken from the first letter of each word, so
+                         * two characters is a name of one word cut in half —
+                         * «Мир на ладони» could not be typed at all, and
+                         * whatever was typed instead was drawn on every page the
+                         * widget stands on.
+                         */
                         TextInput::make('theme.avatar_label')
                             ->label(__('chatbot::panel.site_widgets.face.avatar_label'))
-                            ->maxLength(2)
+                            ->maxLength(191)
                             ->helperText(__('chatbot::panel.site_widgets.face.avatar_label_help'))
                             ->live(onBlur: true),
+                    ]),
+                ]),
+
+            /*
+             * The three switches that add something to the chrome, gathered
+             * rather than scattered among the colours. Each of them is a
+             * sentence the widget says about itself on somebody else's page —
+             * how long an answer takes, who is speaking, that this circle is a
+             * chat — and read together they are a decision about how much the
+             * widget claims. Filed under the corner radii they would be three
+             * unrelated checkboxes.
+             */
+            Section::make(__('chatbot::panel.site_widgets.chrome.heading'))
+                ->description(__('chatbot::panel.site_widgets.chrome.description'))
+                ->schema([
+                    Grid::make(3)->schema([
+                        Toggle::make('theme.status')
+                            ->label(__('chatbot::panel.site_widgets.chrome.status'))
+                            ->default($defaults['status'])
+                            ->helperText(__('chatbot::panel.site_widgets.chrome.status_help'))
+                            ->live(),
+                        Toggle::make('theme.authors')
+                            ->label(__('chatbot::panel.site_widgets.chrome.authors'))
+                            ->default($defaults['authors'])
+                            ->helperText(__('chatbot::panel.site_widgets.chrome.authors_help'))
+                            ->live(),
+                        Toggle::make('theme.teaser')
+                            ->label(__('chatbot::panel.site_widgets.chrome.teaser'))
+                            ->default($defaults['teaser'])
+                            ->helperText(__('chatbot::panel.site_widgets.chrome.teaser_help'))
+                            ->live(),
                     ]),
                 ]),
         ];

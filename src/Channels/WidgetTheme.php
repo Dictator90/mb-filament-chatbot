@@ -46,6 +46,21 @@ final class WidgetTheme
 
     public const LAUNCHERS = ['pill', 'circle'];
 
+    /**
+     * The two shapes the message box comes in.
+     *
+     * `row` is one line: the two icons, the box and a button reading "Send",
+     * side by side. `card` stacks them — the box across the top of a panel of
+     * its own, the icons under it on the left, and a round arrow on the right —
+     * which is what a phone messenger looks like and what a visitor arriving
+     * from one expects.
+     *
+     * A named pair rather than a set of dials, for the same reason the bubbles
+     * are: the difference is an arrangement, and nobody arrives at "the button
+     * is now a circle below the box" by turning a number up.
+     */
+    public const COMPOSERS = ['row', 'card'];
+
     public const POSITIONS = ['right', 'left'];
 
     /**
@@ -69,6 +84,30 @@ final class WidgetTheme
         'radius' => [0, 28, 16],
         'bubble_radius' => [0, 24, 12],
         'width' => [280, 520, 360],
+    ];
+
+    /**
+     * The three parts of the chrome an installation can switch on, all off.
+     *
+     * **Off is not caution, it is the only honest default for each of them.**
+     * The status line claims somebody is there; the names over the bubbles claim
+     * the widget knows who is speaking well enough to say so on every line; the
+     * teaser puts a sentence on a page nobody asked to have one on. A package
+     * release that switched any of the three on would add all of that to every
+     * widget already embedded on somebody else's site, and the person who would
+     * have to explain it is the one who installed the widget last year.
+     *
+     * Booleans rather than three more strings, and grouped rather than folded
+     * into {@see self::SIZES}, because they decide whether an element exists at
+     * all — the widget reads them out of `flags()` alongside the launcher shape
+     * and never as a custom property.
+     *
+     * @var array<string, bool>
+     */
+    private const TOGGLES = [
+        'status' => false,
+        'authors' => false,
+        'teaser' => false,
     ];
 
     /**
@@ -164,13 +203,27 @@ final class WidgetTheme
      */
     public function flags(): array
     {
-        return [
+        $flags = [
             'bubbles' => $this->values['bubbles'],
             'launcher' => $this->values['launcher'],
+            'composer' => $this->values['composer'],
             'position' => $this->values['position'],
             'avatar' => $this->values['avatar'],
-            'avatar_label' => $this->values['avatar_label'],
+            /*
+             * The initials are derived here and not stored, so that what is
+             * kept stays the name somebody typed. Reduced on the way in, the
+             * form would open showing «МЛ» in a box whose label asks for a
+             * company name — and the next person to edit the widget would be
+             * looking at the answer rather than at the question.
+             */
+            'avatar_label' => self::initials($this->values['avatar_label']),
         ];
+
+        foreach (array_keys(self::TOGGLES) as $name) {
+            $flags[$name] = $this->values[$name];
+        }
+
+        return $flags;
     }
 
     /**
@@ -189,11 +242,18 @@ final class WidgetTheme
             $clean[$name] = self::size($values[$name] ?? null, $min, $max, $default);
         }
 
+        foreach (self::TOGGLES as $name => $default) {
+            $clean[$name] = array_key_exists($name, $values)
+                ? filter_var($values[$name], FILTER_VALIDATE_BOOL)
+                : $default;
+        }
+
         $clean['bubbles'] = self::oneOf($values['bubbles'] ?? null, self::STYLES);
         $clean['launcher'] = self::oneOf($values['launcher'] ?? null, self::LAUNCHERS);
+        $clean['composer'] = self::oneOf($values['composer'] ?? null, self::COMPOSERS);
         $clean['position'] = self::oneOf($values['position'] ?? null, self::POSITIONS);
         $clean['avatar'] = self::avatar($values['avatar'] ?? null);
-        $clean['avatar_label'] = self::label($values['avatar_label'] ?? null);
+        $clean['avatar_label'] = mb_substr(trim((string) ($values['avatar_label'] ?? '')), 0, 191);
 
         return $clean;
     }
@@ -252,7 +312,7 @@ final class WidgetTheme
     }
 
     /**
-     * The initials drawn where the picture would be.
+     * The initials drawn where the picture would be, taken from a name.
      *
      * **First letters of words, not the first letters of the string.** Two
      * characters off the front give "Ac" for "Acme Corporation" and "Ми" for
@@ -263,9 +323,10 @@ final class WidgetTheme
      * Short words are skipped so the second letter is a name and not a
      * preposition: "Мир на ладони" is МЛ, not МН. A one-word name keeps two
      * letters of that word, because a single letter in a circle is not initials
-     * either.
+     * either — which also means a name already reduced to initials survives
+     * being read a second time.
      */
-    private static function label(mixed $value): string
+    private static function initials(mixed $value): string
     {
         $value = trim((string) $value);
 
