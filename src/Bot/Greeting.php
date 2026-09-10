@@ -15,37 +15,69 @@ namespace MB\FilamentChatbot\Bot;
  * being able to start a real conversation, and "help" is the obvious trap: on
  * its own it looks like a pleasantry and is in fact the most urgent thing a
  * visitor ever types.
+ *
+ * **The words come from the translations, not from this file.** A greeting is
+ * the one thing every visitor writes and the one thing no language shares, so a
+ * list compiled in here is a list that is wrong everywhere the package is
+ * installed in another language — and wrong in the quietest way there is. It was:
+ * `lang/ru/bot.php` has carried the Russian openings since the file was written
+ * and nothing read them, so «Привет» was not a greeting, the branch that answers
+ * an opening with a menu was never taken, and the bot passed «Привет» to the
+ * knowledge base and answered its own customer with "I cannot help with that".
+ * Nothing failed, nothing was logged, and the scenario on the canvas looked
+ * exactly right.
  */
 class Greeting
 {
-    /** @var list<string> */
-    protected array $words = [
-        'hi', 'hey', 'hello', 'yo',
-        'good morning', 'good afternoon', 'good evening', 'good day',
-        'morning', 'evening',
-    ];
+    /** @var list<string>|null */
+    protected ?array $words = null;
 
     public function isGreeting(?string $text): bool
     {
         $text = $this->normalise($text);
 
-        return $text !== '' && in_array($text, $this->words, true);
+        return $text !== '' && in_array($text, $this->words(), true);
     }
 
     /**
-     * Lets a host swap the list wholesale — the package ships English, and an
-     * installation that speaks anything else needs its own.
+     * Lets a host swap the list wholesale, over and above the translations —
+     * for a shop whose visitors open with something the language file has no
+     * business claiming is a greeting everywhere.
      *
      * @param  list<string>  $words
      */
     public function using(array $words): static
     {
-        $this->words = array_values(array_filter(array_map(
-            fn (string $word): string => $this->normalise($word),
-            $words,
-        )));
+        $this->words = $this->normaliseAll($words);
 
         return $this;
+    }
+
+    /**
+     * Resolved on every call rather than kept, because the translator answers
+     * for whichever locale is current and this object may well outlive one. A
+     * list read once at construction would be the first request's language for
+     * the rest of the process — which on a host serving two languages is a bot
+     * that greets properly for some visitors and not for others, depending on
+     * who happened to arrive first.
+     *
+     * @return list<string>
+     */
+    protected function words(): array
+    {
+        return $this->words ?? $this->normaliseAll((array) __('chatbot::bot.greetings'));
+    }
+
+    /**
+     * @param  array<int|string, mixed>  $words
+     * @return list<string>
+     */
+    protected function normaliseAll(array $words): array
+    {
+        return array_values(array_filter(array_map(
+            fn (mixed $word): string => $this->normalise(is_string($word) ? $word : ''),
+            $words,
+        )));
     }
 
     /**
