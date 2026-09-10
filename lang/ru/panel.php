@@ -593,6 +593,7 @@ return [
         'title' => 'Чат',
         'badge_tooltip' => 'Разговоры, ждущие ответа',
         'conversations' => 'Разговоры',
+        'kicker' => 'Стол переписки',
         'search_label' => 'Поиск по имени, нику, телефону или почте',
         'search_placeholder' => 'Имя, ник, телефон',
         'status' => 'Состояние',

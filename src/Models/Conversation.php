@@ -341,6 +341,47 @@ class Conversation extends Model
     }
 
     /**
+     * Two letters for the circle beside a conversation in the list.
+     *
+     * They are how a rail of twenty threads is scanned without being read: a
+     * shape and a pair of letters are recognised at a glance, twenty similar
+     * names are not.
+     *
+     * Taken from {@see self::title()}, so a thread with nothing but a phone
+     * number gets the first digits of it — which is still something to aim at,
+     * and still tells two threads apart. A nameless one gets a question mark
+     * rather than an empty circle: empty reads as a hole in the page, and
+     * somebody will report it as one.
+     *
+     * The leading `@` of a username and the `+` of a phone number are dropped
+     * first: both are punctuation that every row from that channel would share,
+     * so a circle showing them would be the same circle on every line.
+     *
+     * A name of two words gives one letter from each; anything that is a single
+     * run of characters gives its first two. Not one letter — a lone letter in a
+     * circle is not initials, and it collides with every other name starting the
+     * same way, which is the one thing the circle exists to prevent.
+     */
+    public function initials(): string
+    {
+        $words = array_values(array_filter(
+            array_map(
+                static fn (string $word): string => ltrim($word, '@+#'),
+                preg_split('/\s+/u', trim($this->title()), -1, PREG_SPLIT_NO_EMPTY) ?: [],
+            ),
+            static fn (string $word): bool => $word !== '',
+        ));
+
+        if ($words === []) {
+            return '?';
+        }
+
+        return mb_strtoupper(count($words) === 1
+            ? mb_substr($words[0], 0, 2)
+            : mb_substr($words[0], 0, 1).mb_substr($words[1], 0, 1));
+    }
+
+    /**
      * Is the bot staying out of this conversation.
      *
      * True for a thread the bot never ran and for one a human has taken over.

@@ -643,6 +643,14 @@ return [
         'title' => 'Chat',
         'badge_tooltip' => 'Conversations waiting for an answer',
         'conversations' => 'Conversations',
+        /*
+         * The small word above the rail's title. It says which part of the
+         * panel this column belongs to, which the title alone does not: the
+         * page is reached from a menu and then filled with somebody else's
+         * conversation, and "Conversations" over a list is a description of the
+         * list rather than a place.
+         */
+        'kicker' => 'Chat desk',
         'search_label' => 'Search by name, username, phone or e-mail',
         'search_placeholder' => 'Name, username, phone',
         'status' => 'Status',

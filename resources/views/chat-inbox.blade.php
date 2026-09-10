@@ -13,19 +13,64 @@
 --}}
 <x-filament-panels::page full-height>
     <style>
-        .chatbot-inbox {
-            --ci-line: rgb(228 228 231);
-            --ci-muted: rgb(113 113 122);
-            --ci-surface: rgb(255 255 255);
-            --ci-raised: rgb(244 244 245);
-            --ci-in: rgb(244 244 245);
-            --ci-out: rgb(224 231 255);
-            --ci-bot: rgb(237 233 254);
-            --ci-accent: rgb(67 56 202);
+        /*
+            The colours are the panel's own, not the package's.
 
+            Every one of them resolves to a Filament token, and that is what
+            keeps this screen from looking like a sticker from another program.
+            A palette of its own was indigo: on a panel whose owner had chosen
+            amber it was the one page in the application that had not been told,
+            and switching the panel's theme left the desk exactly as it was.
+            Reading the tokens also buys the dark theme for nothing — the panel
+            redefines them itself.
+
+            Each has a literal fallback, for the host that ships a theme of its
+            own and defines fewer tokens than Filament does. An undefined custom
+            property is not a default, it is nothing: the rule using it collapses
+            and the pane arrives transparent, which reads as a broken page rather
+            than as a missing colour.
+        */
+        .chatbot-inbox {
+            --ci-line: var(--gray-200, rgb(228 228 231));
+            --ci-muted: var(--gray-500, rgb(113 113 122));
+            --ci-paper: var(--gray-50, rgb(255 255 255));
+            --ci-surface: var(--gray-50, rgb(255 255 255));
+            --ci-raised: var(--gray-100, rgb(244 244 245));
+            --ci-in: var(--gray-50, rgb(255 255 255));
+            --ci-out: var(--primary-600, rgb(79 70 229));
+            --ci-out-ink: var(--gray-50, rgb(255 255 255));
+            /*
+                Mixed from the accent rather than named as a colour of its own,
+                so that "the bot said this" stays visible on a dark panel too. A
+                fixed pale tint is a pale tint on a dark ground as well —
+                indistinguishable from the visitor's bubble, which is the one
+                distinction this transcript cannot lose.
+            */
+            --ci-bot: color-mix(in srgb, var(--primary-500, rgb(99 102 241)) 12%, var(--gray-50, rgb(255 255 255)));
+            --ci-accent: var(--primary-600, rgb(79 70 229));
+            --ci-mark: var(--danger-600, rgb(220 38 38));
+
+            /*
+                A faint speckle behind the transcript, so the thread reads as a
+                surface the bubbles are lying on rather than as empty page. Kept
+                neutral grey rather than tinted: it sits under every theme a host
+                may choose, and a tinted one would fight half of them.
+            */
+            --ci-grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='48' height='48' viewBox='0 0 48 48'%3E%3Ccircle cx='6' cy='10' r='1.25' fill='%23888' fill-opacity='0.10'/%3E%3Ccircle cx='28' cy='22' r='1' fill='%23888' fill-opacity='0.09'/%3E%3Ccircle cx='40' cy='8' r='1.1' fill='%23888' fill-opacity='0.08'/%3E%3Ccircle cx='16' cy='36' r='1' fill='%23888' fill-opacity='0.08'/%3E%3Ccircle cx='38' cy='38' r='1.2' fill='%23888' fill-opacity='0.09'/%3E%3C/svg%3E");
+
+            /*
+                One card holding two panes, not two cards side by side.
+
+                The rail and the transcript are one desk: a conversation is
+                chosen on the left and read on the right, and a gap between them
+                made that one movement look like two screens that happened to be
+                open together.
+            */
             display: grid;
-            grid-template-columns: minmax(0, 20rem) minmax(0, 1fr);
-            gap: 1rem;
+            grid-template-columns: minmax(0, 21rem) minmax(0, 1fr);
+            overflow: hidden;
+            border: 1px solid var(--ci-line);
+            border-radius: 0.75rem;
             /*
                 The desk is given the window rather than its content, because a
                 transcript is as tall as the conversation is long. Left to grow,
@@ -42,14 +87,17 @@
         }
 
         .dark .chatbot-inbox {
-            --ci-line: rgb(63 63 70);
-            --ci-muted: rgb(161 161 170);
-            --ci-surface: rgb(24 24 27);
-            --ci-raised: rgb(39 39 42);
-            --ci-in: rgb(39 39 42);
-            --ci-out: rgb(49 46 129);
-            --ci-bot: rgb(59 45 95);
-            --ci-accent: rgb(165 180 252);
+            --ci-line: var(--gray-800, rgb(39 39 42));
+            --ci-muted: var(--gray-400, rgb(161 161 170));
+            --ci-paper: var(--gray-900, rgb(24 24 27));
+            --ci-surface: var(--gray-900, rgb(24 24 27));
+            --ci-raised: var(--gray-950, rgb(9 9 11));
+            --ci-in: var(--gray-800, rgb(39 39 42));
+            --ci-out: var(--primary-500, rgb(99 102 241));
+            --ci-out-ink: var(--gray-950, rgb(9 9 11));
+            --ci-bot: color-mix(in srgb, var(--primary-500, rgb(99 102 241)) 22%, var(--gray-900, rgb(24 24 27)));
+            --ci-accent: var(--primary-500, rgb(99 102 241));
+            --ci-mark: var(--danger-500, rgb(239 68 68));
         }
 
         @media (max-width: 64rem) {
@@ -87,37 +135,137 @@
             flex-direction: column;
             min-height: 0;
             overflow: hidden;
-            border: 1px solid var(--ci-line);
-            border-radius: 0.75rem;
-            background: var(--ci-surface);
+        }
+
+        /*
+            The rail is paper and the transcript is the surface it lies on. The
+            two panes are told apart by their ground rather than by a rule
+            between them — a border alone leaves two identical white columns, and
+            which one is the list becomes a thing to work out rather than see.
+        */
+        .chatbot-inbox__rail {
+            background: var(--ci-paper);
+            border-inline-end: 1px solid var(--ci-line);
+        }
+
+        .chatbot-inbox__stage {
+            background: var(--ci-raised) var(--ci-grain) repeat;
         }
 
         .chatbot-inbox__head {
             display: flex;
-            align-items: baseline;
+            align-items: flex-start;
             justify-content: space-between;
             gap: 0.5rem;
-            padding: 0.75rem 0.875rem 0.5rem;
+            padding: 0.9rem 1rem 0.5rem;
         }
 
         .chatbot-inbox__head h2 {
-            font-size: 0.95rem;
-            font-weight: 600;
+            margin-top: 0.1rem;
+            font-size: 1.1rem;
+            font-weight: 700;
+            letter-spacing: -0.02em;
         }
 
+        /*
+            The small word above the title, in capitals at two thirds the size.
+            It names the room rather than the list: "Conversations" over a column
+            of conversations describes what is already visible, and leaves
+            nothing saying which part of the panel this column belongs to.
+        */
         .chatbot-inbox__kicker {
-            font-size: 0.72rem;
+            font-size: 0.62rem;
+            font-weight: 700;
+            letter-spacing: 0.14em;
+            text-transform: uppercase;
             color: var(--ci-muted);
+        }
+
+        .chatbot-inbox__count {
+            flex: none;
+            padding: 0.15rem 0.5rem;
+            font-size: 0.68rem;
+            color: var(--ci-muted);
+            background: var(--ci-raised);
+            border-radius: 9999px;
+        }
+
+        .chatbot-inbox__search {
+            position: relative;
+            margin: 0.5rem 0.9rem 0.35rem;
+        }
+
+        .chatbot-inbox__search-icon {
+            position: absolute;
+            inset-inline-start: 0.7rem;
+            top: 50%;
+            width: 1rem;
+            height: 1rem;
+            transform: translateY(-50%);
+            color: var(--ci-muted);
+            pointer-events: none;
+        }
+
+        .chatbot-inbox__search input {
+            width: 100%;
+            padding: 0.5rem 0.85rem 0.5rem 2.1rem;
+            font-size: 0.83rem;
+            color: inherit;
+            background: var(--ci-raised);
+            border: 1px solid var(--ci-line);
+            border-radius: 9999px;
+        }
+
+        [dir='rtl'] .chatbot-inbox__search input {
+            padding: 0.5rem 2.1rem 0.5rem 0.85rem;
+        }
+
+        .chatbot-inbox__search input:focus {
+            background: var(--ci-paper);
+            border-color: var(--ci-accent);
+            outline: none;
+        }
+
+        .chatbot-inbox__chips {
+            display: flex;
+            gap: 0.3rem;
+            padding: 0.2rem 0.9rem 0.35rem;
+        }
+
+        .chatbot-inbox__chip {
+            padding: 0.25rem 0.7rem;
+            font-size: 0.75rem;
+            font-weight: 600;
+            color: var(--ci-muted);
+            background: transparent;
+            border: 1px solid transparent;
+            border-radius: 9999px;
+        }
+
+        .chatbot-inbox__chip:hover {
+            background: var(--ci-raised);
+        }
+
+        /*
+            The chosen one is tinted rather than filled. Filled, three chips over
+            a list read as three buttons of which one has been pressed and is now
+            waiting; tinted, they read as one of three states — which is what
+            they are.
+        */
+        .chatbot-inbox__chip.is-on {
+            color: var(--ci-accent);
+            background: color-mix(in srgb, var(--ci-accent) 10%, transparent);
+            border-color: color-mix(in srgb, var(--ci-accent) 35%, var(--ci-line));
         }
 
         .chatbot-inbox__controls {
             display: flex;
             flex-wrap: wrap;
+            align-items: center;
             gap: 0.375rem;
-            padding: 0 0.875rem 0.625rem;
+            padding: 0 0.9rem 0.7rem;
         }
 
-        .chatbot-inbox__controls input[type='search'],
         .chatbot-inbox__controls select {
             flex: 1 1 8rem;
             min-width: 0;
@@ -145,10 +293,18 @@
         }
 
         .chatbot-inbox__row {
-            display: block;
+            display: flex;
+            gap: 0.7rem;
             width: 100%;
-            padding: 0.6rem 0.875rem;
+            padding: 0.65rem 0.9rem;
             text-align: start;
+            /*
+                The active row is marked with a rule down its leading edge, and
+                every row carries a transparent one of the same width. Added only
+                to the chosen row, the mark would push its text sideways as the
+                operator moved through the list.
+            */
+            border-inline-start: 3px solid transparent;
             border-bottom: 1px solid var(--ci-line);
         }
 
@@ -157,8 +313,36 @@
         }
 
         .chatbot-inbox__row.is-active {
-            background: var(--ci-raised);
-            box-shadow: inset 3px 0 0 currentColor;
+            background: color-mix(in srgb, var(--ci-accent) 7%, transparent);
+            border-inline-start-color: var(--ci-accent);
+        }
+
+        /*
+            The circle of initials, in the panel's own colour.
+
+            It is what makes a rail of twenty threads scannable: a colour and two
+            letters are recognised without reading, and the operator finds the
+            conversation they left ten minutes ago by shape rather than by
+            working down a column of similar names.
+        */
+        .chatbot-inbox__avatar {
+            display: inline-flex;
+            flex: none;
+            align-items: center;
+            justify-content: center;
+            width: 2.35rem;
+            height: 2.35rem;
+            font-size: 0.72rem;
+            font-weight: 700;
+            letter-spacing: 0.04em;
+            color: var(--ci-out-ink);
+            background: var(--ci-accent);
+            border-radius: 9999px;
+        }
+
+        .chatbot-inbox__row-body {
+            flex: 1 1 auto;
+            min-width: 0;
         }
 
         .chatbot-inbox__row-top {
@@ -169,21 +353,28 @@
         }
 
         .chatbot-inbox__row-name {
-            font-size: 0.83rem;
-            font-weight: 500;
+            font-size: 0.85rem;
+            font-weight: 600;
             overflow: hidden;
             text-overflow: ellipsis;
             white-space: nowrap;
         }
 
         .chatbot-inbox__row.has-unread .chatbot-inbox__row-name {
-            font-weight: 700;
+            font-weight: 800;
         }
 
         .chatbot-inbox__row-time,
         .chatbot-inbox__row-preview {
             font-size: 0.72rem;
             color: var(--ci-muted);
+        }
+
+        .chatbot-inbox__row-time {
+            flex: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.3rem;
         }
 
         .chatbot-inbox__row-preview {
@@ -197,23 +388,34 @@
             display: flex;
             flex-wrap: wrap;
             gap: 0.25rem;
-            margin-top: 0.3rem;
+            margin-top: 0.35rem;
         }
 
         .chatbot-inbox__tag {
-            padding: 0.05rem 0.35rem;
+            padding: 0.05rem 0.4rem;
             font-size: 0.65rem;
             color: var(--ci-muted);
             background: var(--ci-raised);
             border: 1px solid var(--ci-line);
-            border-radius: 0.375rem;
+            border-radius: 9999px;
+        }
+
+        /*
+            The one tag that is not a label but a state: this thread is being
+            answered by the bot, and anything the operator types here lands
+            beside a machine that is still talking.
+        */
+        .chatbot-inbox__tag.is-bot {
+            color: var(--ci-accent);
+            background: color-mix(in srgb, var(--ci-accent) 10%, transparent);
+            border-color: color-mix(in srgb, var(--ci-accent) 30%, var(--ci-line));
         }
 
         .chatbot-inbox__dot {
             display: inline-block;
             width: 0.5rem;
             height: 0.5rem;
-            background: rgb(245 158 11);
+            background: var(--ci-mark);
             border-radius: 9999px;
         }
 
@@ -229,12 +431,19 @@
             color: var(--ci-muted);
         }
 
+        /*
+            The head sits on paper while the transcript below it does not, so
+            that the name of the person being answered stays legible over a
+            thread that scrolls under it.
+        */
         .chatbot-inbox__stage-head {
             display: flex;
             flex-wrap: wrap;
-            gap: 0.5rem;
+            gap: 0.7rem;
             align-items: center;
-            padding: 0.625rem 0.875rem;
+            min-height: 3.6rem;
+            padding: 0.6rem 1rem;
+            background: var(--ci-paper);
             border-bottom: 1px solid var(--ci-line);
         }
 
@@ -244,8 +453,9 @@
         }
 
         .chatbot-inbox__who h3 {
-            font-size: 0.95rem;
-            font-weight: 600;
+            font-size: 1rem;
+            font-weight: 700;
+            letter-spacing: -0.01em;
         }
 
         .chatbot-inbox__who p {
@@ -271,18 +481,20 @@
             display: flex;
             gap: 0.5rem;
             align-items: center;
-            padding: 0.5rem 0.875rem;
-            font-size: 0.78rem;
-            background: var(--ci-bot);
+            padding: 0.45rem 1rem;
+            font-size: 0.75rem;
+            color: var(--ci-accent);
+            background: color-mix(in srgb, var(--ci-accent) 8%, var(--ci-paper));
+            border-bottom: 1px solid var(--ci-line);
         }
 
         .chatbot-inbox__thread {
             display: flex;
             flex: 1 1 auto;
             flex-direction: column;
-            gap: 0.5rem;
+            gap: 0.35rem;
             min-height: 12rem;
-            padding: 0.875rem;
+            padding: 1rem 1.1rem;
             overflow-y: auto;
         }
 
@@ -291,44 +503,106 @@
             running out to both sides. Left-aligned it reads as a message from
             somebody called "Today".
         */
+        /*
+            A pill in the middle of the thread rather than a rule with words in
+            it. The transcript has a texture behind it now, and a hairline drawn
+            across that reads as a seam in the page; a pill sits on top of it as
+            a label, which is what the date is.
+        */
         .chatbot-inbox__day {
-            display: flex;
-            align-items: center;
-            gap: 0.6rem;
-            margin: 0.35rem 0;
-            font-size: 0.68rem;
+            align-self: center;
+            margin: 0.5rem 0 0.3rem;
+            padding: 0.15rem 0.7rem;
+            font-size: 0.66rem;
+            font-weight: 600;
             color: var(--ci-muted);
+            background: var(--ci-paper);
+            border: 1px solid var(--ci-line);
+            border-radius: 9999px;
         }
 
-        .chatbot-inbox__day::before,
-        .chatbot-inbox__day::after {
-            content: '';
-            flex: 1 1 auto;
-            height: 1px;
-            background: var(--ci-line);
-        }
+        /*
+            The visitor's words are on paper with a border; ours are painted in
+            the panel's colour. The pair is what makes a transcript readable at a
+            glance without reading the names: one side of the conversation is the
+            page, the other is us.
 
+            The corner nearest the speaker is cut short. It is what every
+            messenger does and it costs one line — and it is the only thing in
+            the bubble that says which end of the conversation it came from when
+            two of them sit at the same width.
+        */
         .chatbot-inbox__bubble {
-            max-width: min(44rem, 80%);
-            padding: 0.45rem 0.65rem;
-            font-size: 0.83rem;
+            max-width: min(36rem, 82%);
+            padding: 0.5rem 0.75rem 0.4rem;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            color: inherit;
             background: var(--ci-in);
-            border-radius: 0.75rem;
+            border: 1px solid var(--ci-line);
+            border-radius: 1rem;
+            border-end-start-radius: 0.3rem;
+            /*
+                A shadow of almost nothing, which is what lifts a pale bubble off
+                a pale ground. Without it the visitor's own words — white on
+                near-white — are a rectangle outlined in a hairline, and a
+                transcript of them reads as a form rather than as a conversation.
+            */
+            box-shadow: 0 1px 2px rgb(0 0 0 / 0.05);
         }
 
         .chatbot-inbox__bubble.is-outgoing {
             align-self: flex-end;
+            color: var(--ci-out-ink);
             background: var(--ci-out);
+            border-color: transparent;
+            border-end-start-radius: 1rem;
+            border-end-end-radius: 0.3rem;
         }
 
+        /*
+            What the bot said is ours and is not the operator's. Drawn in the
+            same solid colour as a human reply, a transcript of an automated
+            conversation reads as a colleague who answered every line — and the
+            operator taking it over cannot see where they came in.
+        */
         .chatbot-inbox__bubble.is-bot {
+            color: inherit;
             background: var(--ci-bot);
+            border-color: color-mix(in srgb, var(--ci-accent) 20%, var(--ci-line));
+        }
+
+        /*
+            A system line is nobody speaking. Dashed and unfilled, it stops
+            looking like a promise somebody made to the customer.
+        */
+        .chatbot-inbox__bubble.is-system {
+            align-self: center;
+            max-width: min(30rem, 90%);
+            color: var(--ci-muted);
+            background: transparent;
+            border-style: dashed;
+            border-radius: 0.75rem;
         }
 
         .chatbot-inbox__bubble-meta,
         .chatbot-inbox__bubble-foot {
-            font-size: 0.66rem;
-            color: var(--ci-muted);
+            font-size: 0.62rem;
+            font-weight: 700;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            opacity: 0.65;
+        }
+
+        .chatbot-inbox__bubble-foot {
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            gap: 0.3rem;
+            margin-top: 0.15rem;
+            font-weight: 400;
+            letter-spacing: normal;
+            text-transform: none;
         }
 
         .chatbot-inbox__bubble-text {
@@ -378,10 +652,15 @@
             opacity: 0.65;
         }
 
+        /*
+            The read tick is drawn in the marking colour and not in the panel's
+            own: it lives inside a bubble already painted in the panel's colour,
+            where an accent-coloured tick is a tick nobody can see.
+        */
         .chatbot-inbox__receipt[data-stage="read"] {
             opacity: 1;
             font-weight: 700;
-            color: var(--ci-accent);
+            color: var(--ci-mark);
         }
 
         .chatbot-inbox__files {
@@ -482,21 +761,40 @@
             display: inline-flex;
         }
 
+        /*
+            The reply box is a card lying on the transcript's own surface rather
+            than a strip bolted to the bottom of the page. It is the same shape
+            as the bubbles above it, which is the point: what is typed here
+            becomes one of them.
+        */
         .chatbot-inbox__composer {
-            padding: 0.625rem 0.875rem;
-            border-top: 1px solid var(--ci-line);
+            padding: 0.7rem 1.1rem 0.9rem;
+        }
+
+        .chatbot-inbox__composer form {
+            padding: 0.5rem 0.6rem;
+            background: var(--ci-paper);
+            border: 1px solid var(--ci-line);
+            border-radius: 0.9rem;
+        }
+
+        .chatbot-inbox__composer form:focus-within {
+            border-color: var(--ci-accent);
         }
 
         .chatbot-inbox__composer textarea {
             flex: 1 1 auto;
             min-width: 0;
-            padding: 0.45rem 0.6rem;
-            font-size: 0.83rem;
+            padding: 0.45rem 0.4rem;
+            font-size: 0.85rem;
             color: inherit;
-            background: var(--ci-raised);
-            border: 1px solid var(--ci-line);
-            border-radius: 0.5rem;
+            background: transparent;
+            border: 0;
             resize: none;
+        }
+
+        .chatbot-inbox__composer textarea:focus {
+            outline: none;
         }
 
         /*
@@ -677,11 +975,22 @@
     >
         <aside class="chatbot-inbox__rail" aria-label="{{ __('chatbot::panel.inbox.conversations') }}">
             <div class="chatbot-inbox__head">
-                <h2>{{ __('chatbot::panel.inbox.conversations') }}</h2>
-                <span class="chatbot-inbox__kicker">{{ $this->listSummary() }}</span>
+                <div>
+                    <p class="chatbot-inbox__kicker">{{ __('chatbot::panel.inbox.kicker') }}</p>
+                    <h2>{{ __('chatbot::panel.inbox.conversations') }}</h2>
+                </div>
+
+                <span class="chatbot-inbox__count">{{ $this->listSummary() }}</span>
             </div>
 
-            <div class="chatbot-inbox__controls">
+            {{--
+                The magnifier is inside the field rather than beside it. Beside
+                it, it is one more thing in a row of controls; inside, it is what
+                tells somebody scanning the rail that the rounded box is a search
+                box and not another filter.
+            --}}
+            <div class="chatbot-inbox__search">
+                <x-filament::icon icon="heroicon-m-magnifying-glass" class="chatbot-inbox__search-icon" />
                 <label class="sr-only" for="chatbot-inbox-search">{{ __('chatbot::panel.inbox.search_label') }}</label>
                 <input
                     id="chatbot-inbox-search"
@@ -690,14 +999,30 @@
                     placeholder="{{ __('chatbot::panel.inbox.search_placeholder') }}"
                     autocomplete="off"
                 >
+            </div>
 
-                <label class="sr-only" for="chatbot-inbox-status">{{ __('chatbot::panel.inbox.status') }}</label>
-                <select id="chatbot-inbox-status" wire:model.live="statusFilter">
-                    <option value="open">{{ __('chatbot::panel.inbox.status_open') }}</option>
-                    <option value="closed">{{ __('chatbot::panel.inbox.status_closed') }}</option>
-                    <option value="all">{{ __('chatbot::panel.inbox.status_all') }}</option>
-                </select>
+            {{--
+                The three states of a conversation are chips and not a dropdown.
 
+                It is the filter that gets used, and a dropdown hides two thirds
+                of it: which of the three is on can only be learned by opening
+                the list, and moving between them costs two clicks each way. The
+                filters below stay dropdowns because they are the ones that are
+                set once and left alone — and because five rows of chips would be
+                a wall of pills above the list they filter.
+            --}}
+            <div class="chatbot-inbox__chips" role="group" aria-label="{{ __('chatbot::panel.inbox.status') }}">
+                @foreach (['open' => 'status_open', 'closed' => 'status_closed', 'all' => 'status_all'] as $value => $word)
+                    <button
+                        type="button"
+                        wire:click="$set('statusFilter', '{{ $value }}')"
+                        @class(['chatbot-inbox__chip', 'is-on' => $this->statusFilter === $value])
+                        aria-pressed="{{ $this->statusFilter === $value ? 'true' : 'false' }}"
+                    >{{ __('chatbot::panel.inbox.'.$word) }}</button>
+                @endforeach
+            </div>
+
+            <div class="chatbot-inbox__controls">
                 <label class="sr-only" for="chatbot-inbox-owner">{{ __('chatbot::panel.inbox.assignee') }}</label>
                 <select id="chatbot-inbox-owner" wire:model.live="ownerFilter">
                     <option value="all">{{ __('chatbot::panel.inbox.assignee_any') }}</option>
@@ -734,26 +1059,38 @@
                             'has-unread' => $conversation->hasUnread(),
                         ])
                     >
-                        <span class="chatbot-inbox__row-top">
-                            <span class="chatbot-inbox__row-name">{{ $conversation->title() }}</span>
-                            <span class="chatbot-inbox__row-time">
-                                {{ $this->listTimestamp($conversation->last_message_at) }}
-                                @if ($conversation->hasUnread())
-                                    <span class="chatbot-inbox__dot" title="{{ __('chatbot::panel.inbox.waiting_dot') }}"></span>
-                                @endif
+                        {{--
+                            The circle of initials is how a rail of twenty
+                            conversations is scanned without reading it. Two
+                            letters and a colour are recognised at a glance;
+                            twenty lines of similar-looking names are not, and
+                            the operator ends up reading each one to find the
+                            thread they left ten minutes ago.
+                        --}}
+                        <span class="chatbot-inbox__avatar" aria-hidden="true">{{ $conversation->initials() }}</span>
+
+                        <span class="chatbot-inbox__row-body">
+                            <span class="chatbot-inbox__row-top">
+                                <span class="chatbot-inbox__row-name">{{ $conversation->title() }}</span>
+                                <span class="chatbot-inbox__row-time">
+                                    {{ $this->listTimestamp($conversation->last_message_at) }}
+                                    @if ($conversation->hasUnread())
+                                        <span class="chatbot-inbox__dot" title="{{ __('chatbot::panel.inbox.waiting_dot') }}"></span>
+                                    @endif
+                                </span>
                             </span>
-                        </span>
 
-                        <span class="chatbot-inbox__row-preview">{{ $this->listPreview($conversation) }}</span>
+                            <span class="chatbot-inbox__row-preview">{{ $this->listPreview($conversation) }}</span>
 
-                        <span class="chatbot-inbox__tags">
-                            <span class="chatbot-inbox__tag">{{ $conversation->channel }}</span>
+                            <span class="chatbot-inbox__tags">
+                                <span class="chatbot-inbox__tag">{{ $conversation->channel }}</span>
 
-                            @if ($conversation->bot_state === \MB\FilamentChatbot\Enums\BotState::Active)
-                                <span class="chatbot-inbox__tag">{{ $conversation->bot?->name ?? 'bot' }}</span>
-                            @endif
+                                @if ($conversation->bot_state === \MB\FilamentChatbot\Enums\BotState::Active)
+                                    <span class="chatbot-inbox__tag is-bot">{{ $conversation->bot?->name ?? 'bot' }}</span>
+                                @endif
 
-                            <span class="chatbot-inbox__tag">{{ $this->ownerLabel($conversation) }}</span>
+                                <span class="chatbot-inbox__tag">{{ $this->ownerLabel($conversation) }}</span>
+                            </span>
                         </span>
                     </button>
                 @empty
@@ -774,6 +1111,8 @@
                 </div>
             @else
                 <header class="chatbot-inbox__stage-head">
+                    <span class="chatbot-inbox__avatar" aria-hidden="true">{{ $record->initials() }}</span>
+
                     <div class="chatbot-inbox__who">
                         <h3>{{ $record->title() }}</h3>
 
@@ -871,6 +1210,13 @@
                                 'chatbot-inbox__bubble',
                                 'is-outgoing' => ! $message->isIncoming(),
                                 'is-bot' => $message->author === \MB\FilamentChatbot\Enums\MessageAuthor::Bot,
+                                /*
+                                 * A system line is nobody speaking — a delivery
+                                 * failure, a handoff notice — and drawn as a
+                                 * reply it reads as something the bot promised
+                                 * the customer.
+                                 */
+                                'is-system' => $message->author === \MB\FilamentChatbot\Enums\MessageAuthor::System,
                             ])
                         >
                             <p class="chatbot-inbox__bubble-meta">{{ $this->authorLabel($message, $record) }}</p>

@@ -236,6 +236,58 @@ it('counts the unread badge for the person looking at it', function (): void {
 });
 
 /**
+ * The circle beside each conversation always has something in it.
+ *
+ * It is decoration with one hard requirement: never empty. A rail of twenty
+ * threads is scanned by the shape and the letters rather than read, and an empty
+ * circle is not a quiet default — it reads as a hole in the page, which is how
+ * it gets reported.
+ *
+ * The cases below are the ones the desk actually meets. A thread from the
+ * website has no name at all until somebody types one; one from Telegram has a
+ * handle with an `@` in front of it, and one from the widget's form may have
+ * only a phone number — take the first two characters blindly and every row
+ * from a channel shows the same two.
+ */
+it('always has something to draw in the circle beside a conversation', function (string $field, ?string $value, string $expected): void {
+    $conversation = Conversation::factory()->create([
+        'display_name' => null,
+        'username' => null,
+        'contact_phone' => null,
+        'contact_email' => null,
+        $field => $value,
+    ]);
+
+    expect($conversation->initials())->toBe($expected);
+})->with([
+    'a full name' => ['display_name', 'Мария Доронина', 'МД'],
+    'one name' => ['display_name', 'Мария', 'МА'],
+    'a handle' => ['username', 'mdoronina', 'MD'],
+    'a phone number' => ['contact_phone', '+79495551122', '79'],
+    'an e-mail' => ['contact_email', 'maria@example.test', 'MA'],
+]);
+
+/**
+ * A name that is nothing but punctuation still leaves something in the circle.
+ *
+ * It is not a hypothetical: the leading `@` and `+` are stripped because every
+ * handle and every phone number carries one, and a visitor whose name in the
+ * channel is «+» or «@» is left with nothing at all after that. An empty circle
+ * is not a quiet default — it is a hole in the rail, and it will be reported as
+ * a broken page rather than as a person who did not give their name.
+ */
+it('leaves something in the circle when the name is only punctuation', function (): void {
+    $conversation = Conversation::factory()->create([
+        'display_name' => '+ @',
+        'username' => null,
+        'contact_phone' => null,
+        'contact_email' => null,
+    ]);
+
+    expect($conversation->initials())->toBe('?');
+});
+
+/**
  * The line a visitor quoted is drawn at the desk as well as in the widget.
  *
  * For some replies the quote *is* the content: "this one", against a message
