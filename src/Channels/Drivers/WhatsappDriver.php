@@ -6,9 +6,9 @@ namespace MB\FilamentChatbot\Channels\Drivers;
 
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Http;
 use MB\FilamentChatbot\Channels\ChannelConnections;
 use MB\FilamentChatbot\Channels\ChannelDriver;
+use MB\FilamentChatbot\Channels\ChannelHttp;
 use MB\FilamentChatbot\Channels\ChannelSetup;
 use MB\FilamentChatbot\Channels\ChannelStatus;
 use MB\FilamentChatbot\Channels\ChannelText;
@@ -95,6 +95,11 @@ final class WhatsappDriver implements ChannelDriver, ChannelSetup
                 'required' => true,
                 'hint' => 'From the app settings. Every delivery is signed with it, and without it there is nothing to tell Meta apart from a stranger.',
             ],
+            'proxy' => [
+                'label' => 'Proxy',
+                'secret' => true,
+                'hint' => 'Optional, e.g. socks5://127.0.0.1:1080. Applies only to calls this application makes; the delivery arrives the other way.',
+            ],
         ];
     }
 
@@ -108,7 +113,7 @@ final class WhatsappDriver implements ChannelDriver, ChannelSetup
         }
 
         try {
-            $response = Http::timeout($this->timeout())
+            $response = ChannelHttp::for(self::KEY, $connection)
                 ->withToken($token)
                 ->get($this->endpoint($phoneNumberId), ['fields' => 'display_phone_number,verified_name']);
         } catch (ConnectionException $exception) {
@@ -261,7 +266,7 @@ final class WhatsappDriver implements ChannelDriver, ChannelSetup
         }
 
         try {
-            $response = Http::timeout($this->timeout())
+            $response = ChannelHttp::for(self::KEY, $connection)
                 ->withToken($token)
                 ->asJson()
                 ->post($this->endpoint($phoneNumberId).'/messages', $this->payload($message, $to));
@@ -412,10 +417,5 @@ final class WhatsappDriver implements ChannelDriver, ChannelSetup
         return $message === ''
             ? 'WhatsApp refused the request with status '.$status.'.'
             : $message;
-    }
-
-    private function timeout(): int
-    {
-        return (int) config('chatbot.channels.whatsapp.timeout', 10);
     }
 }

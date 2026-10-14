@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use Illuminate\Support\Facades\Http;
+use MB\FilamentChatbot\Channels\ChannelHttp;
 use MB\FilamentChatbot\Enums\MessageAuthor;
 use MB\FilamentChatbot\Enums\MessageDirection;
 use MB\FilamentChatbot\Models\Bot;
@@ -72,6 +73,31 @@ it('routes an update to the bot whose address it arrived at', function (): void 
 
     expect($conversation->bot_id)->toBe($support->getKey())
         ->and($conversation->channel)->toBe('telegram');
+});
+
+/**
+ * The proxy is the account's, and the installation's only when the account has
+ * none.
+ *
+ * The case it exists for is a host that cannot reach a provider at all: the
+ * call fails as a ten-second silence, which on screen reads as a fault in this
+ * package rather than as a blocked route. Two bots can sit behind different
+ * routes, so the connection wins.
+ */
+it('takes the proxy from the connection, and from config only without one', function (): void {
+    config()->set('chatbot.channels.telegram.proxy', 'socks5://installation:1080');
+
+    $shared = ChannelConnection::factory()->create();
+    $own = ChannelConnection::factory()->create([
+        'credentials' => ['token' => 't', 'secret' => 's', 'proxy' => 'socks5://account:1080'],
+    ]);
+
+    expect(ChannelHttp::proxyFor('telegram', $own))->toBe('socks5://account:1080')
+        ->and(ChannelHttp::proxyFor('telegram', $shared))->toBe('socks5://installation:1080');
+
+    config()->set('chatbot.channels.telegram.proxy', null);
+
+    expect(ChannelHttp::proxyFor('telegram', $shared))->toBe('');
 });
 
 /**

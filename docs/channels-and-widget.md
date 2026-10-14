@@ -190,6 +190,23 @@ the server, Meta verifies by fetching the address once — so the button on the
 settings screen answers with what to paste and where, and says so as information
 rather than as an error.
 
+### A proxy, where the provider cannot be reached at all
+
+Some networks cannot call some providers: a Russian host reaching Telegram's
+Bot API is the case this exists for. It fails as a ten-second silence rather
+than a refusal, which on screen reads as a fault in this package rather than as
+a blocked route.
+
+Every connection has an optional **Proxy** field — `socks5://127.0.0.1:1080`,
+`http://user:pass@host:port` — and an installation-wide fallback in config
+(`CHATBOT_TELEGRAM_PROXY` and the same for the other three). The connection
+wins, because two bots can sit behind different routes.
+
+**It fixes one direction only.** The webhook travels the other way: the
+provider connects to this server, and no proxy of ours is in that path. An
+installation whose inbound is blocked as well needs polling, which this package
+does not do.
+
 ### The quirks that are not optional
 
 **VK wants a bare `ok`.** Not `{"result":"ok"}`, not an empty 200: the Callback

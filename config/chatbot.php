@@ -516,6 +516,16 @@ return [
             'timeout' => 10,
 
             /*
+             * For networks that cannot reach the provider at all. A Russian
+             * host calling Telegram's API is the case this exists for, and it
+             * fails as a ten-second silence rather than a refusal — which reads
+             * on screen as a bug in this package rather than as a blocked
+             * route. A connection may override it; this is the installation's
+             * answer for the usual case where every account shares one.
+             */
+            'proxy' => env('CHATBOT_TELEGRAM_PROXY'),
+
+            /*
              * Empty on purpose. Telegram rejects the whole message when its
              * markup does not parse, and a scenario's text carries whatever the
              * conversation collected — a name with an underscore in it, a
@@ -540,11 +550,13 @@ return [
         'max' => [
             'api_url' => 'https://platform-api2.max.ru',
             'timeout' => 10,
+            'proxy' => env('CHATBOT_MAX_PROXY'),
         ],
 
         'vk' => [
             'api_url' => 'https://api.vk.com/method',
             'timeout' => 10,
+            'proxy' => env('CHATBOT_VK_PROXY'),
         ],
 
         'whatsapp' => [
@@ -556,6 +568,7 @@ return [
              */
             'api_url' => 'https://graph.facebook.com/v21.0',
             'timeout' => 10,
+            'proxy' => env('CHATBOT_WHATSAPP_PROXY'),
         ],
     ],
 

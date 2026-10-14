@@ -6,9 +6,9 @@ namespace MB\FilamentChatbot\Channels\Drivers;
 
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Http;
 use MB\FilamentChatbot\Channels\ChannelConnections;
 use MB\FilamentChatbot\Channels\ChannelDriver;
+use MB\FilamentChatbot\Channels\ChannelHttp;
 use MB\FilamentChatbot\Channels\ChannelSetup;
 use MB\FilamentChatbot\Channels\ChannelStatus;
 use MB\FilamentChatbot\Channels\ChannelText;
@@ -97,6 +97,11 @@ final class VkDriver implements ChannelDriver, ChannelSetup
                 'label' => 'Community id',
                 'hint' => 'Optional. Digits only. When set, events claiming to come from another community are refused.',
             ],
+            'proxy' => [
+                'label' => 'Proxy',
+                'secret' => true,
+                'hint' => 'Optional, e.g. socks5://127.0.0.1:1080. Applies only to calls this application makes; the event arrives the other way.',
+            ],
         ];
     }
 
@@ -109,7 +114,7 @@ final class VkDriver implements ChannelDriver, ChannelSetup
         }
 
         try {
-            $response = Http::timeout($this->timeout())->asForm()->post($this->endpoint('groups.getById'), [
+            $response = ChannelHttp::for(self::KEY, $connection)->asForm()->post($this->endpoint('groups.getById'), [
                 'access_token' => $token,
                 'v' => self::API_VERSION,
             ]);
@@ -265,7 +270,7 @@ final class VkDriver implements ChannelDriver, ChannelSetup
         }
 
         try {
-            $response = Http::timeout($this->timeout())->asForm()->post($this->endpoint('messages.send'), $payload);
+            $response = ChannelHttp::for(self::KEY, $connection)->asForm()->post($this->endpoint('messages.send'), $payload);
         } catch (ConnectionException $exception) {
             return DeliveryResult::failed($exception->getMessage());
         }
@@ -383,10 +388,5 @@ final class VkDriver implements ChannelDriver, ChannelSetup
         return $message === ''
             ? 'VK refused the request with status '.$status.'.'
             : $message;
-    }
-
-    private function timeout(): int
-    {
-        return (int) config('chatbot.channels.vk.timeout', 10);
     }
 }

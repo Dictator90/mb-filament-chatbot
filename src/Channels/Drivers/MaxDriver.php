@@ -7,9 +7,9 @@ namespace MB\FilamentChatbot\Channels\Drivers;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Http;
 use MB\FilamentChatbot\Channels\ChannelConnections;
 use MB\FilamentChatbot\Channels\ChannelDriver;
+use MB\FilamentChatbot\Channels\ChannelHttp;
 use MB\FilamentChatbot\Channels\ChannelSetup;
 use MB\FilamentChatbot\Channels\ChannelStatus;
 use MB\FilamentChatbot\Channels\ChannelText;
@@ -83,6 +83,11 @@ final class MaxDriver implements ChannelDriver, ChannelSetup
                 'required' => true,
                 'hint' => 'Five to 256 letters, digits or hyphens. MAX returns it in the X-Max-Bot-Api-Secret header with every update.',
             ],
+            'proxy' => [
+                'label' => 'Proxy',
+                'secret' => true,
+                'hint' => 'Optional, e.g. socks5://127.0.0.1:1080. Applies only to calls this application makes; the webhook arrives the other way.',
+            ],
         ];
     }
 
@@ -95,7 +100,7 @@ final class MaxDriver implements ChannelDriver, ChannelSetup
         }
 
         try {
-            $response = $this->client($token)->get($this->endpoint('me'));
+            $response = $this->client($token, $connection)->get($this->endpoint('me'));
         } catch (ConnectionException $exception) {
             return ChannelStatus::failed($exception->getMessage());
         }
@@ -144,7 +149,7 @@ final class MaxDriver implements ChannelDriver, ChannelSetup
         }
 
         try {
-            $response = $this->client($token)->post($this->endpoint('subscriptions'), [
+            $response = $this->client($token, $connection)->post($this->endpoint('subscriptions'), [
                 'url' => $url,
                 'secret' => $secret,
                 'update_types' => ['message_created', 'message_callback', 'bot_started'],
@@ -287,7 +292,7 @@ final class MaxDriver implements ChannelDriver, ChannelSetup
         }
 
         try {
-            $response = $this->client($token)->post($this->endpoint('messages').'?chat_id='.urlencode($chatId), $payload);
+            $response = $this->client($token, $connection)->post($this->endpoint('messages').'?chat_id='.urlencode($chatId), $payload);
         } catch (ConnectionException $exception) {
             return DeliveryResult::failed($exception->getMessage());
         }
@@ -382,9 +387,9 @@ final class MaxDriver implements ChannelDriver, ChannelSetup
         ];
     }
 
-    private function client(string $token): PendingRequest
+    private function client(string $token, ?ChannelConnection $connection = null): PendingRequest
     {
-        return Http::timeout($this->timeout())
+        return ChannelHttp::for(self::KEY, $connection)
             ->asJson()
             ->withHeaders(['Authorization' => $token]);
     }
@@ -406,10 +411,5 @@ final class MaxDriver implements ChannelDriver, ChannelSetup
         return $message === ''
             ? 'MAX refused the request with status '.$status.'.'
             : $message;
-    }
-
-    private function timeout(): int
-    {
-        return (int) config('chatbot.channels.max.timeout', 10);
     }
 }

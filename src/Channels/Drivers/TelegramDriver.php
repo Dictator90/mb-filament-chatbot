@@ -6,9 +6,9 @@ namespace MB\FilamentChatbot\Channels\Drivers;
 
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Http;
 use MB\FilamentChatbot\Channels\ChannelConnections;
 use MB\FilamentChatbot\Channels\ChannelDriver;
+use MB\FilamentChatbot\Channels\ChannelHttp;
 use MB\FilamentChatbot\Channels\ChannelSetup;
 use MB\FilamentChatbot\Channels\ChannelStatus;
 use MB\FilamentChatbot\Channels\ChannelText;
@@ -89,6 +89,11 @@ final class TelegramDriver implements ChannelDriver, ChannelSetup
                 'required' => true,
                 'hint' => 'Any random string. Telegram returns it with every update, and it is the whole of what tells Telegram apart from a stranger who found the address.',
             ],
+            'proxy' => [
+                'label' => 'Proxy',
+                'secret' => true,
+                'hint' => 'Optional, e.g. socks5://127.0.0.1:1080. For networks that cannot reach the Bot API at all — the symptom is a ten-second silence rather than a refusal. Applies only to calls this application makes; the webhook arrives the other way.',
+            ],
         ];
     }
 
@@ -101,7 +106,7 @@ final class TelegramDriver implements ChannelDriver, ChannelSetup
         }
 
         try {
-            $response = Http::timeout($this->timeout())->get($this->endpoint($token, 'getMe'));
+            $response = ChannelHttp::for(self::KEY, $connection)->get($this->endpoint($token, 'getMe'));
         } catch (ConnectionException $exception) {
             return ChannelStatus::failed($exception->getMessage());
         }
@@ -139,7 +144,7 @@ final class TelegramDriver implements ChannelDriver, ChannelSetup
         }
 
         try {
-            $response = Http::timeout($this->timeout())->asJson()->post($this->endpoint($token, 'setWebhook'), [
+            $response = ChannelHttp::for(self::KEY, $connection)->asJson()->post($this->endpoint($token, 'setWebhook'), [
                 'url' => $url,
                 'secret_token' => $secret,
                 'allowed_updates' => ['message', 'edited_message', 'callback_query'],
@@ -305,7 +310,7 @@ final class TelegramDriver implements ChannelDriver, ChannelSetup
         }
 
         try {
-            $response = Http::timeout($this->timeout())
+            $response = ChannelHttp::for(self::KEY, $connection)
                 ->asJson()
                 ->post($this->endpoint($token, 'sendMessage'), $payload);
         } catch (ConnectionException $exception) {
@@ -459,11 +464,6 @@ final class TelegramDriver implements ChannelDriver, ChannelSetup
         return $fromConnection !== ''
             ? $fromConnection
             : trim((string) config('chatbot.channels.telegram.parse_mode', ''));
-    }
-
-    private function timeout(): int
-    {
-        return (int) config('chatbot.channels.telegram.timeout', 10);
     }
 
     private function configToken(): string

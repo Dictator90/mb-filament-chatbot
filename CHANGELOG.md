@@ -28,6 +28,14 @@ it reaches 1.0.
   in somebody else's dashboard, and the button says what to paste and where
   rather than reporting a failure that is not one.
 
+- **A proxy per account, for networks that cannot reach a provider at all.**
+  A Russian host calling Telegram's API is the case: the call fails as a
+  ten-second silence rather than a refusal, which reads on screen as a fault in
+  this package rather than as a blocked route. The field sits on the connection
+  and applies only to calls this application makes — the webhook travels the
+  other way, and an installation whose inbound is blocked too needs polling,
+  which this package does not do.
+
 #### Breaking
 
 - `POST /chatbot/webhook/telegram` is gone, and with it
