@@ -81,9 +81,18 @@
                 `dvh` rather than `vh`: on a phone the browser's own bars are
                 part of the viewport under `vh`, and the box would sit behind
                 them. The subtraction is the panel's topbar and page padding.
+
+                **The subtraction is a variable, because the panel is not this
+                package's.** A host that adds chrome of its own — a fixed bottom
+                navigation on phones is the common one — makes the page taller
+                than the window: the desk still asks for the whole viewport, the
+                page scrolls, the conversation's header slides under the topbar
+                and an empty band opens above the bottom menu. Nothing errors,
+                and on a desktop it looks perfect. The host knows its chrome;
+                it sets `--chatbot-inbox-offset` and the desk fits.
             */
-            height: calc(100dvh - 7rem);
-            min-height: 26rem;
+            height: calc(100dvh - var(--chatbot-inbox-offset, 7rem));
+            min-height: 20rem;
         }
 
         .dark .chatbot-inbox {

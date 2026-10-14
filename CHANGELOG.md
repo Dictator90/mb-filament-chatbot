@@ -6,6 +6,21 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 this package intends to follow [Semantic Versioning](https://semver.org/) once
 it reaches 1.0.
 
+## [0.8.2] — 2026-10-14
+
+- **The desk's height subtracts a variable, `--chatbot-inbox-offset`.** A panel
+  with a fixed bottom navigation on phones made the page taller than the
+  screen: the desk still asked for the whole viewport, the page scrolled, the
+  conversation header slid under the topbar and an empty band opened above the
+  bottom menu. On a desktop it looked perfect, which is why nobody saw it. The
+  host knows its chrome and sets the variable; the default is the old `7rem`.
+
+## [0.8.1] — 2026-10-14
+
+- **A way back to the list on narrow screens.** The list of conversations is
+  hidden while one is open, and there was no way out of a thread short of
+  reloading the page.
+
 ## [0.8.0] — 2026-10-14
 
 ### A name is a name, and a confirmation has buttons

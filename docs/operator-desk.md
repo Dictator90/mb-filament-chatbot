@@ -152,6 +152,38 @@ The same goes for `Date::use(CarbonImmutable::class)`: the desk is typed against
 
 ## Styling
 
+### Fitting the desk into your panel's chrome
+
+The desk takes the window, not its content — otherwise a long conversation
+pushes the reply box below the fold. Its height is
+`calc(100dvh - var(--chatbot-inbox-offset, 7rem))`, where `7rem` is Filament's
+own topbar and page padding.
+
+If your panel adds chrome of its own, set the variable. The common case is a
+fixed bottom navigation on phones: without the variable the page grows taller
+than the screen, it scrolls, the conversation header slides under the topbar
+and an empty band opens above the bottom menu — while on a desktop everything
+looks perfect.
+
+```html
+<style>
+@media (max-width: 1023px) {
+    .chatbot-inbox {
+        --chatbot-inbox-offset: calc(10rem + env(safe-area-inset-bottom, 0px));
+    }
+}
+</style>
+```
+
+Here `10rem` is the topbar and page padding (6rem) plus a 4rem bottom menu, and
+the safe-area inset covers phones with a home indicator. A render hook at
+`PanelsRenderHook::HEAD_END` is the usual place for it.
+
+On narrow screens the list of conversations is hidden while one is open; a
+**Conversations** button in the thread's header brings it back.
+
+### Where the styles live
+
 The desk's appearance is a `<style>` block inside its view, scoped under
 `.chatbot-inbox`.
 
