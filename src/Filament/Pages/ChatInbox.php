@@ -8,6 +8,7 @@ use BackedEnum;
 use Carbon\CarbonInterface;
 use Filament\Actions\Action;
 use Filament\Facades\Filament;
+use Filament\Forms\Components\Select;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
 use Filament\Support\Enums\Width;
@@ -27,6 +28,7 @@ use MB\FilamentChatbot\Chat\AttachmentStore;
 use MB\FilamentChatbot\Chat\ContactCard;
 use MB\FilamentChatbot\Chat\OperatorReply;
 use MB\FilamentChatbot\Contracts\ContactDirectory;
+use MB\FilamentChatbot\Contracts\ContactPicker;
 use MB\FilamentChatbot\Contracts\ContactRegistrar;
 use MB\FilamentChatbot\Enums\BotState;
 use MB\FilamentChatbot\Enums\ConversationStatus;
@@ -800,6 +802,73 @@ class ChatInbox extends Page
                     ? $notification->body(__('chatbot::panel.inbox.create_contact_refused'))->warning()->send()
                     : $notification->body(__('chatbot::panel.inbox.create_contact_done'))->success()->send();
             });
+    }
+
+    /**
+     * Points the thread at a different record, chosen by the operator.
+     *
+     * The link is made automatically where it can be — by a recognised phone
+     * number, by a signed identity — and automatic recognition is wrong often
+     * enough to matter: a number belongs to a husband, a colleague, or whoever
+     * had it before. Until this existed the operator's only choices were to
+     * answer a customer under somebody else's history or to leave the thread
+     * mislinked, and both end with the wrong card being updated.
+     *
+     * The search is the host's: the package cannot query a table it has never
+     * heard of, and the value it hands back is the one the host gave out.
+     */
+    public function linkContactAction(): Action
+    {
+        return Action::make('linkContact')
+            ->label(__('chatbot::panel.inbox.link_contact'))
+            ->icon(Heroicon::OutlinedLink)
+            ->color('gray')
+            ->authorize(fn (): bool => $this->canUpdateActive())
+            ->schema([
+                Select::make('contact')
+                    ->label(__('chatbot::panel.inbox.link_contact_field'))
+                    ->searchable()
+                    ->required()
+                    ->getSearchResultsUsing(fn (string $search): array => $this->contactPicker()?->search($search) ?? [])
+                    ->getOptionLabelUsing(fn (string $value): ?string => $this->contactPicker()?->label($value)),
+            ])
+            ->action(function (array $data): void {
+                $conversation = $this->activeConversation;
+                $picker = $this->contactPicker();
+
+                if (! $conversation instanceof Conversation || $picker === null) {
+                    return;
+                }
+
+                $record = $picker->attach($conversation, (string) $data['contact']);
+
+                $this->forgetThread();
+
+                $notification = Notification::make();
+
+                $record === null
+                    ? $notification->body(__('chatbot::panel.inbox.link_contact_gone'))->warning()->send()
+                    : $notification->body(__('chatbot::panel.inbox.link_contact_done'))->success()->send();
+            });
+    }
+
+    /**
+     * Whether a thread can be re-pointed at all.
+     *
+     * Only that a picker is bound: unlike filing somebody new, this is useful
+     * precisely when the thread already has a contact — that is the case it was
+     * written for.
+     */
+    public function canLinkContact(): bool
+    {
+        return $this->activeConversation instanceof Conversation && $this->contactPicker() !== null;
+    }
+
+    private function contactPicker(): ?ContactPicker
+    {
+        return app()->bound(ContactPicker::class)
+            ? app(ContactPicker::class)
+            : null;
     }
 
     /**

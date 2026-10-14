@@ -1065,6 +1065,29 @@ your own that calls the same registrar, and the two together are the usual
 arrangement: the common path files people by itself, and the button catches the
 conversations that never reached that node.
 
+### Re-pointing a thread at the right record
+
+The third case, and the one a busy desk meets: the thread is linked, and linked
+to the wrong person. Recognition by phone number is wrong often enough to matter
+— the number belongs to a husband, a colleague, or whoever had it before — and
+without a way to re-point the thread the operator must either answer a customer
+under somebody else's history or drop the link along with the history.
+
+Bind `ContactPicker` and the desk grows a **Link to someone else** button:
+
+```php
+public function search(string $term): array;   // value => label
+public function label(string $value): ?string;
+public function attach(Conversation $conversation, string $value): ?Model;
+```
+
+Searching is yours because the package cannot query a table it has never heard
+of: an installation whose contacts are employees searches by staff number, a
+clinic by patient card, an agency by phone. Labels are what the operator picks
+from, so put enough in them to tell two people with the same name apart. The
+value you hand out comes back untouched, and `null` from `attach()` means the
+record is gone — the desk says so and leaves the thread where it was.
+
 ---
 
 ## What happens when you claim a key the package already uses

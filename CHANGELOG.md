@@ -6,6 +6,22 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 this package intends to follow [Semantic Versioning](https://semver.org/) once
 it reaches 1.0.
 
+## [0.5.0] — 2026-10-14
+
+### A mislinked thread can be re-pointed, and the header stops hiding a line
+
+- **`ContactPicker`, and a *Link to someone else* button on the desk.**
+  Recognition by phone number is wrong often enough to matter — the number
+  belongs to a husband, a colleague, or whoever had it before — and the
+  operator's only choices were answering a customer under somebody else's
+  history or losing the link along with the history. Searching stays with the
+  host, which is the only side that knows what its records are called.
+- **The thread header no longer clips its own third line.** The stage is a flex
+  column with `overflow: hidden`, and the header's explicit `min-height` turned
+  from a floor into a target: a thread with a contact card has three lines, the
+  header was squeezed back, and the channel, status and phone number were
+  simply not drawn. `flex: none` keeps them.
+
 ## [0.4.0] — 2026-10-14
 
 ### Files reach Telegram, pressed buttons stop lying, and people can be filed

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use Illuminate\Database\Eloquent\Model;
 use Livewire\Livewire;
+use MB\FilamentChatbot\Contracts\ContactPicker;
 use MB\FilamentChatbot\Contracts\ContactRegistrar;
 use MB\FilamentChatbot\Filament\Pages\ChatInbox;
 use MB\FilamentChatbot\Models\Conversation;
@@ -140,6 +141,90 @@ it('says so when the host declines to file anybody', function (): void {
     $conversation = Conversation::factory()->create(['last_message_at' => now()]);
 
     deskFor($conversation)->callAction('createContact')->assertNotified();
+
+    expect($conversation->refresh()->contact_id)->toBeNull();
+});
+
+/**
+ * Хозяин, умеющий искать и привязывать записи вручную.
+ */
+function picker(bool $resolves = true): ContactPicker
+{
+    return new class($resolves) implements ContactPicker
+    {
+        public function __construct(private readonly bool $resolves) {}
+
+        public function search(string $term): array
+        {
+            return ['7' => 'Нина Петрова · +7 999 000-00-00'];
+        }
+
+        public function label(string $value): ?string
+        {
+            return $value === '7' ? 'Нина Петрова · +7 999 000-00-00' : null;
+        }
+
+        public function attach(Conversation $conversation, string $value): ?Model
+        {
+            if (! $this->resolves) {
+                return null;
+            }
+
+            $record = User::factory()->create();
+
+            $conversation->forceFill([
+                'contact_type' => $record->getMorphClass(),
+                'contact_id' => $record->getKey(),
+            ])->save();
+
+            return $record;
+        }
+    };
+}
+
+/**
+ * Разговор, привязанный не к тому человеку, оператор перевешивает сам.
+ *
+ * Узнавание ошибается обыденно: номер принадлежит мужу, коллеге или тому, у
+ * кого он был раньше. Пока перепривязки не было, у оператора оставались два
+ * плохих выхода — отвечать клиенту под чужой историей или потерять связь
+ * вместе с историей, ради которой разговор и открывали.
+ */
+it('перевешивает разговор на выбранную карточку', function (): void {
+    app()->instance(ContactPicker::class, picker());
+
+    $wrong = User::factory()->create();
+
+    $conversation = Conversation::factory()->create([
+        'last_message_at' => now(),
+        'contact_type' => $wrong->getMorphClass(),
+        'contact_id' => $wrong->getKey(),
+    ]);
+
+    deskFor($conversation)->callAction('linkContact', ['contact' => '7']);
+
+    expect($conversation->refresh()->contact_id)->not->toBe($wrong->getKey());
+});
+
+/**
+ * Без привязанного искателя кнопки нет вовсе: пакет не умеет искать в чужом
+ * справочнике и не должен делать вид, что умеет.
+ */
+it('не предлагает перепривязку, когда хозяин не умеет искать', function (): void {
+    $conversation = Conversation::factory()->create(['last_message_at' => now()]);
+
+    expect(deskFor($conversation)->instance()->canLinkContact())->toBeFalse();
+});
+
+/**
+ * Запись, исчезнувшая между поиском и выбором, не роняет разговор и не молчит.
+ */
+it('говорит, когда выбранной карточки уже нет', function (): void {
+    app()->instance(ContactPicker::class, picker(resolves: false));
+
+    $conversation = Conversation::factory()->create(['last_message_at' => now()]);
+
+    deskFor($conversation)->callAction('linkContact', ['contact' => '7'])->assertNotified();
 
     expect($conversation->refresh()->contact_id)->toBeNull();
 });

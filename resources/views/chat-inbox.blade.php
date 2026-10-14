@@ -436,8 +436,21 @@
             that the name of the person being answered stays legible over a
             thread that scrolls under it.
         */
+        /*
+            `flex: none` is what keeps the third line on screen.
+
+            The stage is a flex column with `overflow: hidden`, and a flex item
+            may shrink below its content unless it says otherwise — which the
+            explicit `min-height` here turned from a floor into a target. A
+            thread with a contact card has three lines in this header, the
+            header was squeezed back to 3.6rem, and the line underneath was
+            clipped away: the channel, the status and the phone number simply
+            were not there. Nothing errors, and on a thread with no card
+            everything looks perfect.
+        */
         .chatbot-inbox__stage-head {
             display: flex;
+            flex: none;
             flex-wrap: wrap;
             gap: 0.7rem;
             align-items: center;
@@ -1169,6 +1182,10 @@
 
                     @if ($this->canCreateContact())
                         {{ $this->createContactAction }}
+                    @endif
+
+                    @if ($this->canLinkContact())
+                        {{ $this->linkContactAction }}
                     @endif
 
                     @if ($this->canReturnToBot())
