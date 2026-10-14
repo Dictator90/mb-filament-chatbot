@@ -8,8 +8,11 @@ use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
+use MB\FilamentChatbot\Channels\Drivers\MaxDriver;
 use MB\FilamentChatbot\Channels\Drivers\SiteDriver;
 use MB\FilamentChatbot\Channels\Drivers\TelegramDriver;
+use MB\FilamentChatbot\Channels\Drivers\VkDriver;
+use MB\FilamentChatbot\Channels\Drivers\WhatsappDriver;
 use MB\FilamentChatbot\Channels\MessageRouter;
 use MB\FilamentChatbot\Channels\Outbox;
 use MB\FilamentChatbot\Http\VisitorToken;
@@ -65,7 +68,15 @@ class ChannelsServiceProvider extends ServiceProvider
     {
         $registry = $this->app->make(ChatbotRegistry::class);
 
-        foreach ([SiteDriver::class, TelegramDriver::class] as $driver) {
+        $drivers = [
+            SiteDriver::class,
+            TelegramDriver::class,
+            MaxDriver::class,
+            VkDriver::class,
+            WhatsappDriver::class,
+        ];
+
+        foreach ($drivers as $driver) {
             $instance = $this->app->make($driver);
 
             if ($registry->hasChannel($instance->key())) {

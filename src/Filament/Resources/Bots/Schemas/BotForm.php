@@ -56,6 +56,20 @@ class BotForm
                     Tab::make('ai')
                         ->label(__('chatbot::panel.bots.tabs.ai'))
                         ->schema(self::ai()),
+                    /*
+                     * One tab per messenger inside this one. Nested rather than
+                     * four tabs beside «Основное», because they are four shapes
+                     * of the same answer to one question — where this bot can
+                     * be reached — and a row of six tabs hides the two that are
+                     * about the bot itself.
+                     */
+                    Tab::make('channels')
+                        ->label(__('chatbot::panel.bots.tabs.channels'))
+                        ->schema([
+                            Tabs::make('bot_channels')
+                                ->columnSpanFull()
+                                ->tabs(BotChannels::tabs()),
+                        ]),
                 ]),
         ]);
     }

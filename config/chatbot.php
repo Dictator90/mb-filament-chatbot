@@ -525,6 +525,38 @@ return [
              */
             'parse_mode' => '',
         ],
+
+        /*
+         * The three below hold no credentials at all, and that is the point.
+         * A messenger account belongs to a bot and lives in
+         * `chatbot_channel_connections`, encrypted, where an installation with
+         * two bots can have two of them. What stays here is what is the same
+         * for every account on the installation: where the provider lives and
+         * how long to wait for it.
+         *
+         * Telegram keeps its token above only so that installations configured
+         * before connections existed keep answering until they are moved over.
+         */
+        'max' => [
+            'api_url' => 'https://platform-api2.max.ru',
+            'timeout' => 10,
+        ],
+
+        'vk' => [
+            'api_url' => 'https://api.vk.com/method',
+            'timeout' => 10,
+        ],
+
+        'whatsapp' => [
+            /*
+             * Pinned to a Graph API version rather than left floating. Meta
+             * retires versions on a schedule and changes shapes between them,
+             * so an unpinned call is an integration that breaks on a day
+             * nobody deployed anything.
+             */
+            'api_url' => 'https://graph.facebook.com/v21.0',
+            'timeout' => 10,
+        ],
     ],
 
     /*

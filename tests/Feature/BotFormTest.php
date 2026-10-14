@@ -3,11 +3,13 @@
 declare(strict_types=1);
 
 use Filament\Forms\Components\Select;
+use Illuminate\Support\Facades\DB;
 use Livewire\Livewire;
 use MB\FilamentChatbot\Ai\AiGatewayFactory;
 use MB\FilamentChatbot\Ai\Drivers\NullGateway;
 use MB\FilamentChatbot\Filament\Resources\Bots\Pages\EditBot;
 use MB\FilamentChatbot\Models\Bot;
+use MB\FilamentChatbot\Models\ChannelConnection;
 
 /*
  * The embed code and the public-widget switch used to be checked in this file.
@@ -78,4 +80,57 @@ it('says that no model answers when the driver resolves to null', function (): v
         ->assertSchemaComponentVisible('ai_disabled_notice')
         ->fillForm(['ai_driver' => 'openai'])
         ->assertSchemaComponentHidden('ai_disabled_notice');
+});
+
+/**
+ * The messenger tabs are rows of another table, carried in and out by hand.
+ *
+ * Which is exactly why this is worth a test: nothing in Filament fails when
+ * that wiring is missing. The form saves, the page reloads, the fields are
+ * empty again, and the only sign is a messenger that never delivers —
+ * discovered by a customer rather than by the person who filled the form in.
+ */
+it('saves a messenger account from the bot screen and gives it an address', function (): void {
+    $bot = Bot::factory()->create();
+
+    Livewire::test(EditBot::class, ['record' => $bot->getKey()])
+        ->fillForm([
+            'channels.telegram.is_active' => true,
+            'channels.telegram.credentials.token' => '123:abc',
+            'channels.telegram.credentials.secret' => 'shared-secret',
+        ])
+        ->call('save')
+        ->assertHasNoFormErrors();
+
+    $connection = ChannelConnection::query()->where('bot_id', $bot->getKey())->sole();
+
+    expect($connection->channel)->toBe('telegram')
+        ->and($connection->is_active)->toBeTrue()
+        ->and($connection->credential('token'))->toBe('123:abc')
+        ->and($connection->public_id)->toHaveLength(32)
+        /*
+         * Encrypted at rest, and the assertion is against the stored column
+         * rather than the model: a cast that was dropped would still read back
+         * correctly through the model and leave the token in plain text in the
+         * database, where a backup carries it.
+         */
+        ->and(DB::table('chatbot_channel_connections')->value('credentials'))->not->toContain('123:abc');
+});
+
+/**
+ * A messenger nobody filled in gets no row.
+ *
+ * The alternative is a connection per registered driver for every bot, each
+ * with a public address that answers 404 and a line on the readiness screen
+ * saying it is not configured — noise that grows with every channel the
+ * package learns.
+ */
+it('creates nothing for a messenger left empty', function (): void {
+    $bot = Bot::factory()->create();
+
+    Livewire::test(EditBot::class, ['record' => $bot->getKey()])
+        ->call('save')
+        ->assertHasNoFormErrors();
+
+    expect(ChannelConnection::query()->count())->toBe(0);
 });

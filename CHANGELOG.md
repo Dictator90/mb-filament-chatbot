@@ -8,8 +8,37 @@ it reaches 1.0.
 
 ## [Unreleased]
 
-Nothing has been tagged yet. Everything below is what the first release will
-contain.
+### Messengers belong to a bot
+
+- **Four channels: Telegram, MAX, VK and WhatsApp.** Each one receives, answers,
+  and draws the scenario's options as buttons where its provider allows them —
+  WhatsApp falls back to a numbered list past three options or a 20-character
+  title, because Meta refuses the whole message over either and the question
+  would arrive unanswerable.
+- **Credentials moved out of config and into `chatbot_channel_connections`**,
+  one row per bot and messenger, encrypted as a whole and edited in a
+  **Channels** tab on the bot's own screen. A token identifies an account and an
+  account answers as one bot: an installation running sales and support
+  separately has two Telegram bots, and config could hold only one token.
+- **Webhooks now carry the account**: `/chatbot/webhook/{channel}/{connection}`,
+  where the second segment is 32 random characters generated once. A provider's
+  delivery says nothing about which bot it belongs to, so the address has to.
+- **The settings screen can check the connection and, where the provider has an
+  API for it, register the webhook.** VK and WhatsApp are registered by a person
+  in somebody else's dashboard, and the button says what to paste and where
+  rather than reporting a failure that is not one.
+
+#### Breaking
+
+- `POST /chatbot/webhook/telegram` is gone, and with it
+  `TelegramWebhookController`. Create a connection on the bot's Channels tab and
+  register the new address with `setWebhook` — the button on that tab does it.
+  `CHATBOT_TELEGRAM_TOKEN` still answers for threads that have no connection
+  behind them, so an installation keeps delivering until it is moved over.
+
+## [0.1.0] — 2026-09-14
+
+The first tagged release. Everything below shipped in it.
 
 ### Conversations
 

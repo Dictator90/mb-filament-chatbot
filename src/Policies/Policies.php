@@ -7,6 +7,7 @@ namespace MB\FilamentChatbot\Policies;
 use MB\FilamentChatbot\Models\Attachment;
 use MB\FilamentChatbot\Models\Bot;
 use MB\FilamentChatbot\Models\BudgetPeriod;
+use MB\FilamentChatbot\Models\ChannelConnection;
 use MB\FilamentChatbot\Models\Conversation;
 use MB\FilamentChatbot\Models\DataResource;
 use MB\FilamentChatbot\Models\KnowledgeEntry;
@@ -40,6 +41,7 @@ final class Policies
     {
         return [
             Bot::class => BotPolicy::class,
+            ChannelConnection::class => ChannelConnectionPolicy::class,
             Widget::class => WidgetPolicy::class,
             BudgetPeriod::class => BudgetPeriodPolicy::class,
             Scenario::class => ScenarioPolicy::class,

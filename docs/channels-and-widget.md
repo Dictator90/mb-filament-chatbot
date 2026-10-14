@@ -139,18 +139,82 @@ failures that waiting cannot fix. Retry count is `chatbot.channels.delivery.trie
 
 ---
 
-## Telegram
+## Messenger accounts belong to a bot
+
+A token is not a property of the deployment; it is the account one bot speaks
+from. An installation running a sales bot and a support bot has two Telegram
+bots, and config — which holds one token per installation — could express only
+the first.
+
+So credentials live in `chatbot_channel_connections`: one row per bot and
+messenger, credentials encrypted as a whole, edited in the **Channels** tab on
+the bot's own screen. What stays in config is what is the same for every account
+on the installation — where the provider lives and how long to wait for it.
 
 ```php
-'telegram' => [
-    'enabled' => false,
-    'token' => env('CHATBOT_TELEGRAM_TOKEN'),
-    'secret_token' => env('CHATBOT_TELEGRAM_SECRET'),
-    'api_url' => 'https://api.telegram.org',
-    'timeout' => 10,
-    'parse_mode' => '',
+'channels' => [
+    'telegram' => ['api_url' => 'https://api.telegram.org', 'timeout' => 10],
+    'max' => ['api_url' => 'https://platform-api2.max.ru', 'timeout' => 10],
+    'vk' => ['api_url' => 'https://api.vk.com/method', 'timeout' => 10],
+    'whatsapp' => ['api_url' => 'https://graph.facebook.com/v21.0', 'timeout' => 10],
 ],
 ```
+
+### The address carries the account
+
+Every provider delivers to `/chatbot/webhook/{channel}/{connection}`, where the
+second segment is the connection's `public_id` — 32 random characters, generated
+once and never regenerated. A provider's POST says nothing about which bot it
+belongs to, so without it an installation could run one account per messenger
+and no more.
+
+It is also why an unknown address and a switched-off one answer the same 404: a
+different answer for a real connection would tell whoever guessed it that they
+had guessed right.
+
+`public_id` is stable on purpose. Rotating it would point a live webhook at an
+address that no longer exists, and nothing would say so until a customer wrote.
+
+### What each provider needs, and who registers the webhook
+
+| Messenger | Credentials | Authenticates by | Webhook registered |
+|---|---|---|---|
+| Telegram | bot token, webhook secret | `X-Telegram-Bot-Api-Secret-Token` | by the package, `setWebhook` |
+| MAX | bot token, webhook secret | `X-Max-Bot-Api-Secret` | by the package, `POST /subscriptions` |
+| VK | community token, secret key, confirmation string | `secret` inside the event body | by a person, in the community's settings |
+| WhatsApp | access token, phone number id, verify token, app secret | `X-Hub-Signature-256` over the raw body | by a person, in the app's dashboard |
+
+The two a person registers are not failures. Both providers take the address in
+their own dashboard — VK shows a confirmation string that has to come back from
+the server, Meta verifies by fetching the address once — so the button on the
+settings screen answers with what to paste and where, and says so as information
+rather than as an error.
+
+### The quirks that are not optional
+
+**VK wants a bare `ok`.** Not `{"result":"ok"}`, not an empty 200: the Callback
+API compares the body, treats anything else as a failure and redelivers until
+the community is paused. While the address is being added it wants the
+confirmation string in the same way, through the same endpoint.
+
+**WhatsApp draws at most three buttons, titles capped at 20 characters.** Past
+either limit Meta refuses the whole message, so the driver sends the options as
+a numbered list instead — the engine accepts a bare digit either way, and a
+question with four answers stays answerable rather than arriving unanswerable.
+
+**WhatsApp signs the bytes it sent.** The signature is computed over the raw
+request body; re-encoding the decoded JSON changes spacing and key order, and
+that is the usual way this check passes in tests and fails in production.
+
+**MAX accepts two messages a second into one dialog** and refuses text over
+4000 characters outright, so the driver truncates deliberately rather than
+letting the provider drop a sentence the bot already committed to.
+
+**A MAX button press leaves a spinner** until the bot answers the callback
+through `POST /answers`, which this package does not do: the reply arrives a
+moment later through the queue and clears it.
+
+## Telegram
 
 **No Telegram SDK, deliberately.** What the driver needs is one POST to
 `sendMessage` and one shape of JSON back. Every package that wraps the Bot API
@@ -166,8 +230,8 @@ parameter.
 
 ### The webhook authenticates by secret header
 
-The endpoint is `POST /chatbot/webhook/telegram`. Its URL is public and
-unguessable only for as long as nobody guesses it, so what actually
+The endpoint is `POST /chatbot/webhook/telegram/{connection}`. Its URL is public
+and unguessable only for as long as nobody guesses it, so what actually
 authenticates the caller is the secret header Telegram attaches to every update
 when the webhook is registered with one. Without it, anyone who learns the path
 can post a message that appears in the desk as coming from a customer, with a

@@ -64,6 +64,18 @@ return [
         'tabs' => [
             'basics' => 'Basics',
             'ai' => 'AI',
+            'channels' => 'Channels',
+        ],
+        'channels' => [
+            'is_active' => 'Channel is on',
+            'is_active_hint' => 'A channel that is off accepts nothing and answers nothing: its webhook address replies "not found".',
+            'unsaved' => 'Save the bot first — the webhook address appears here once it exists.',
+            'address' => 'Webhook address',
+            'verified' => 'Credentials checked :moment.',
+            'last_error' => 'Last refusal: :reason',
+            'last_event' => 'Last delivery from the provider: :moment.',
+            'verify' => 'Check the connection',
+            'install' => 'Install the webhook',
         ],
         'identity' => [
             'heading' => 'Identity',

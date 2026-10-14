@@ -10,6 +10,7 @@ use MB\FilamentChatbot\Channels\MessageRouter;
 use MB\FilamentChatbot\Enums\MessageAuthor;
 use MB\FilamentChatbot\Enums\MessageDirection;
 use MB\FilamentChatbot\Jobs\DeliverMessage;
+use MB\FilamentChatbot\Models\ChannelConnection;
 use MB\FilamentChatbot\Models\Conversation;
 use MB\FilamentChatbot\Models\Message;
 use MB\FilamentChatbot\Models\Scenario;
@@ -57,6 +58,24 @@ function telegramUpdate(int $messageId = 500, string $text = 'when do you close?
     ];
 }
 
+/**
+ * The Telegram account these tests speak through, and the address it is
+ * delivered to.
+ *
+ * One connection rather than config, because that is now where a token lives:
+ * the address carries the account, and a webhook posted without one is a
+ * stranger knocking at a door that does not exist.
+ */
+function telegramConnection(array $credentials = ['token' => 'bot-token', 'secret' => 'shared-secret']): ChannelConnection
+{
+    return ChannelConnection::factory()->on('telegram', $credentials)->create();
+}
+
+function telegramWebhook(ChannelConnection $connection): string
+{
+    return '/chatbot/webhook/telegram/'.$connection->public_id;
+}
+
 beforeEach(function (): void {
     config()->set('chatbot.channels.telegram.enabled', true);
     config()->set('chatbot.channels.telegram.token', 'bot-token');
@@ -79,9 +98,10 @@ it('does not answer twice when a webhook redelivers the same message', function 
 
     $update = telegramUpdate();
     $headers = ['X-Telegram-Bot-Api-Secret-Token' => 'shared-secret'];
+    $webhook = telegramWebhook(telegramConnection());
 
-    $this->postJson('/chatbot/webhook/telegram', $update, $headers)->assertNoContent();
-    $this->postJson('/chatbot/webhook/telegram', $update, $headers)->assertNoContent();
+    $this->postJson($webhook, $update, $headers)->assertNoContent();
+    $this->postJson($webhook, $update, $headers)->assertNoContent();
 
     $conversation = Conversation::query()->where('channel', 'telegram')->sole();
 
@@ -261,9 +281,10 @@ it('lists the options as a numbered list on a channel without buttons', function
  */
 it('refuses a telegram webhook without the right secret', function (): void {
     $update = telegramUpdate();
+    $webhook = telegramWebhook(telegramConnection());
 
-    $this->postJson('/chatbot/webhook/telegram', $update)->assertForbidden();
-    $this->postJson('/chatbot/webhook/telegram', $update, [
+    $this->postJson($webhook, $update)->assertForbidden();
+    $this->postJson($webhook, $update, [
         'X-Telegram-Bot-Api-Secret-Token' => 'guessed',
     ])->assertForbidden();
 
@@ -271,13 +292,13 @@ it('refuses a telegram webhook without the right secret', function (): void {
 });
 
 /**
- * An installation with no secret configured accepts nothing, rather than
- * everything: a forgotten setting must not be an open door into the desk.
+ * A connection with no secret saved accepts nothing, rather than everything:
+ * a half-finished setup must not be an open door into the desk.
  */
 it('refuses every telegram webhook while no secret is configured', function (): void {
-    config()->set('chatbot.channels.telegram.secret_token', null);
+    $connection = telegramConnection(['token' => 'bot-token']);
 
-    $this->postJson('/chatbot/webhook/telegram', telegramUpdate(), [
+    $this->postJson(telegramWebhook($connection), telegramUpdate(), [
         'X-Telegram-Bot-Api-Secret-Token' => '',
     ])->assertForbidden();
 

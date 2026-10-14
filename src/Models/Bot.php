@@ -73,6 +73,21 @@ class Bot extends Model
     }
 
     /**
+     * The messenger accounts this bot is reachable in.
+     *
+     * At most one per messenger, which is what the unique index on the table
+     * says: two Telegram accounts answering as one bot would make the reply
+     * address ambiguous, and a conversation row only records which channel it
+     * came in on.
+     *
+     * @return HasMany<ChannelConnection, $this>
+     */
+    public function channelConnections(): HasMany
+    {
+        return $this->hasMany(ChannelConnection::class, 'bot_id');
+    }
+
+    /**
      * @param  Builder<Bot>  $query
      */
     public function scopeActive(Builder $query): void

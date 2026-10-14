@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 use Illuminate\Routing\Middleware\ThrottleRequests;
 use Illuminate\Support\Facades\Route;
+use MB\FilamentChatbot\Http\Controllers\ChannelWebhookController;
 use MB\FilamentChatbot\Http\Controllers\SiteWidgetController;
 use MB\FilamentChatbot\Http\Controllers\SocketAuthController;
-use MB\FilamentChatbot\Http\Controllers\TelegramWebhookController;
 use MB\FilamentChatbot\Http\Controllers\WidgetScriptController;
 use MB\FilamentChatbot\Http\Middleware\WidgetOrigin;
 
@@ -134,9 +134,20 @@ Route::prefix('chatbot')->name('chatbot.')->group(function (): void {
 
     /*
      * Provider webhooks. No origin list applies — the caller is a server, not a
-     * browser — so each one authenticates itself in its own controller.
+     * browser — so the driver behind the channel authenticates each one itself.
+     *
+     * The address carries both the messenger and the account: a provider's
+     * delivery says nothing about which bot it belongs to, and without the
+     * second segment an installation could run only one account per messenger.
+     *
+     * GET is here for one provider only. WhatsApp verifies a new address by
+     * fetching it and expecting its own challenge back, and that happens before
+     * any secret exists to check — so the method has to be routed even though
+     * nothing is ever read from it.
      */
-    Route::post('webhook/telegram', TelegramWebhookController::class)
+    Route::match(['get', 'post'], 'webhook/{channel}/{connection}', ChannelWebhookController::class)
+        ->where('channel', '[a-z0-9_-]+')
+        ->where('connection', '[A-Za-z0-9]+')
         ->middleware(ThrottleRequests::class.':chatbot-webhook')
-        ->name('webhook.telegram');
+        ->name('webhook');
 });
