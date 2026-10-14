@@ -381,7 +381,14 @@ return [
                 'api_key' => env('CHATBOT_ANTHROPIC_API_KEY'),
                 'model' => env('CHATBOT_ANTHROPIC_MODEL', 'claude-sonnet-5-5'),
                 'timeout' => 30,
-                'temperature' => 0.2,
+
+                /*
+                 * Без температуры по умолчанию, и это не забывчивость.
+                 * Новые модели отвечают на неё отказом целиком — «temperature
+                 * is deprecated for this model», статус 400, — и разговор
+                 * уходит во второй выход узла из-за настройки, которую никто
+                 * не менял. Вписанное сюда число по-прежнему отправляется.
+                 */
                 'max_tokens' => 600,
                 'price_per_million_input' => env('CHATBOT_ANTHROPIC_PRICE_INPUT', 0),
                 'price_per_million_output' => env('CHATBOT_ANTHROPIC_PRICE_OUTPUT', 0),

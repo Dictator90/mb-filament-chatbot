@@ -546,3 +546,39 @@ it('берёт прокси драйвера, а установочный — т
 
     expect($proxyOf())->toBe('');
 });
+
+/**
+ * Температура уходит, только если её назвали.
+ *
+ * Новые модели Anthropic отвечают на неё отказом целиком — «temperature is
+ * deprecated for this model», статус 400, — и разговор уходит во второй выход
+ * узла. Со стороны это «бот молчит», а причина — поле, которого никто
+ * не просил: драйвер подставлял своё умолчание. Поймано живым запросом с боя.
+ */
+it('не шлёт Anthropic температуру, которой никто не просил', function (): void {
+    config()->set('chatbot.ai.drivers.anthropic', [
+        'base_url' => 'https://api.anthropic.test/v1',
+        'api_key' => 'ключ',
+    ]);
+
+    Http::fake(['*/messages' => Http::response(['content' => [['type' => 'text', 'text' => 'да']]])]);
+
+    $ask = fn (?float $temperature): mixed => app(AiGatewayFactory::class)->make('anthropic')->ask(
+        new AiPrompt(instruction: 'Коротко.', question: 'Работает?', temperature: $temperature),
+    );
+
+    $ask(null);
+
+    Http::assertSent(fn ($request): bool => ! array_key_exists('temperature', $request->data()));
+
+    $ask(0.7);
+
+    Http::assertSent(fn ($request): bool => ($request->data()['temperature'] ?? null) === 0.7);
+
+    /* Названная в настройках — отправляется: старые модели её принимают. */
+    config()->set('chatbot.ai.drivers.anthropic.temperature', 0.3);
+
+    $ask(null);
+
+    Http::assertSent(fn ($request): bool => ($request->data()['temperature'] ?? null) === 0.3);
+});

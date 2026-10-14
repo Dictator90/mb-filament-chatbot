@@ -86,15 +86,43 @@ final class AnthropicGateway implements AiGateway
      */
     private function payload(AiPrompt $prompt): array
     {
-        return [
+        $payload = [
             'model' => $this->model(),
             'max_tokens' => $prompt->maxTokens > 0 ? $prompt->maxTokens : $this->maxTokens(),
-            'temperature' => $prompt->temperature ?? $this->temperature(),
             'system' => $this->systemMessage($prompt),
             'messages' => [
                 ['role' => 'user', 'content' => $prompt->question],
             ],
         ];
+
+        $temperature = $this->chosenTemperature($prompt);
+
+        if ($temperature !== null) {
+            $payload['temperature'] = $temperature;
+        }
+
+        return $payload;
+    }
+
+    /**
+     * Температура уходит, только если её назвали.
+     *
+     * Новые модели Anthropic отвечают на неё отказом целиком:
+     * «`temperature` is deprecated for this model», статус 400, и разговор
+     * уходит во второй выход узла — то есть бот молчит из-за настройки,
+     * которую никто не менял. Умолчания у драйвера поэтому нет: прислали
+     * число в запросе или вписали в настройки — отправляем, иначе поле
+     * не упоминаем вовсе.
+     */
+    private function chosenTemperature(AiPrompt $prompt): ?float
+    {
+        if ($prompt->temperature !== null) {
+            return $prompt->temperature;
+        }
+
+        $configured = $this->config['temperature'] ?? null;
+
+        return $configured === null ? null : (float) $configured;
     }
 
     /**
