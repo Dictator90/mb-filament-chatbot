@@ -190,6 +190,12 @@ final class FormStep extends StepType
             return $this->askNextOrFinish($context, []);
         }
 
+        if (! $this->isRequired($context, $slot->key()) && $this->declines($answer)) {
+            $this->abandon($context, $slot->key());
+
+            return $this->askNextOrFinish($context, [$slot->key()]);
+        }
+
         $parsed = $this->parser->parse($slot, $answer);
 
         if ($parsed->ok()) {
@@ -209,7 +215,7 @@ final class FormStep extends StepType
 
         if ($used < $allowed) {
             $this->rememberAttempts($context, $slot->key(), $used);
-            $context->runtime->say($context->runtime->fill($slot->defaultQuestion()), $this->choicesOf($slot));
+            $context->runtime->say($context->runtime->fill($slot->defaultQuestion()), $this->choicesOf($context, $slot));
 
             return StepResult::wait()->traced(RunStep::WAITING, [
                 'slot' => $slot->key(),
@@ -281,7 +287,7 @@ final class FormStep extends StepType
             }
 
             $context->conversation->forceFill(['bot_slot' => $slot->key()])->save();
-            $context->runtime->say($context->runtime->fill($slot->defaultQuestion()), $this->choicesOf($slot));
+            $context->runtime->say($context->runtime->fill($slot->defaultQuestion()), $this->choicesOf($context, $slot));
 
             return StepResult::wait()->traced(RunStep::WAITING, ['slot' => $slot->key()]);
         }
@@ -300,13 +306,58 @@ final class FormStep extends StepType
      * parser already accepts the position as well as the label, so a pressed
      * button and a typed word land on the same value.
      *
+     * An optional slot that is not a choice gets a single "skip" button
+     * instead: a choice already carries its own way out ("no preference"), and
+     * a free answer has none, so the visitor who would rather not name a budget
+     * had to fail the question twice to be let past it.
+     *
      * @return list<string>
      */
-    private function choicesOf(Slot $slot): array
+    private function choicesOf(StepContext $context, Slot $slot): array
     {
-        return $slot->kind() === SlotKind::Choice
-            ? array_values(array_map(static fn (mixed $label): string => (string) $label, $slot->choices()))
-            : [];
+        if ($slot->kind() === SlotKind::Choice) {
+            return array_values(array_map(static fn (mixed $label): string => (string) $label, $slot->choices()));
+        }
+
+        return $this->isRequired($context, $slot->key()) ? [] : [$this->skipLabel()];
+    }
+
+    /**
+     * Whether the answer declines an optional question rather than answering it.
+     *
+     * Read before the parser, not after it fails. "I don't know" to a budget
+     * question used to be re-asked once — an argument with someone who has just
+     * said they would rather not say — and a free-text slot accepted it as the
+     * answer itself, so the manager read "don't know" as the visitor's wish.
+     *
+     * Whole answers only, never a word inside one: "no idea where, somewhere
+     * warm" is an answer.
+     */
+    private function declines(string $answer): bool
+    {
+        $said = self::normalise($answer);
+
+        if ($said === '') {
+            return false;
+        }
+
+        foreach ([$this->skipLabel(), ...array_values((array) __('chatbot::bot.form.skip_words'))] as $word) {
+            if (self::normalise((string) $word) === $said) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private function skipLabel(): string
+    {
+        return (string) __('chatbot::bot.form.skip');
+    }
+
+    private static function normalise(string $text): string
+    {
+        return trim(mb_strtolower(preg_replace('/[\s.!?,…]+/u', ' ', $text) ?? $text));
     }
 
     /**

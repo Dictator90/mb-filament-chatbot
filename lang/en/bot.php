@@ -42,6 +42,19 @@ return [
     ],
 
     /**
+     * The button an optional question in a form carries, and the whole answers
+     * that mean the same thing when typed.
+     *
+     * Matched as complete answers, never as words inside one: "don't know"
+     * declines a budget question, "don't know where, somewhere warm" answers
+     * a destination question.
+     */
+    'form' => [
+        'skip' => 'Skip',
+        'skip_words' => ['skip', 'pass', "don't know", 'dont know', 'not sure', 'rather not say', 'no idea', 'next'],
+    ],
+
+    /**
      * What replaces a piece of personal data on its way to a language model.
      *
      * Translated because the model reads them: an English placeholder dropped

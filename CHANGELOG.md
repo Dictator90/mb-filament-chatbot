@@ -6,6 +6,16 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 this package intends to follow [Semantic Versioning](https://semver.org/) once
 it reaches 1.0.
 
+## [0.9.1] — 2026-10-14
+
+- **An optional question in a form can be skipped.** It carries a "Skip"
+  button unless it is a choice (a choice has its own way out), and a typed
+  "don't know" or «не скажу» skips it at once. Before, the answer went to the
+  parser, the parser found no amount, and the bot asked again — arguing with a
+  visitor who had just declined to name a budget — while a free-text slot took
+  "don't know" as the answer and the manager read it as the visitor's wish.
+  The words live in `chatbot::bot.form.skip_words` and match whole answers only.
+
 ## [0.9.0] — 2026-10-14
 
 - **Placeholders accept any letter.** A set node writing `интерес` or a lookup

@@ -205,3 +205,89 @@ it('предлагает варианты выбора кнопками', functi
 
     expect(botSaid($this->conversation))->toContain('Принято: tour.');
 });
+
+/**
+ * «Не знаю» на необязательный вопрос пропускает его сразу.
+ *
+ * Прежде ответ уходил в разбор, разбор не находил суммы, и бот переспрашивал —
+ * спорил с человеком, который только что сказал, что не хочет называть бюджет.
+ * А поле свободного текста принимало «не знаю» как ответ, и менеджер читал его
+ * как пожелание туриста.
+ */
+it('пропускает необязательный вопрос по «не знаю» без переспроса', function (): void {
+    app()->setLocale('ru');
+
+    scenarioOf([
+        ['key' => 'start', 'type' => 'start', 'next_key' => 'who', 'config' => ['trigger' => 'fallback']],
+        ['key' => 'who', 'type' => 'form', 'next_key' => 'thanks', 'config' => [
+            'slots' => [
+                ['slot' => 'email', 'required' => false],
+                ['slot' => 'name', 'required' => true],
+            ],
+            'attempts' => 2,
+            'else_key' => 'sorry',
+        ]],
+        ['key' => 'thanks', 'type' => 'say', 'body' => 'Принято.'],
+        ['key' => 'sorry', 'type' => 'say', 'body' => 'Позову человека.'],
+    ]);
+
+    visitorSays($this->conversation, 'здравствуйте');
+
+    expect($this->conversation->refresh()->bot_slot)->toBe('email');
+
+    visitorSays($this->conversation, 'Не знаю.');
+
+    expect($this->conversation->refresh()->bot_slot)->toBe('name');
+});
+
+/**
+ * Необязательный вопрос без вариантов приходит с кнопкой «Пропустить», и она
+ * работает. У обязательного такой кнопки нет: пропустить его нельзя.
+ */
+it('даёт необязательному вопросу кнопку пропуска', function (): void {
+    app()->setLocale('ru');
+
+    scenarioOf([
+        ['key' => 'start', 'type' => 'start', 'next_key' => 'who', 'config' => ['trigger' => 'fallback']],
+        ['key' => 'who', 'type' => 'form', 'next_key' => 'thanks', 'config' => [
+            'slots' => [
+                ['slot' => 'email', 'required' => false],
+                ['slot' => 'name', 'required' => true],
+            ],
+        ]],
+        ['key' => 'thanks', 'type' => 'say', 'body' => 'Принято.'],
+    ]);
+
+    visitorSays($this->conversation, 'здравствуйте');
+
+    $asked = $this->conversation->messages()->where('body', __('chatbot::nodes.slots.email.question'))->sole();
+
+    expect($asked->meta['options'] ?? null)->toBe(['Пропустить']);
+
+    visitorSays($this->conversation, 'Пропустить');
+
+    $next = $this->conversation->messages()->where('body', __('chatbot::nodes.slots.name.question'))->sole();
+
+    expect($this->conversation->refresh()->bot_slot)->toBe('name')
+        ->and($next->meta['options'] ?? [])->toBe([]);
+});
+
+/**
+ * Ответ, в котором «не знаю» лишь начало фразы, — это ответ, а не отказ.
+ */
+it('не принимает за пропуск фразу, которая только начинается с «не знаю»', function (): void {
+    app()->setLocale('ru');
+
+    scenarioOf([
+        ['key' => 'start', 'type' => 'start', 'next_key' => 'who', 'config' => ['trigger' => 'fallback']],
+        ['key' => 'who', 'type' => 'form', 'next_key' => 'thanks', 'config' => [
+            'slots' => [['slot' => 'company', 'required' => false]],
+        ]],
+        ['key' => 'thanks', 'type' => 'say', 'body' => 'Записал: {{company}}.'],
+    ]);
+
+    visitorSays($this->conversation, 'здравствуйте');
+    visitorSays($this->conversation, 'не знаю точно, ООО Ромашка');
+
+    expect(botSaid($this->conversation))->toContain('Записал: не знаю точно, ООО Ромашка.');
+});

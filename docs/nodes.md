@@ -208,6 +208,13 @@ without it — a budget the visitor has not decided is the case — and fetching
 person over the one answer that did not matter is not what that branch is for.
 A slot given up on is not asked again later in the same form.
 
+An optional slot can also be declined outright. One that is not a choice is
+asked with a single "Skip" button, and a whole answer from
+`chatbot::bot.form.skip_words` ("don't know", «не скажу») skips it at once
+instead of spending an attempt — re-asking someone who has just said they would
+rather not name a budget is an argument, not a question. Only complete answers
+match: "don't know where, somewhere warm" is an answer.
+
 **The node that saves scenarios from becoming forms.** Five things to find out
 would otherwise be five `collect` nodes in a row, and half of them would ask for
 something already known — a phone number that arrived with the widget's contact
