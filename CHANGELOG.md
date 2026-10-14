@@ -6,6 +6,14 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 this package intends to follow [Semantic Versioning](https://semver.org/) once
 it reaches 1.0.
 
+## [0.9.4] — 2026-10-14
+
+- **A declined question stays declined for the whole conversation.** The skip
+  lived in the form's own attempts map and was cleared when the form ended, so
+  a scenario that sends the visitor back through its forms to correct one
+  answer asked again everything they had already skipped. The skip is now also
+  stored as `<slot>_skipped`; clear it to ask again on purpose.
+
 ## [0.9.3] — 2026-10-14
 
 - **Amounts understand multipliers and ranges.** "150 тысяч" was stored as 150 —

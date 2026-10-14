@@ -215,6 +215,12 @@ instead of spending an attempt — re-asking someone who has just said they woul
 rather not name a budget is an argument, not a question. Only complete answers
 match: "don't know where, somewhere warm" is an answer.
 
+A skip outlives the form: it is stored as `<slot>_skipped`, and no later form
+in the conversation asks that slot again. A scenario that loops the visitor
+back through its forms to correct one answer would otherwise re-ask everything
+they had declined, once per correction. Clear `<slot>_skipped` to ask again on
+purpose.
+
 **The node that saves scenarios from becoming forms.** Five things to find out
 would otherwise be five `collect` nodes in a row, and half of them would ask for
 something already known — a phone number that arrived with the widget's contact

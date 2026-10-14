@@ -393,25 +393,32 @@ final class FormStep extends StepType
     }
 
     /**
-     * Marks an optional slot as given up on, for the rest of this form.
+     * Marks an optional slot as given up on — for this form and for the rest
+     * of the conversation.
      *
      * Without it the next answer walks the list again, finds the same empty
      * optional slot and asks for it a second time — the attempts counter having
      * just been cleared — which is the loop a visitor leaves rather than sits
      * through.
      *
-     * It shares the attempts map instead of a column of its own: the map is
-     * already keyed by step and slot, already cleared when the form ends, and a
-     * column would be a migration for a flag that never outlives one node.
+     * The attempts map covers this form and is cleared when it ends; the
+     * `<slot>_skipped` variable covers every later pass. A scenario that lets
+     * the visitor correct one answer sends them back through its forms, and
+     * without the variable each pass asked again every question they had
+     * already declined — the budget they would rather not name, once per
+     * correction. Clearing `<slot>_skipped` is how a scenario asks again on
+     * purpose.
      */
     private function abandon(StepContext $context, string $slotKey): void
     {
         $this->rememberAttempts($context, $slotKey, self::ABANDONED);
+        $context->runtime->store($slotKey.'_skipped', '1');
     }
 
     private function abandoned(StepContext $context, string $slotKey): bool
     {
-        return $this->attemptsUsed($context, $slotKey) === self::ABANDONED;
+        return $this->attemptsUsed($context, $slotKey) === self::ABANDONED
+            || $context->runtime->value($slotKey.'_skipped') === '1';
     }
 
     /**

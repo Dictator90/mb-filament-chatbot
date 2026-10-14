@@ -345,3 +345,31 @@ it('запоминает ответ дословно рядом с разобр�
 
     expect(botSaid($this->conversation))->toContain('150000 / 150 тысяч');
 });
+
+/**
+ * Пропущенное не возвращается и в следующей анкете того же разговора.
+ *
+ * Сценарий с правкой резюме прогоняет человека через анкеты заново, и каждый
+ * проход спрашивал снова всё, от чего он уже отказался, — бюджет, который он
+ * не хочет называть, по разу на каждую правку. Пометка о пропуске жила только
+ * до конца анкеты.
+ */
+it('не спрашивает пропущенное во второй анкете того же разговора', function (): void {
+    app()->setLocale('ru');
+
+    scenarioOf([
+        ['key' => 'start', 'type' => 'start', 'next_key' => 'first', 'config' => ['trigger' => 'fallback']],
+        ['key' => 'first', 'type' => 'form', 'next_key' => 'second', 'config' => [
+            'slots' => [['slot' => 'email', 'required' => false]],
+        ]],
+        ['key' => 'second', 'type' => 'form', 'next_key' => 'thanks', 'config' => [
+            'slots' => [['slot' => 'email', 'required' => false], ['slot' => 'name', 'required' => true]],
+        ]],
+        ['key' => 'thanks', 'type' => 'say', 'body' => 'Принято.'],
+    ]);
+
+    visitorSays($this->conversation, 'здравствуйте');
+    visitorSays($this->conversation, 'не скажу');
+
+    expect($this->conversation->refresh()->bot_slot)->toBe('name');
+});
