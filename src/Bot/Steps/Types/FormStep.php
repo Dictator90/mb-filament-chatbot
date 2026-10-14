@@ -190,7 +190,7 @@ final class FormStep extends StepType
             return $this->askNextOrFinish($context, []);
         }
 
-        if (! $this->isRequired($context, $slot->key()) && $this->declines($answer)) {
+        if (! $this->isRequired($context, $slot->key()) && $this->declines($slot, $answer)) {
             $this->abandon($context, $slot->key());
 
             return $this->askNextOrFinish($context, [$slot->key()]);
@@ -331,14 +331,22 @@ final class FormStep extends StepType
      * answer itself, so the manager read "don't know" as the visitor's wish.
      *
      * Whole answers only, never a word inside one: "no idea where, somewhere
-     * warm" is an answer.
+     * warm" is an answer. And a choice the slot itself offers always wins: an
+     * author who wrote "Don't know" as one of the buttons meant it as an
+     * answer, and reading the pressed button as "skip" threw it away.
      */
-    private function declines(string $answer): bool
+    private function declines(Slot $slot, string $answer): bool
     {
         $said = self::normalise($answer);
 
         if ($said === '') {
             return false;
+        }
+
+        foreach ($slot->choices() as $choice) {
+            if (self::normalise((string) $choice) === $said) {
+                return false;
+            }
         }
 
         foreach ([$this->skipLabel(), ...array_values((array) __('chatbot::bot.form.skip_words'))] as $word) {

@@ -6,6 +6,13 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 this package intends to follow [Semantic Versioning](https://semver.org/) once
 it reaches 1.0.
 
+## [0.9.2] — 2026-10-14
+
+- **A choice the slot offers is never read as "skip".** A button labelled
+  «Не знаю» on an optional question — "don't know whether the passport is
+  valid", which is an answer — matched the skip words of 0.9.1 and was thrown
+  away.
+
 ## [0.9.1] — 2026-10-14
 
 - **An optional question in a form can be skipped.** It carries a "Skip"

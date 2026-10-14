@@ -291,3 +291,32 @@ it('не принимает за пропуск фразу, которая то�
 
     expect(botSaid($this->conversation))->toContain('Записал: не знаю точно, ООО Ромашка.');
 });
+
+/**
+ * Вариант выбора, совпавший со словом пропуска, остаётся ответом.
+ *
+ * Автор, написавший кнопку «Не знаю», имел в виду ответ: в анкете турагентства
+ * это «не знаю, есть ли загранпаспорт», и по нему менеджер ставит метку
+ * «проверить документы». Прочитанная как «пропустить», нажатая кнопка
+ * выбрасывала ровно этот ответ.
+ */
+it('не путает вариант выбора «Не знаю» с пропуском', function (): void {
+    app()->setLocale('ru');
+
+    Chatbot::registerSlot(
+        Slot::choice('passport', ['yes' => 'Есть', 'unsure' => 'Не знаю'])->question('Загранпаспорт есть?'),
+    );
+
+    scenarioOf([
+        ['key' => 'start', 'type' => 'start', 'next_key' => 'who', 'config' => ['trigger' => 'fallback']],
+        ['key' => 'who', 'type' => 'form', 'next_key' => 'thanks', 'config' => [
+            'slots' => [['slot' => 'passport', 'required' => false]],
+        ]],
+        ['key' => 'thanks', 'type' => 'say', 'body' => 'Паспорт: {{passport|не уточнено}}.'],
+    ]);
+
+    visitorSays($this->conversation, 'здравствуйте');
+    visitorSays($this->conversation, 'Не знаю');
+
+    expect(botSaid($this->conversation))->toContain('Паспорт: unsure.');
+});
