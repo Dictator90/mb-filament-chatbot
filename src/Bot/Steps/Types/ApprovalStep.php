@@ -10,6 +10,7 @@ use MB\FilamentChatbot\Bot\Steps\StepResult;
 use MB\FilamentChatbot\Bot\Steps\StepType;
 use MB\FilamentChatbot\Enums\StepOutputs;
 use MB\FilamentChatbot\Models\RunStep;
+use MB\FilamentChatbot\Models\Step;
 
 /**
  * Asks for a yes before something that cannot be taken back.
@@ -139,10 +140,36 @@ final class ApprovalStep extends StepType
         ];
     }
 
+    /**
+     * «Да» и «нет» — такие же варианты ответа, как у вопроса с кнопками.
+     *
+     * Без этого подтверждение уходило в мессенджер простым текстом
+     * «1. Да, оформляйте / 2. Нет, поправлю»: кнопок не было, человек отвечал
+     * словами — «Оформляйте. Вы можете отель подобрать?» — и получал «не понял
+     * ответ» на согласие, которое только что дал. Теперь варианты едут
+     * свойством сообщения, и канал рисует их как умеет: Telegram кнопками,
+     * виджет подсказками, а канал без кнопок — тем же нумерованным списком.
+     *
+     * @return list<string>
+     */
+    public function choiceLabels(Step $step): array
+    {
+        return [$this->labelOf($step, 'yes_label', 'yes'), $this->labelOf($step, 'no_label', 'no')];
+    }
+
     public function run(StepContext $context): StepResult
     {
         $this->rememberAttempts($context, null);
-        $context->runtime->say($this->options($context));
+
+        /*
+         * Текст узла уже произнёс движок — вместе с вариантами. Повторить их
+         * отдельной репликой значило бы прислать второе сообщение подряд,
+         * состоящее из списка того, что нарисовано кнопками выше. Пусто только
+         * у узла без текста: там список и есть весь вопрос.
+         */
+        if (trim($context->runtime->fill($context->step->body)) === '') {
+            $context->runtime->say($this->options($context), $this->choiceLabels($context->step));
+        }
 
         return StepResult::wait()->traced(RunStep::WAITING)->spoken();
     }
@@ -168,7 +195,7 @@ final class ApprovalStep extends StepType
 
         if ($used < $allowed) {
             $this->rememberAttempts($context, $used);
-            $context->runtime->say($this->retry().PHP_EOL.$this->options($context));
+            $context->runtime->say($this->retry(), $this->choiceLabels($context->step));
 
             return StepResult::wait()
                 ->traced(RunStep::UNKNOWN, ['answer' => $answer, 'attempt' => $used])
@@ -240,16 +267,25 @@ final class ApprovalStep extends StepType
 
     private function yesLabel(StepContext $context): string
     {
-        $fallback = (string) __('chatbot::nodes.steps.approval.yes');
-        $label = trim((string) $context->setting('yes_label', $fallback));
-
-        return $label === '' ? $fallback : $label;
+        return $this->labelOf($context->step, 'yes_label', 'yes');
     }
 
     private function noLabel(StepContext $context): string
     {
-        $fallback = (string) __('chatbot::nodes.steps.approval.no');
-        $label = trim((string) $context->setting('no_label', $fallback));
+        return $this->labelOf($context->step, 'no_label', 'no');
+    }
+
+    /**
+     * Подпись ответа, одинаково для разговора и для кнопок.
+     *
+     * Читается из шага, а не из хода разговора: варианты движок спрашивает
+     * у узла ещё до того, как ход начался, и вторая копия этого чтения
+     * разошлась бы с первой ровно в тот день, когда автор переименует «Да».
+     */
+    private function labelOf(Step $step, string $setting, string $word): string
+    {
+        $fallback = (string) __('chatbot::nodes.steps.approval.'.$word);
+        $label = trim((string) $step->setting($setting, $fallback));
 
         return $label === '' ? $fallback : $label;
     }

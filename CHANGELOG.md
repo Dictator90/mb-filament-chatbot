@@ -6,6 +6,40 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 this package intends to follow [Semantic Versioning](https://semver.org/) once
 it reaches 1.0.
 
+## [0.8.0] — 2026-10-14
+
+### A name is a name, and a confirmation has buttons
+
+- **`SlotKind::Name`, and the built-in `name` slot uses it.** Almost nobody
+  answers "как вас зовут?" with one word: they answer «меня зовут Ирина», «я
+  Пётр», "it's Nina". A free-text slot kept the sentence, so the bot's next
+  line read «Меня зовут Ирина, оформляю заявку на подбор» and the same string
+  went into the customer's card. Nothing is ever rejected: a trim that leaves
+  nothing hands the original back.
+- **The approval node offers its answers as choices.** It used to print
+  "1. Да, оформляйте / 2. Нет, поправлю" as plain text, so a messenger drew no
+  buttons; the visitor answered in words — «Оформляйте. Вы можете отель
+  подобрать?» — and was told the answer was not understood. The labels now
+  travel as the message's options, so Telegram draws buttons and a channel
+  without them still gets the numbered list, from itself.
+
+#### Found while fixing the first of those
+
+`trim($value, " …—–-")` cuts **bytes**, not characters: an em dash in that list
+is three bytes, one of which is the second byte of Cyrillic «р». «Пётр» came
+back a broken string, `preg_split` then answered `false`, and the parse fell
+back to the whole sentence — the very thing it was written to avoid. Edges are
+stripped with a `/u` expression now.
+
+## [0.7.1] — 2026-10-14
+
+- **Anthropic is no longer sent a temperature nobody asked for.** Newer models
+  refuse the whole request over it — `temperature is deprecated for this model`,
+  status 400 — and the conversation took the node's second exit, so the bot went
+  quiet over a setting nobody had touched. Caught by a live call from a
+  production server minutes after the driver shipped. A temperature named in the
+  request or written into the driver's config is still sent.
+
 ## [0.7.0] — 2026-10-14
 
 ### Anthropic as a driver, and a proxy for model calls

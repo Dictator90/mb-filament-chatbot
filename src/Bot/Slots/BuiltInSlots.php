@@ -27,7 +27,7 @@ final class BuiltInSlots
     public static function all(): array
     {
         return [
-            Slot::text('name')
+            Slot::make('name', SlotKind::Name)
                 ->label(static fn (): string => __('chatbot::nodes.slots.name.label'))
                 ->question(static fn (): string => __('chatbot::nodes.slots.name.question'))
                 ->group('contact'),

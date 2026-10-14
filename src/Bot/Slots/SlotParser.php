@@ -75,6 +75,7 @@ class SlotParser
         return match ($slot->kind()) {
             SlotKind::Text => $this->parseFreeText($raw, self::TEXT_LIMIT),
             SlotKind::LongText => $this->parseFreeText($raw, self::LONG_TEXT_LIMIT),
+            SlotKind::Name => $this->parseName($raw),
             SlotKind::Phone => $this->parsePhone($raw),
             SlotKind::Email => $this->parseEmail($raw),
             SlotKind::Number => $this->parseNumber($raw),
@@ -95,6 +96,61 @@ class SlotParser
     private function parseFreeText(string $raw, int $limit): SlotValue
     {
         return SlotValue::parsed(mb_substr(trim($raw), 0, $limit));
+    }
+
+    /**
+     * The name out of the sentence it was answered in.
+     *
+     * «Меня зовут Ирина» became the customer's name verbatim: the bot addressed
+     * her as "Меня зовут Ирина" in the next sentence, and the same string went
+     * into her card. The lead-ins below are the handful people actually use,
+     * and only at the very start of the answer — a surname that happens to
+     * contain one of them keeps it.
+     *
+     * **Nothing is ever rejected here.** Trimming that leaves nothing — "меня
+     * зовут" and no more — gives the original back rather than an empty name,
+     * because an answered question must not be asked again over a parse this
+     * class got wrong. The same rule caps the result at four words rather than
+     * refusing a long one: «Пётр Иванович Иванов» and «Иван да Марья» are real
+     * answers, a paragraph is not a name, and keeping its first four words is
+     * closer to right than keeping all of it.
+     */
+    private function parseName(string $raw): SlotValue
+    {
+        $answer = trim(preg_replace('/\s+/u', ' ', $raw) ?? $raw);
+
+        $leadIns = [
+            'меня зовут', 'моё имя', 'мое имя', 'зовут меня', 'зовут', 'это',
+            'my name is', "i'm", 'i am', "it's", 'this is', 'call me', 'я',
+        ];
+
+        $lowered = mb_strtolower($answer);
+
+        foreach ($leadIns as $leadIn) {
+            if (str_starts_with($lowered, $leadIn.' ')) {
+                $answer = trim(mb_substr($answer, mb_strlen($leadIn) + 1));
+
+                break;
+            }
+        }
+
+        /*
+         * Знаки по краям снимаются выражением, а не `trim` со списком символов.
+         * `trim` режет байты: длинное тире в таком списке — это три байта, один
+         * из которых совпадает со вторым байтом буквы «р», и «Пётр» превращался
+         * в битую строку. Дальше `preg_split` по ней отвечал `false`, имя
+         * оказывалось пустым, и разбор возвращал исходную фразу целиком —
+         * то есть ровно то, от чего этот метод и написан.
+         */
+        $answer = (string) preg_replace('/^[\s\p{Pd}.,;:!]+|[\s\p{Pd}.,;:!]+$/u', '', $answer);
+        $words = array_slice(preg_split('/\s+/u', $answer) ?: [], 0, 4);
+        $answer = trim(implode(' ', $words));
+
+        return SlotValue::parsed(mb_substr(
+            $answer === '' ? trim($raw) : $answer,
+            0,
+            self::TEXT_LIMIT,
+        ));
     }
 
     /**

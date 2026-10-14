@@ -6,6 +6,7 @@ use Illuminate\Support\Facades\Queue;
 use MB\FilamentChatbot\Bot\BotEngine;
 use MB\FilamentChatbot\Enums\BotState;
 use MB\FilamentChatbot\Enums\ConversationStatus;
+use MB\FilamentChatbot\Enums\MessageDirection;
 use MB\FilamentChatbot\Enums\RunOutcome;
 use MB\FilamentChatbot\Jobs\ContinueScenario;
 use MB\FilamentChatbot\Models\Bot;
@@ -317,4 +318,43 @@ it('records every node it walked, in order', function (): void {
     $trace = Run::query()->first()->steps()->pluck('step_key')->all();
 
     expect($trace)->toBe(['start', 'greet', 'bye']);
+});
+
+/**
+ * Подтверждение предлагает варианты, а не печатает их списком.
+ *
+ * В Telegram узел уходил простым текстом «1. Да, оформляйте / 2. Нет, поправлю»:
+ * кнопок не было, человек отвечал словами — «Оформляйте. Вы можете отель
+ * подобрать?» — и получал «не понял ответ» на согласие, которое только что дал.
+ * Варианты едут свойством сообщения, и канал рисует их как умеет; канал без
+ * кнопок по-прежнему получит нумерованный список, но уже от себя.
+ */
+it('отдаёт варианты подтверждения как варианты ответа', function (): void {
+    scenarioOf([
+        ['key' => 'start', 'type' => 'start', 'next_key' => 'confirm', 'config' => ['trigger' => 'fallback']],
+        ['key' => 'confirm', 'type' => 'approval', 'body' => 'Оформляю заявку. Всё верно?', 'config' => [
+            'yes_label' => 'Да, оформляйте',
+            'no_label' => 'Нет, поправлю',
+            'else_key' => 'sorry',
+        ], 'next_key' => 'done'],
+        ['key' => 'done', 'type' => 'say', 'body' => 'Готово.'],
+        ['key' => 'sorry', 'type' => 'say', 'body' => 'Поправим.'],
+    ]);
+
+    visitorSays($this->conversation, 'хочу заявку');
+
+    $asked = $this->conversation->messages()
+        ->where('direction', MessageDirection::Outgoing)
+        ->orderByDesc('id')
+        ->first();
+
+    expect($asked?->body)->toBe('Оформляю заявку. Всё верно?')
+        ->and($asked?->meta['options'] ?? null)->toBe(['Да, оформляйте', 'Нет, поправлю'])
+        /* Второй репликой список вариантов больше не присылается. */
+        ->and(botSaid($this->conversation))->toHaveCount(1);
+
+    /* Нажатая кнопка приходит номером — и читается как согласие. */
+    visitorSays($this->conversation, '1');
+
+    expect(botSaid($this->conversation))->toContain('Готово.');
 });

@@ -21,6 +21,17 @@ enum SlotKind: string
     case LongText = 'long_text';
 
     /**
+     * What to call the person, taken out of the sentence they answer with.
+     *
+     * Almost nobody answers "как вас зовут?" with one word. They answer «меня
+     * зовут Ирина», «я Пётр», "it's Nina" — and a free-text slot keeps the
+     * sentence. The bot then says «Меня зовут Ирина, оформляю заявку на
+     * подбор», the same string goes into the customer card, and a manager
+     * rings somebody whose first name is a greeting.
+     */
+    case Name = 'name';
+
+    /**
      * A phone number.
      *
      * Normalised on the way in, because the same person writes the same number
