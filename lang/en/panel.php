@@ -731,6 +731,7 @@ return [
         'reopen' => 'Reopen',
         'return_to_bot' => 'Give back to the bot',
         'return_to_bot_description' => 'The bot will answer this person again from its scenarios.',
+        'back_to_list' => 'Conversations',
         'create_contact' => 'File this person',
         'link_contact' => 'Link to someone else',
         'link_contact_empty' => 'Link a record',

@@ -674,6 +674,7 @@ return [
         'reopen' => 'Открыть заново',
         'return_to_bot' => 'Вернуть боту',
         'return_to_bot_description' => 'Бот снова начнёт отвечать этому человеку по своим сценариям.',
+        'back_to_list' => 'К списку',
         'create_contact' => 'Завести карточку',
         'link_contact' => 'Привязать к другому',
         'link_contact_empty' => 'Привязать карточку',

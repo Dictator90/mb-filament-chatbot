@@ -100,6 +100,23 @@
             --ci-mark: var(--danger-500, rgb(239 68 68));
         }
 
+        /*
+            Кнопка «к списку» живёт только на узком экране — на широком список
+            виден слева, и предлагать вернуться к тому, что и так перед
+            глазами, значит занимать место в шапке разговора зря.
+        */
+        .chatbot-inbox__back {
+            display: none;
+            gap: 0.3rem;
+            align-items: center;
+            padding: 0.3rem 0.55rem;
+            font-size: 0.78rem;
+            color: var(--ci-muted);
+            background: var(--ci-surface);
+            border: 1px solid var(--ci-line);
+            border-radius: 0.5rem;
+        }
+
         @media (max-width: 64rem) {
             .chatbot-inbox {
                 grid-template-columns: minmax(0, 1fr);
@@ -107,6 +124,10 @@
 
             .chatbot-inbox.is-open .chatbot-inbox__rail {
                 display: none;
+            }
+
+            .chatbot-inbox__back {
+                display: inline-flex;
             }
         }
 
@@ -1128,6 +1149,23 @@
                 </div>
             @else
                 <header class="chatbot-inbox__stage-head">
+                    {{--
+                        Дорога обратно к списку, и она существует только там,
+                        где списка не видно. На узком экране разговор занимает
+                        всё окно, рельс со списком спрятан — и выйти из
+                        переписки было нечем: оператор с телефона застревал
+                        в одном разговоре до перезагрузки страницы.
+                    --}}
+                    <button
+                        type="button"
+                        class="chatbot-inbox__back"
+                        wire:click="clearSelection"
+                        aria-label="{{ __('chatbot::panel.inbox.back_to_list') }}"
+                    >
+                        <span aria-hidden="true">←</span>
+                        {{ __('chatbot::panel.inbox.back_to_list') }}
+                    </button>
+
                     <span class="chatbot-inbox__avatar" aria-hidden="true">{{ $record->initials() }}</span>
 
                     <div class="chatbot-inbox__who">

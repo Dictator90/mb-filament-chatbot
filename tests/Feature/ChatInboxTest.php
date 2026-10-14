@@ -340,3 +340,27 @@ it('draws twenty conversations for the price of two', function (): void {
 
     expect($many)->toBe($few);
 });
+
+/**
+ * С телефона из разговора есть дорога обратно к списку.
+ *
+ * На узком экране разговор занимает всё окно, а рельс со списком спрятан —
+ * и выйти из переписки было нечем: оператор застревал в одном разговоре
+ * до перезагрузки страницы. Проверяется не кнопка, а то, что ею делают:
+ * выбор снимается и стол снова показывает список.
+ */
+it('возвращает к списку разговоров', function (): void {
+    signIn();
+
+    $conversation = Conversation::factory()->create(['last_message_at' => now()]);
+
+    Message::factory()->for($conversation)->create();
+
+    $desk = Livewire::test(ChatInbox::class)->call('selectConversation', $conversation->getKey());
+
+    expect($desk->instance()->activeConversation?->getKey())->toBe($conversation->getKey());
+
+    $desk->call('clearSelection');
+
+    expect($desk->instance()->activeConversation)->toBeNull();
+});
