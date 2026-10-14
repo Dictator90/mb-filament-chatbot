@@ -12,26 +12,6 @@ use MB\FilamentChatbot\Models\Bot;
 use MB\FilamentChatbot\Models\Conversation;
 use MB\FilamentChatbot\Models\Run;
 use MB\FilamentChatbot\Models\Scenario;
-use MB\FilamentChatbot\Models\Step;
-
-/**
- * Builds a scenario from a compact description.
- *
- * @param  list<array<string, mixed>>  $steps
- */
-function scenarioOf(array $steps, array $attributes = []): Scenario
-{
-    $scenario = Scenario::factory()->create($attributes + ['bot_id' => null]);
-
-    foreach ($steps as $index => $step) {
-        Step::factory()->create([
-            'scenario_id' => $scenario->getKey(),
-            'sort' => $index,
-        ] + $step);
-    }
-
-    return $scenario->load('steps');
-}
 
 beforeEach(function (): void {
     $this->conversation = Conversation::factory()->create([

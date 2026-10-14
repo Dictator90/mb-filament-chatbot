@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use Illuminate\Support\Facades\Http;
+use MB\FilamentChatbot\Channels\MessageRouter;
 use MB\FilamentChatbot\Models\ChannelConnection;
 use MB\FilamentChatbot\Models\Conversation;
 use MB\FilamentChatbot\Models\Message;
@@ -175,6 +176,34 @@ it('records a refusal and keeps polling the other accounts', function (): void {
         ->and($broken->poll_cursor)->toBe('5')
         ->and($working->refresh()->poll_cursor)->toBe('4')
         ->and(Message::query()->where('body', 'anyone there?')->exists())->toBeTrue();
+});
+
+/**
+ * A message the bot cannot answer must not take the poller down with it.
+ *
+ * This is not hypothetical: a scenario whose settings made a step throw ended
+ * the process, systemd restarted it, the same update was fetched again, it
+ * threw again — and every bot on the installation went quiet over one node in
+ * one graph, while the conversation on screen simply stopped mid-question.
+ *
+ * The cursor advances past it deliberately. The alternative is an update that
+ * is fetched for ever, and the questions queued behind it never arrive at all.
+ */
+it('survives a message it cannot hand on', function (): void {
+    $connection = ChannelConnection::factory()->polled()->create();
+
+    $this->instance(MessageRouter::class, Mockery::mock(MessageRouter::class, function ($router): void {
+        $router->shouldReceive('receive')->andThrow(new RuntimeException('step exploded'));
+    }));
+
+    Http::fake([
+        '*/getUpdates' => Http::response(updatesReply([update(51, 'hello?')])),
+    ]);
+
+    $this->artisan('chatbot:poll', ['--once' => true, '--wait' => 1])->assertSuccessful();
+
+    expect($connection->refresh()->poll_cursor)->toBe('52')
+        ->and($connection->last_error)->toBe('step exploded');
 });
 
 /**

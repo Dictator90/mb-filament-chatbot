@@ -101,20 +101,46 @@ class PollChannelsCommand extends Command
                 continue;
             }
 
+            $refused = null;
+
             foreach ($batch->messages as $inbound) {
-                $router->receive($inbound);
+                try {
+                    $router->receive($inbound);
+                } catch (Throwable $exception) {
+                    /*
+                     * One message the bot cannot answer must not stop the
+                     * others, and above all must not stop the loop. A scenario
+                     * whose settings make a step throw used to end the process:
+                     * systemd restarted it, the same update was fetched again,
+                     * it threw again, and every bot on the installation went
+                     * quiet over one node in one graph. The message itself is
+                     * already recorded, so the person reading the desk sees it
+                     * even though the bot missed its turn.
+                     */
+                    $refused = $exception->getMessage();
+
+                    report($exception);
+                }
             }
 
             /*
              * Saved after the messages have been handed on, never before: a
              * crash between the two is a redelivery the router recognises and
              * drops, while the reverse order is a question nobody ever sees.
+             *
+             * Saved after a refusal too, and deliberately: an update that
+             * cannot be handled would otherwise be fetched for ever, and the
+             * questions behind it in the queue would never arrive at all.
              */
             $connection->forceFill([
                 'poll_cursor' => $batch->cursor ?? $connection->poll_cursor,
-                'last_error' => null,
+                'last_error' => $refused,
                 'last_event_at' => $batch->messages === [] ? $connection->last_event_at : now(),
             ])->save();
+
+            if ($refused !== null) {
+                $this->components->error($connection->channel.': '.$refused);
+            }
 
             if ($batch->messages !== []) {
                 $this->components->info(sprintf(

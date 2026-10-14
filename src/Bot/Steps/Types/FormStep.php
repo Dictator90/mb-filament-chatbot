@@ -37,6 +37,14 @@ use MB\FilamentChatbot\Models\Step;
  */
 final class FormStep extends StepType
 {
+    /**
+     * The attempts map's value for a slot the form has stopped asking about.
+     *
+     * Negative so that it can never collide with a count of attempts, which
+     * starts at one.
+     */
+    private const ABANDONED = -1;
+
     public function __construct(private readonly SlotParser $parser) {}
 
     public static function key(): string
@@ -124,17 +132,47 @@ final class FormStep extends StepType
      */
     public function writes(Step $step): array
     {
-        $names = [];
+        return array_column(self::slots($step->setting('slots', [])), 'key');
+    }
 
-        foreach ((array) $step->setting('slots', []) as $key) {
-            $key = trim((string) $key);
+    /**
+     * The slots this form asks for, in either shape a stored graph can hold.
+     *
+     * The select on the settings panel writes plain keys, and for a graph drawn
+     * on the canvas that is all this ever sees. A graph that arrives any other
+     * way — a host's seeder, an import, a scenario written in PHP — may hold
+     * `{"slot": "phone", "required": true}` instead, which is the richer thing
+     * an author means and has no way to draw.
+     *
+     * Reading only the first shape did not ignore the second: it cast an array
+     * to a string, and the fatal landed in the middle of the bot's turn. On an
+     * installation whose updates are polled it took the poller down with it, so
+     * one scenario's settings stopped every bot on the installation — and the
+     * conversation on screen simply ended mid-question.
+     *
+     * @return list<array{key: string, required: bool}>
+     */
+    private static function slots(mixed $setting): array
+    {
+        $slots = [];
+
+        foreach ((array) $setting as $entry) {
+            if (is_array($entry)) {
+                $key = trim((string) ($entry['slot'] ?? $entry['key'] ?? ''));
+                $required = (bool) ($entry['required'] ?? true);
+            } elseif (is_scalar($entry)) {
+                $key = trim((string) $entry);
+                $required = true;
+            } else {
+                continue;
+            }
 
             if ($key !== '') {
-                $names[] = $key;
+                $slots[] = ['key' => $key, 'required' => $required];
             }
         }
 
-        return $names;
+        return $slots;
     }
 
     public function run(StepContext $context): StepResult
@@ -179,6 +217,20 @@ final class FormStep extends StepType
         }
 
         $this->rememberAttempts($context, $slot->key(), null);
+
+        /*
+         * An optional slot that nobody could answer is not a failed form. The
+         * author marked it optional precisely because the conversation is worth
+         * having without it — a budget nobody has decided yet is the case this
+         * was written for — and taking the "could not" exit would hand the
+         * visitor to a person over the one answer that did not matter.
+         */
+        if (! $this->isRequired($context, $slot->key())) {
+            $this->abandon($context, $slot->key());
+
+            return $this->askNextOrFinish($context, [$slot->key()]);
+        }
+
         $this->stopAsking($context);
 
         return StepResult::second()->traced(RunStep::FAILED, [
@@ -206,8 +258,8 @@ final class FormStep extends StepType
      */
     private function askNextOrFinish(StepContext $context, array $justAnswered): StepResult
     {
-        foreach ((array) $context->setting('slots', []) as $key) {
-            $key = (string) $key;
+        foreach (self::slots($context->setting('slots', [])) as $wanted) {
+            $key = $wanted['key'];
 
             if (in_array($key, $justAnswered, true)) {
                 continue;
@@ -220,6 +272,10 @@ final class FormStep extends StepType
             }
 
             if ($this->alreadyKnown($context, $slot)) {
+                continue;
+            }
+
+            if ($this->abandoned($context, $key)) {
                 continue;
             }
 
@@ -246,9 +302,60 @@ final class FormStep extends StepType
         return trim((string) $context->runtime->value($slot->key())) !== '';
     }
 
+    private function isRequired(StepContext $context, string $slotKey): bool
+    {
+        foreach (self::slots($context->setting('slots', [])) as $wanted) {
+            if ($wanted['key'] === $slotKey) {
+                return $wanted['required'];
+            }
+        }
+
+        return true;
+    }
+
+    /**
+     * Marks an optional slot as given up on, for the rest of this form.
+     *
+     * Without it the next answer walks the list again, finds the same empty
+     * optional slot and asks for it a second time — the attempts counter having
+     * just been cleared — which is the loop a visitor leaves rather than sits
+     * through.
+     *
+     * It shares the attempts map instead of a column of its own: the map is
+     * already keyed by step and slot, already cleared when the form ends, and a
+     * column would be a migration for a flag that never outlives one node.
+     */
+    private function abandon(StepContext $context, string $slotKey): void
+    {
+        $this->rememberAttempts($context, $slotKey, self::ABANDONED);
+    }
+
+    private function abandoned(StepContext $context, string $slotKey): bool
+    {
+        return $this->attemptsUsed($context, $slotKey) === self::ABANDONED;
+    }
+
+    /**
+     * Ends the form and forgets what it counted along the way.
+     *
+     * Per step rather than wholesale: a scenario may hold two forms, and the
+     * conversation can be in the second while the first is still remembered by
+     * a sub-scenario that has not returned yet.
+     */
     private function stopAsking(StepContext $context): void
     {
-        $context->conversation->forceFill(['bot_slot' => null])->save();
+        $prefix = $context->step->key.':';
+
+        $attempts = array_filter(
+            (array) $context->conversation->bot_slot_attempts,
+            fn (string $name): bool => ! str_starts_with($name, $prefix),
+            ARRAY_FILTER_USE_KEY,
+        );
+
+        $context->conversation->forceFill([
+            'bot_slot' => null,
+            'bot_slot_attempts' => $attempts === [] ? null : $attempts,
+        ])->save();
     }
 
     private function rememberAttempts(StepContext $context, string $slotKey, ?int $used): void

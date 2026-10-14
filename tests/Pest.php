@@ -8,6 +8,8 @@ use MB\FilamentChatbot\Enums\MessageAuthor;
 use MB\FilamentChatbot\Enums\MessageDirection;
 use MB\FilamentChatbot\Models\Conversation;
 use MB\FilamentChatbot\Models\Message;
+use MB\FilamentChatbot\Models\Scenario;
+use MB\FilamentChatbot\Models\Step;
 use MB\FilamentChatbot\Tests\TestCase;
 use Workbench\App\Models\User;
 
@@ -80,4 +82,29 @@ function botSaid(Conversation $conversation): array
         ->orderBy('id')
         ->pluck('body')
         ->all();
+}
+
+/**
+ * Builds a scenario from a compact description.
+ *
+ * Here rather than beside the engine's own suite because more than one suite
+ * drives a graph now, and a helper defined in a test file exists only while
+ * that file happens to have been loaded first — which makes running a single
+ * file fail for a reason that has nothing to do with what it checks.
+ *
+ * @param  list<array<string, mixed>>  $steps
+ * @param  array<string, mixed>  $attributes
+ */
+function scenarioOf(array $steps, array $attributes = []): Scenario
+{
+    $scenario = Scenario::factory()->create($attributes + ['bot_id' => null]);
+
+    foreach ($steps as $index => $step) {
+        Step::factory()->create([
+            'scenario_id' => $scenario->getKey(),
+            'sort' => $index,
+        ] + $step);
+    }
+
+    return $scenario->load('steps');
 }

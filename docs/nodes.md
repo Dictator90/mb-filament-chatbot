@@ -195,6 +195,19 @@ Collects several things at once, asking only for what is missing.
 | `slots` | The slots to collect, in order. Required |
 | `attempts` | Attempts per question. Default 2, between 1 and 5 |
 
+**`slots` takes two shapes.** The settings panel writes plain keys —
+`["name", "phone"]` — and that is all a graph drawn on the canvas ever holds. A
+graph that arrives any other way, from a host's seeder or an import, may say
+`[{"slot": "phone", "required": true}]` instead, which is the richer thing an
+author means and has no way to draw. Both are read.
+
+`required: false` changes what happens when the attempts run out: the form
+stops asking for that one and carries on instead of taking the "could not"
+exit. An author marks a slot optional because the conversation is worth having
+without it — a budget the visitor has not decided is the case — and fetching a
+person over the one answer that did not matter is not what that branch is for.
+A slot given up on is not asked again later in the same form.
+
 **The node that saves scenarios from becoming forms.** Five things to find out
 would otherwise be five `collect` nodes in a row, and half of them would ask for
 something already known — a phone number that arrived with the widget's contact

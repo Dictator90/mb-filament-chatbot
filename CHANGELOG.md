@@ -6,6 +6,27 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 this package intends to follow [Semantic Versioning](https://semver.org/) once
 it reaches 1.0.
 
+## [0.3.1] — 2026-10-14
+
+### A form node could end the conversation mid-question
+
+- **`slots` is read in both shapes a graph can hold.** The settings panel
+  writes plain keys; a graph from a seeder or an import may hold
+  `{"slot": "phone", "required": true}`. The old reading cast that array to a
+  string, and the fatal landed inside the bot's turn: the visitor's
+  conversation stopped after the node before it, with no reply and nothing on
+  screen to explain it. The same reading draws the node's variable names, so
+  the editor went down with it.
+- **`required: false` now means what it says.** An optional slot nobody can
+  answer no longer takes the "could not" exit — the form stops asking for it
+  and carries on, and does not come back to it later in the same form.
+- **The poller survives a message it cannot hand on.** One throwing step used
+  to end the process; systemd restarted it, the same update was fetched again,
+  it threw again, and every bot on the installation went quiet over one node in
+  one graph. The reason is written onto the connection and the cursor advances
+  past it, because an update that is refetched for ever buries the questions
+  queued behind it.
+
 ## [0.3.0] — 2026-10-14
 
 ### Polling, for networks the provider cannot reach
