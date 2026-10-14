@@ -252,6 +252,26 @@ Polling and the proxy are independent, and an installation behind a blocked
 route needs both: the proxy is how the outgoing call gets out, polling is what
 makes the incoming one unnecessary.
 
+### Files, and buttons that have been pressed
+
+**Telegram gets the file, not its name.** An operator attaching a photograph or
+a contract from the desk used to send the customer a line of text reading
+`XXXL.webp`: the transcript said the file had been sent and the operator
+believed it. Pictures go as photos and everything else as documents, uploaded
+rather than linked — the attachments live on a disk that may be private, and
+handing out a public address would make one customer's documents readable by
+anyone who learns the pattern. Text rides along as the caption when it fits
+inside Telegram's 1024 characters, and is sent as its own message first when it
+does not.
+
+**A pressed button loses its keyboard.** A keyboard in Telegram never expires:
+it stays under the message for ever and answers with the option's *position* in
+a question the conversation left behind hours ago. Pressing "call a person" on
+yesterday's menu made the bot answer that it could not find that in the
+knowledge base, because by then position two meant something else. The driver
+answers the callback — which also stops the spinner on the button — and takes
+the keyboard away.
+
 ### The quirks that are not optional
 
 **VK wants a bare `ok`.** Not `{"result":"ok"}`, not an empty 200: the Callback

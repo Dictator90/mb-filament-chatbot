@@ -8,6 +8,7 @@ use BackedEnum;
 use Carbon\CarbonInterface;
 use Filament\Actions\Action;
 use Filament\Facades\Filament;
+use Filament\Notifications\Notification;
 use Filament\Pages\Page;
 use Filament\Support\Enums\Width;
 use Filament\Support\Icons\Heroicon;
@@ -26,6 +27,7 @@ use MB\FilamentChatbot\Chat\AttachmentStore;
 use MB\FilamentChatbot\Chat\ContactCard;
 use MB\FilamentChatbot\Chat\OperatorReply;
 use MB\FilamentChatbot\Contracts\ContactDirectory;
+use MB\FilamentChatbot\Contracts\ContactRegistrar;
 use MB\FilamentChatbot\Enums\BotState;
 use MB\FilamentChatbot\Enums\ConversationStatus;
 use MB\FilamentChatbot\Enums\MessageAuthor;
@@ -758,6 +760,80 @@ class ChatInbox extends Page
 
                 $this->forgetThread();
             });
+    }
+
+    /**
+     * Files the person in this thread in the host's own directory.
+     *
+     * The thread already holds everything the card is made of — the name the
+     * visitor gave, the phone number they typed — and before this the operator
+     * had to retype it on another screen, which is how one customer ends up in
+     * the directory twice under two spellings of the same name.
+     *
+     * The host decides what gets created and whether anything does at all; this
+     * only asks. A refusal is reported as a warning rather than an error,
+     * because the usual reason is a rule the host is enforcing on purpose — a
+     * setting switched off, or the same person found and linked instead.
+     */
+    public function createContactAction(): Action
+    {
+        return Action::make('createContact')
+            ->label(__('chatbot::panel.inbox.create_contact'))
+            ->icon(Heroicon::OutlinedUserPlus)
+            ->color('gray')
+            ->authorize(fn (): bool => $this->canUpdateActive())
+            ->action(function (): void {
+                $conversation = $this->activeConversation;
+                $registrar = $this->contactRegistrar();
+
+                if (! $conversation instanceof Conversation || $registrar === null) {
+                    return;
+                }
+
+                $record = $registrar->register($conversation);
+
+                $this->forgetThread();
+
+                $notification = Notification::make();
+
+                $record === null
+                    ? $notification->body(__('chatbot::panel.inbox.create_contact_refused'))->warning()->send()
+                    : $notification->body(__('chatbot::panel.inbox.create_contact_done'))->success()->send();
+            });
+    }
+
+    /**
+     * Whether that button has anything to do.
+     *
+     * Three conditions, and the thread already having a contact is the one that
+     * matters: offering "file this person" on a conversation that is already
+     * filed is how the same customer gets a second card.
+     */
+    public function canCreateContact(): bool
+    {
+        $conversation = $this->activeConversation;
+        $registrar = $this->contactRegistrar();
+
+        if (! $conversation instanceof Conversation || $registrar === null) {
+            return false;
+        }
+
+        return $conversation->contact_id === null && $registrar->canRegister($conversation);
+    }
+
+    /**
+     * The host's registrar, or nothing at all.
+     *
+     * Resolved rather than injected because binding it is optional: an
+     * installation that has not bound one gets no button, which is the right
+     * answer for a helpdesk whose contacts are employees and are created
+     * nowhere near a chat.
+     */
+    private function contactRegistrar(): ?ContactRegistrar
+    {
+        return app()->bound(ContactRegistrar::class)
+            ? app(ContactRegistrar::class)
+            : null;
     }
 
     public function isOpen(): bool

@@ -7,6 +7,8 @@ namespace MB\FilamentChatbot\Channels\Drivers;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\Response as ClientResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Storage;
 use MB\FilamentChatbot\Channels\ChannelConnections;
 use MB\FilamentChatbot\Channels\ChannelDriver;
 use MB\FilamentChatbot\Channels\ChannelHttp;
@@ -17,6 +19,7 @@ use MB\FilamentChatbot\Channels\ChannelText;
 use MB\FilamentChatbot\Channels\DeliveryResult;
 use MB\FilamentChatbot\Channels\InboundMessage;
 use MB\FilamentChatbot\Channels\PollBatch;
+use MB\FilamentChatbot\Models\Attachment;
 use MB\FilamentChatbot\Models\ChannelConnection;
 use MB\FilamentChatbot\Models\Conversation;
 use MB\FilamentChatbot\Models\Message;
@@ -217,6 +220,8 @@ final class TelegramDriver implements ChannelDriver, ChannelPolling, ChannelSetu
 
             $sender = $this->from($callback['from'] ?? null);
 
+            $this->closeKeyboard($connection, $callback, $chatId);
+
             return new InboundMessage(
                 channel: self::KEY,
                 externalConversationId: $chatId,
@@ -295,6 +300,12 @@ final class TelegramDriver implements ChannelDriver, ChannelPolling, ChannelSetu
             return DeliveryResult::failed('This bot has no Telegram account connected.', retryable: false);
         }
 
+        $files = $message->attachments()->get();
+
+        if ($files->isNotEmpty()) {
+            return $this->sendFiles($connection, $token, $chatId, $message, $files);
+        }
+
         $payload = [
             'chat_id' => $chatId,
             'text' => ChannelText::forDriver($message, $this),
@@ -337,6 +348,145 @@ final class TelegramDriver implements ChannelDriver, ChannelPolling, ChannelSetu
         $retryable = $response->status() === 429 || $response->status() >= 500;
 
         return DeliveryResult::failed($this->reason($body, $response->status()), retryable: $retryable);
+    }
+
+    /**
+     * Sends the files themselves, not their names.
+     *
+     * An operator answering from the desk attaches a photograph of a hotel or
+     * a contract as a PDF, and the customer used to receive the file *name* as
+     * a line of text — `XXXL.webp` — with nothing to open. The transcript said
+     * the file had been sent, the operator believed it, and only the customer
+     * knew otherwise.
+     *
+     * A picture goes as a photo and everything else as a document, because
+     * Telegram renders only the first in place and a photograph arriving as a
+     * download is a file nobody opens on a phone. The text rides along as the
+     * first file's caption when it fits — a caption is capped at 1024
+     * characters, and over that it is sent as its own message first, so a long
+     * explanation is never silently truncated to fit a picture.
+     *
+     * @param  Collection<int, Attachment>  $files
+     */
+    private function sendFiles(
+        ?ChannelConnection $connection,
+        string $token,
+        string $chatId,
+        Message $message,
+        Collection $files,
+    ): DeliveryResult {
+        $text = trim(ChannelText::forDriver($message, $this));
+
+        /*
+         * The desk writes the file's name into the body when a reply carries
+         * nothing but a file. Sending it as well would caption the picture with
+         * its own file name, which is noise the sender never typed.
+         */
+        if ($files->contains(fn (Attachment $file): bool => trim((string) $file->name) === $text)) {
+            $text = '';
+        }
+
+        $caption = mb_strlen($text) <= 1024 ? $text : '';
+
+        if ($text !== '' && $caption === '') {
+            $spoken = $this->sendText($connection, $token, $chatId, $text);
+
+            if (! $spoken->ok()) {
+                return $spoken;
+            }
+        }
+
+        $last = null;
+
+        foreach ($files as $file) {
+            $result = $this->sendFile($connection, $token, $chatId, $file, $caption);
+
+            if (! $result->ok()) {
+                return $result;
+            }
+
+            $caption = '';
+            $last = $result;
+        }
+
+        return $last ?? DeliveryResult::failed('Nothing to send.', retryable: false);
+    }
+
+    /**
+     * One file, uploaded rather than linked.
+     *
+     * Telegram can fetch a URL, and that is exactly what this must not do: the
+     * files live on a disk that may be private, and handing out a public
+     * address for an attachment would make every customer's documents readable
+     * by anyone who learns the pattern.
+     */
+    private function sendFile(
+        ?ChannelConnection $connection,
+        string $token,
+        string $chatId,
+        Attachment $file,
+        string $caption,
+    ): DeliveryResult {
+        $disk = Storage::disk((string) $file->disk);
+
+        if (! $disk->exists((string) $file->path)) {
+            return DeliveryResult::failed('The attachment is no longer on disk.', retryable: false);
+        }
+
+        $asPhoto = $file->isImage();
+        $payload = ['chat_id' => $chatId];
+
+        if ($caption !== '') {
+            $payload['caption'] = $caption;
+        }
+
+        try {
+            $response = ChannelHttp::for(self::KEY, $connection)
+                ->timeout((int) config('chatbot.channels.telegram.upload_timeout', 60))
+                ->attach(
+                    $asPhoto ? 'photo' : 'document',
+                    (string) $disk->get((string) $file->path),
+                    (string) $file->name,
+                )
+                ->post($this->endpoint($token, $asPhoto ? 'sendPhoto' : 'sendDocument'), $payload);
+        } catch (ConnectionException $exception) {
+            return DeliveryResult::failed($exception->getMessage());
+        }
+
+        $body = (array) $response->json();
+
+        if ($response->successful() && ($body['ok'] ?? false) === true) {
+            $messageId = $body['result']['message_id'] ?? null;
+
+            return DeliveryResult::sent($messageId === null ? null : (string) $messageId);
+        }
+
+        return DeliveryResult::failed(
+            $this->reason($body, $response->status()),
+            retryable: $response->status() === 429 || $response->status() >= 500,
+        );
+    }
+
+    private function sendText(?ChannelConnection $connection, string $token, string $chatId, string $text): DeliveryResult
+    {
+        try {
+            $response = ChannelHttp::for(self::KEY, $connection)
+                ->asJson()
+                ->post($this->endpoint($token, 'sendMessage'), ['chat_id' => $chatId, 'text' => $text]);
+        } catch (ConnectionException $exception) {
+            return DeliveryResult::failed($exception->getMessage());
+        }
+
+        $body = (array) $response->json();
+
+        if ($response->successful() && ($body['ok'] ?? false) === true) {
+            return DeliveryResult::sent((string) ($body['result']['message_id'] ?? ''));
+        }
+
+        return DeliveryResult::failed(
+            $this->reason($body, $response->status()),
+            retryable: $response->status() === 429 || $response->status() >= 500,
+        );
     }
 
     /**
@@ -442,6 +592,58 @@ final class TelegramDriver implements ChannelDriver, ChannelPolling, ChannelSetu
         return $description === ''
             ? 'Telegram refused the request with status '.$status.'.'
             : $description;
+    }
+
+    /**
+     * Stops the spinner on the pressed button and takes the keyboard away.
+     *
+     * **A keyboard in Telegram never expires on its own.** It stays under the
+     * message for ever, and the answer it sends is the option's position in a
+     * question the conversation left behind hours ago. What the visitor sees is
+     * the bot answering something they did not ask: they press "call a person"
+     * on yesterday's menu and the bot replies that it cannot find that in the
+     * knowledge base, because by then position two means something else
+     * entirely. Removing the buttons once they have been used is the only thing
+     * that makes a tapped answer mean what it said.
+     *
+     * Both calls are best-effort and neither is reported. The press has already
+     * been decoded, the conversation is about to take its turn, and failing it
+     * over a cosmetic call would lose the customer's answer.
+     *
+     * @param  array<array-key, mixed>  $callback
+     */
+    private function closeKeyboard(ChannelConnection $connection, array $callback, string $chatId): void
+    {
+        $token = $connection->credential('token');
+
+        if ($token === '') {
+            return;
+        }
+
+        $callbackId = trim((string) ($callback['id'] ?? ''));
+        $messageId = trim((string) ($callback['message']['message_id'] ?? ''));
+
+        try {
+            if ($callbackId !== '') {
+                ChannelHttp::for(self::KEY, $connection)
+                    ->timeout(5)
+                    ->asJson()
+                    ->post($this->endpoint($token, 'answerCallbackQuery'), ['callback_query_id' => $callbackId]);
+            }
+
+            if ($messageId !== '') {
+                ChannelHttp::for(self::KEY, $connection)
+                    ->timeout(5)
+                    ->asJson()
+                    ->post($this->endpoint($token, 'editMessageReplyMarkup'), [
+                        'chat_id' => $chatId,
+                        'message_id' => (int) $messageId,
+                        'reply_markup' => ['inline_keyboard' => []],
+                    ]);
+            }
+        } catch (ConnectionException) {
+            // Cosmetic; the answer itself is already in hand.
+        }
     }
 
     /**

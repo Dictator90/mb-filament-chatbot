@@ -1167,6 +1167,10 @@
                     {{ $this->assignmentAction }}
                     {{ $this->statusAction }}
 
+                    @if ($this->canCreateContact())
+                        {{ $this->createContactAction }}
+                    @endif
+
                     @if ($this->canReturnToBot())
                         {{ $this->returnToBotAction }}
                     @endif

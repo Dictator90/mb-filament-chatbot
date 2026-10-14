@@ -1031,6 +1031,40 @@ The operator model — the member of staff answering — comes from your auth
 configuration rather than a literal, which is also why `assigned_to_id` carries
 no foreign key: there is no fixed table to constrain it against.
 
+### Filing somebody who is not in the directory yet
+
+`ContactDirectory` can only recognise a record that already exists. A visitor
+who writes for the first time, gives a name and a phone number and is handed to
+a person exists nowhere afterwards — so the next time they write the bot greets
+a stranger, and the operator retypes what the transcript already says.
+
+Bind `ContactRegistrar` and the desk grows a **File this person** button:
+
+```php
+use MB\FilamentChatbot\Contracts\ContactRegistrar;
+
+$this->app->bind(ContactRegistrar::class, CustomerRegistrar::class);
+```
+
+```php
+public function canRegister(Conversation $conversation): bool;
+public function register(Conversation $conversation): ?Model;
+```
+
+Binding it is optional, and without it there is no button: deciding that a chat
+visitor deserves a row in the customer directory is the host's call and
+sometimes the law's. The threshold is yours as well — the package asks
+`canRegister()` and offers the button only on a yes, so "a name they gave
+themselves and a way of reaching them", or "only while the agency's setting is
+on", are rules you state once, in your own code. Returning `null` from
+`register()` means *not created* rather than *failed*: the operator is told
+plainly and nothing is logged as an error.
+
+A scenario can file the same person without an operator, through a capability of
+your own that calls the same registrar, and the two together are the usual
+arrangement: the common path files people by itself, and the button catches the
+conversations that never reached that node.
+
 ---
 
 ## What happens when you claim a key the package already uses

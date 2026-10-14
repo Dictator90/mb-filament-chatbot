@@ -6,6 +6,28 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 this package intends to follow [Semantic Versioning](https://semver.org/) once
 it reaches 1.0.
 
+## [0.4.0] — 2026-10-14
+
+### Files reach Telegram, pressed buttons stop lying, and people can be filed
+
+- **An attached file is sent as a file.** An operator attaching a photograph or
+  a contract from the desk sent the customer a line of text with the file's
+  name on it — `XXXL.webp` — and the transcript said it had been delivered.
+  Pictures go as photos, everything else as documents, uploaded rather than
+  linked so that a private disk stays private. Text becomes the caption when it
+  fits in 1024 characters and is sent first when it does not.
+- **A pressed button loses its keyboard.** Telegram keyboards never expire: the
+  answer is the option's position, and on yesterday's menu position two means
+  something else entirely. Pressing "call a person" there made the bot answer
+  that it could not find that in the knowledge base. The callback is answered —
+  which stops the spinner too — and the buttons are taken away.
+- **`ContactRegistrar`, and a *File this person* button on the desk.**
+  `ContactDirectory` can only recognise somebody already in the host's
+  directory; a visitor who writes for the first time, leaves a name and a phone
+  number and is handed to a person was filed nowhere. Binding the new contract
+  is optional, the threshold stays with the host, and `null` from `register()`
+  means "not created" rather than "failed".
+
 ## [0.3.1] — 2026-10-14
 
 ### A form node could end the conversation mid-question
