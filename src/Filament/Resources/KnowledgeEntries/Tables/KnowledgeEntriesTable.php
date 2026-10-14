@@ -33,13 +33,55 @@ class KnowledgeEntriesTable
                      * needs the width.
                      */
                     ->description(fn (KnowledgeEntry $record): string => (string) $record->question)
-                    ->searchable(['topic_key', 'question'])
+                    /*
+                     * Keywords are searched although no column shows them.
+                     * They are the words a visitor actually types — «адрес»,
+                     * «где вы» — and a topic is far more often remembered by
+                     * one of those than by the heading somebody gave it.
+                     *
+                     * By `whereJsonContains`, and the plain `like` that looks
+                     * right here never matches: the column is JSON, and PHP
+                     * escapes anything non-ASCII into it as `ад…`,
+                     * so a Cyrillic keyword is simply not in the stored text.
+                     * The price is that a keyword matches whole — «адрес»
+                     * finds it, «адре» does not — which is how people search
+                     * for a word they themselves put there.
+                     */
+                    ->searchable(query: fn (Builder $query, string $search): Builder => $query
+                        ->where('topic_key', 'like', '%'.$search.'%')
+                        ->orWhere('question', 'like', '%'.$search.'%')
+                        ->orWhereJsonContains('keywords', $search))
                     ->sortable()
                     ->wrap(),
+                /*
+                 * The answer is in the list because the list is read to find a
+                 * topic, and a base of two hundred rows is searched by what the
+                 * bot says rather than by what the topic is called: «где-то
+                 * здесь написано про возврат за сутки» is the question being
+                 * asked, and the heading says «Отмена брони».
+                 *
+                 * Trimmed deliberately. The table is still the wrong place to
+                 * read an answer in full, and a column that wrapped three
+                 * paragraphs would push every other column off the screen.
+                 */
+                TextColumn::make('answer')
+                    ->label(__('chatbot::panel.attributes.answer'))
+                    ->placeholder('—')
+                    ->limit(90)
+                    ->wrap()
+                    ->searchable(),
                 TextColumn::make('category')
                     ->label(__('chatbot::panel.attributes.category'))
                     ->placeholder('—')
+                    ->searchable()
                     ->sortable(),
+                TextColumn::make('priority')
+                    ->label(__('chatbot::panel.attributes.priority'))
+                    ->placeholder('—')
+                    ->badge()
+                    ->color('gray')
+                    ->sortable()
+                    ->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('mode')
                     ->label(__('chatbot::panel.knowledge.mode'))
                     ->badge()

@@ -6,6 +6,32 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 this package intends to follow [Semantic Versioning](https://semver.org/) once
 it reaches 1.0.
 
+## [0.6.0] — 2026-10-14
+
+### The desk's contact line, and a knowledge base you can actually search
+
+- **Linking and unlinking moved to the contact line itself**, as small text
+  buttons, with **Unlink** beside them. In the row of conversation actions they
+  read as actions on the whole thread, next to "take it" and "close".
+- **Unlinking is possible without picking a replacement.** A thread pointing at
+  the wrong person is worse than one pointing at nobody: everything above it —
+  the name, the history, the card — is then about somebody else.
+- **The knowledge list shows the answer and searches it.** A base of two
+  hundred topics is searched by what the bot says, not by what the topic is
+  called: "где-то про возврат за сутки" while the heading reads "Отмена брони".
+  Category is searchable too, and priority is a column you can switch on.
+- **Keywords are searched as JSON elements, not with `like`.** The obvious
+  `like '%адрес%'` never matched anything: PHP escapes non-ASCII into the JSON
+  column as `ад…`, so a Cyrillic keyword is not in the stored text at
+  all. A keyword now matches whole, which is how somebody searches for a word
+  they put there themselves.
+- **Priority is chosen from a list instead of typed.** A free string collected
+  "срочно", "P2 " and "2" in one column, and nothing could be filtered by it.
+  A value that arrived through import and is outside the list is kept and shown
+  rather than silently dropped — and there is still no enum cast on the column,
+  because the import writes it and `from()` would take the screen down over one
+  unfamiliar word.
+
 ## [0.5.0] — 2026-10-14
 
 ### A mislinked thread can be re-pointed, and the header stops hiding a line

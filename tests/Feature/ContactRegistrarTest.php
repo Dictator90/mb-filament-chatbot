@@ -228,3 +228,34 @@ it('говорит, когда выбранной карточки уже нет
 
     expect($conversation->refresh()->contact_id)->toBeNull();
 });
+
+/**
+ * Снять неверную привязку можно, не подбирая взамен верную.
+ *
+ * Разговор, указывающий не на того человека, хуже разговора, не указывающего
+ * ни на кого: всё, что оператор читает над ним — история, имя, карточка, —
+ * тогда про кого-то другого. А нужной записи может и не быть под рукой.
+ */
+it('снимает привязку разговора', function (): void {
+    $wrong = User::factory()->create();
+
+    $conversation = Conversation::factory()->create([
+        'last_message_at' => now(),
+        'contact_type' => $wrong->getMorphClass(),
+        'contact_id' => $wrong->getKey(),
+    ]);
+
+    deskFor($conversation)->callAction('unlinkContact');
+
+    expect($conversation->refresh()->contact_id)->toBeNull()
+        ->and($conversation->contact_type)->toBeNull();
+});
+
+/**
+ * На разговоре без карточки отвязывать нечего, и кнопки там нет.
+ */
+it('не предлагает отвязку там, где привязки нет', function (): void {
+    $conversation = Conversation::factory()->create(['last_message_at' => now()]);
+
+    expect(deskFor($conversation)->instance()->canUnlinkContact())->toBeFalse();
+});

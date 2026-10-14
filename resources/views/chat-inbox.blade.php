@@ -481,7 +481,11 @@
             the status beneath it. Both are grey and both are second-level, but
             only one of them is what the operator opened the thread to learn.
         */
-        .chatbot-inbox__who p.chatbot-inbox__contact {
+        .chatbot-inbox__contact {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.3rem;
+            align-items: center;
             font-size: 0.78rem;
             color: inherit;
         }
@@ -1142,18 +1146,39 @@
                             what it deliberately leaves out are decisions taken
                             somewhere this file cannot see.
                         --}}
-                        @if ($card = $this->contactCard())
-                            <p class="chatbot-inbox__contact">
-                                @if ($card->url)
-                                    <a href="{{ $card->url }}">{{ $card->name }}</a>
-                                @else
-                                    <strong>{{ $card->name }}</strong>
+                        {{--
+                            Привязка и отвязка стоят здесь, у самой строки
+                            контакта, а не в ряду действий разговора: они
+                            меняют именно эту строку, и в шапке рядом с
+                            «взять себе» и «закрыть» читались как действия
+                            над разговором целиком.
+                        --}}
+                        @php
+                            $card = $this->contactCard();
+                        @endphp
+
+                        @if ($card || $this->canLinkContact())
+                            <div class="chatbot-inbox__contact">
+                                @if ($card)
+                                    @if ($card->url)
+                                        <a href="{{ $card->url }}">{{ $card->name }}</a>
+                                    @else
+                                        <strong>{{ $card->name }}</strong>
+                                    @endif
+
+                                    @if ($card->note)
+                                        <span aria-hidden="true">·</span> {{ $card->note }}
+                                    @endif
                                 @endif
 
-                                @if ($card->note)
-                                    <span aria-hidden="true">·</span> {{ $card->note }}
+                                @if ($this->canLinkContact())
+                                    {{ $this->linkContactAction }}
                                 @endif
-                            </p>
+
+                                @if ($this->canUnlinkContact())
+                                    {{ $this->unlinkContactAction }}
+                                @endif
+                            </div>
                         @endif
 
                         <p>
@@ -1182,10 +1207,6 @@
 
                     @if ($this->canCreateContact())
                         {{ $this->createContactAction }}
-                    @endif
-
-                    @if ($this->canLinkContact())
-                        {{ $this->linkContactAction }}
                     @endif
 
                     @if ($this->canReturnToBot())

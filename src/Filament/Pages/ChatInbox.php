@@ -11,6 +11,7 @@ use Filament\Facades\Filament;
 use Filament\Forms\Components\Select;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
+use Filament\Support\Enums\Size;
 use Filament\Support\Enums\Width;
 use Filament\Support\Icons\Heroicon;
 use Illuminate\Contracts\Support\Htmlable;
@@ -820,9 +821,18 @@ class ChatInbox extends Page
     public function linkContactAction(): Action
     {
         return Action::make('linkContact')
-            ->label(__('chatbot::panel.inbox.link_contact'))
+            /*
+             * Подпись зависит от того, есть ли уже карточка: «привязать
+             * к другому» на разговоре, не привязанном ни к кому, обещает
+             * замену там, где замещать нечего.
+             */
+            ->label(fn (): string => $this->activeConversation?->contact_id === null
+                ? __('chatbot::panel.inbox.link_contact_empty')
+                : __('chatbot::panel.inbox.link_contact'))
             ->icon(Heroicon::OutlinedLink)
             ->color('gray')
+            ->size(Size::ExtraSmall)
+            ->link()
             ->authorize(fn (): bool => $this->canUpdateActive())
             ->schema([
                 Select::make('contact')
@@ -850,6 +860,58 @@ class ChatInbox extends Page
                     ? $notification->body(__('chatbot::panel.inbox.link_contact_gone'))->warning()->send()
                     : $notification->body(__('chatbot::panel.inbox.link_contact_done'))->success()->send();
             });
+    }
+
+    /**
+     * Takes the link off, leaving the thread filed under nobody.
+     *
+     * The honest answer when the link is wrong and the right record is not
+     * there to pick: a thread pointing at the wrong person is worse than one
+     * pointing at nobody, because everything an operator reads above it — the
+     * history, the name, the card — is then about somebody else.
+     *
+     * Confirmed because what it removes is not visible from here: the link may
+     * be the only thing connecting a year of conversations to a customer, and
+     * putting it back needs the operator to know which record it was.
+     */
+    public function unlinkContactAction(): Action
+    {
+        return Action::make('unlinkContact')
+            ->label(__('chatbot::panel.inbox.unlink_contact'))
+            ->icon(Heroicon::OutlinedLinkSlash)
+            ->color('gray')
+            ->size(Size::ExtraSmall)
+            ->link()
+            ->requiresConfirmation()
+            ->modalDescription(__('chatbot::panel.inbox.unlink_contact_description'))
+            ->authorize(fn (): bool => $this->canUpdateActive())
+            ->action(function (): void {
+                $conversation = $this->activeConversation;
+
+                if (! $conversation instanceof Conversation) {
+                    return;
+                }
+
+                $conversation->forceFill([
+                    'contact_type' => null,
+                    'contact_id' => null,
+                ])->save();
+
+                $this->forgetThread();
+
+                Notification::make()
+                    ->body(__('chatbot::panel.inbox.unlink_contact_done'))
+                    ->success()
+                    ->send();
+            });
+    }
+
+    /**
+     * Whether there is a link to take off.
+     */
+    public function canUnlinkContact(): bool
+    {
+        return $this->activeConversation?->contact_id !== null;
     }
 
     /**

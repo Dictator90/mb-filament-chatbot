@@ -3,12 +3,16 @@
 declare(strict_types=1);
 
 use Illuminate\Support\Facades\DB;
+use Livewire\Livewire;
 use MB\FilamentChatbot\Ai\KnowledgeSource;
 use MB\FilamentChatbot\Bot\Steps\StepContext;
 use MB\FilamentChatbot\Bot\Steps\StepFlow;
 use MB\FilamentChatbot\Bot\Steps\StepResult;
 use MB\FilamentChatbot\Bot\Steps\Types\AnswerStep;
 use MB\FilamentChatbot\Demo\DemoData;
+use MB\FilamentChatbot\Filament\Resources\KnowledgeEntries\Pages\CreateKnowledgeEntry;
+use MB\FilamentChatbot\Filament\Resources\KnowledgeEntries\Pages\EditKnowledgeEntry;
+use MB\FilamentChatbot\Filament\Resources\KnowledgeEntries\Pages\ListKnowledgeEntries;
 use MB\FilamentChatbot\Knowledge\KnowledgeFinder;
 use MB\FilamentChatbot\Knowledge\KnowledgeVectors;
 use MB\FilamentChatbot\Knowledge\KnowledgeVerdict;
@@ -451,4 +455,67 @@ it('scores a recorded phrasing on its own merits, not against everything else wr
     expect($nearest)->not->toBeEmpty()
         ->and($nearest[0]['entry']->topic_key)->toBe($thorough->topic_key)
         ->and($nearest[0]['score'])->toBeGreaterThan(0.9);
+});
+
+/**
+ * Базу знаний ищут по тому, что в ней написано, а не по названиям тем.
+ *
+ * Двести тем — это список, который глазами не просматривают. Человек помнит
+ * фразу из ответа («возврат за сутки») или слово, которым спрашивает клиент
+ * («адрес»), а заголовок тем временем называется «Отмена брони». Пока поиск
+ * шёл только по ключу и вопросу, тема находилась лишь тогда, когда и так
+ * было известно, как она называется.
+ */
+it('ищет тему по ответу и по ключевым словам', function (): void {
+    signIn();
+
+    $refund = KnowledgeEntry::factory()->create([
+        'topic_key' => 'booking_cancel',
+        'question' => 'Отмена брони',
+        'answer' => 'Вернём полностью, если отказ пришёл за сутки до заезда.',
+        'keywords' => ['аннуляция'],
+    ]);
+
+    $office = KnowledgeEntry::factory()->create([
+        'topic_key' => 'office_address',
+        'question' => 'География работы',
+        'answer' => 'Офис на улице Артёма, 1.',
+        'keywords' => ['адрес', 'где вы'],
+    ]);
+
+    Livewire::test(ListKnowledgeEntries::class)
+        ->searchTable('за сутки')
+        ->assertCanSeeTableRecords([$refund])
+        ->assertCanNotSeeTableRecords([$office]);
+
+    Livewire::test(ListKnowledgeEntries::class)
+        ->searchTable('адрес')
+        ->assertCanSeeTableRecords([$office])
+        ->assertCanNotSeeTableRecords([$refund]);
+});
+
+/**
+ * Приоритет выбирают из набора, а не пишут словами.
+ *
+ * Свободная строка превращала колонку в свалку: «срочно», «P2 », «2» —
+ * и фильтровать базу по срочности становилось нечем. Но и выбор, молча
+ * теряющий значение, пришедшее импортом из чужой таблицы, был бы хуже
+ * строки: он выглядит заполненным и сохраняет пустоту.
+ */
+it('предлагает приоритет набором и не теряет чужое значение', function (): void {
+    signIn();
+
+    $entry = KnowledgeEntry::factory()->create(['priority' => 'срочно']);
+
+    Livewire::test(EditKnowledgeEntry::class, ['record' => $entry->getKey()])
+        ->assertFormFieldExists('priority', checkFieldUsing: function ($field): bool {
+            $options = $field->getOptions();
+
+            return array_key_exists('P0', $options)
+                && array_key_exists('P2', $options)
+                && array_key_exists('срочно', $options);
+        });
+
+    Livewire::test(CreateKnowledgeEntry::class)
+        ->assertFormFieldExists('priority', checkFieldUsing: fn ($field): bool => array_keys($field->getOptions()) === ['P0', 'P1', 'P2', 'P3']);
 });

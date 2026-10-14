@@ -13,6 +13,7 @@ use Filament\Schemas\Components\Grid;
 use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Schema;
 use MB\FilamentChatbot\Enums\KnowledgeMode;
+use MB\FilamentChatbot\Models\KnowledgeEntry;
 use MB\FilamentChatbot\Models\Scenario;
 
 class KnowledgeEntryForm
@@ -60,9 +61,25 @@ class KnowledgeEntryForm
                     ->selectablePlaceholder(false)
                     ->required()
                     ->live(),
-                TextInput::make('priority')
+                /*
+                 * Выбор, а не поле ввода.
+                 *
+                 * Прежде здесь была строка на тридцать два знака, и написать
+                 * в ней можно было что угодно: «срочно», «P2 », «2». Значение
+                 * читают глазами, когда разбирают переданные человеку темы,
+                 * и база, где половина помечена одним словом, а половина
+                 * другим, не фильтруется и не сортируется вовсе.
+                 *
+                 * Каста к перечислению при этом нет и не будет: колонку
+                 * заполняет ещё и импорт из чужой таблицы, а Eloquent кастует
+                 * через `from()` — первое незнакомое значение уронило бы
+                 * и чтение, и запись. Поэтому чужое значение не отбрасывается,
+                 * а показывается отдельной строкой списка: видно, что оно
+                 * есть, и видно, что оно не из набора.
+                 */
+                Select::make('priority')
                     ->label(__('chatbot::panel.attributes.priority'))
-                    ->maxLength(32)
+                    ->options(fn (?KnowledgeEntry $record): array => self::priorities($record))
                     ->helperText(__('chatbot::panel.knowledge.priority_help')),
             ]),
 
@@ -127,6 +144,33 @@ class KnowledgeEntryForm
                 ->default(true)
                 ->helperText(__('chatbot::panel.knowledge.is_active_help')),
         ]);
+    }
+
+    /**
+     * Сколько ждёт человек, когда тема передаёт разговор ему.
+     *
+     * Набор пакета плюс то, что уже стоит в записи, если оно не из набора:
+     * выбор, молча теряющий значение, пришедшее импортом, хуже свободной
+     * строки — он выглядит заполненным и сохраняет пустоту.
+     *
+     * @return array<string, string>
+     */
+    private static function priorities(?KnowledgeEntry $record): array
+    {
+        $options = [
+            'P0' => __('chatbot::panel.knowledge.priority_p0'),
+            'P1' => __('chatbot::panel.knowledge.priority_p1'),
+            'P2' => __('chatbot::panel.knowledge.priority_p2'),
+            'P3' => __('chatbot::panel.knowledge.priority_p3'),
+        ];
+
+        $saved = trim((string) $record?->priority);
+
+        if ($saved !== '' && ! array_key_exists($saved, $options)) {
+            $options[$saved] = $saved;
+        }
+
+        return $options;
     }
 
     /**
