@@ -6,6 +6,7 @@ namespace MB\FilamentChatbot\Bot\Steps\Types;
 
 use MB\FilamentChatbot\Bot\Fields\Field;
 use MB\FilamentChatbot\Bot\Slots\Slot;
+use MB\FilamentChatbot\Bot\Slots\SlotKind;
 use MB\FilamentChatbot\Bot\Slots\SlotParser;
 use MB\FilamentChatbot\Bot\Steps\StepContext;
 use MB\FilamentChatbot\Bot\Steps\StepResult;
@@ -208,7 +209,7 @@ final class FormStep extends StepType
 
         if ($used < $allowed) {
             $this->rememberAttempts($context, $slot->key(), $used);
-            $context->runtime->say($context->runtime->fill($slot->defaultQuestion()));
+            $context->runtime->say($context->runtime->fill($slot->defaultQuestion()), $this->choicesOf($slot));
 
             return StepResult::wait()->traced(RunStep::WAITING, [
                 'slot' => $slot->key(),
@@ -280,7 +281,7 @@ final class FormStep extends StepType
             }
 
             $context->conversation->forceFill(['bot_slot' => $slot->key()])->save();
-            $context->runtime->say($context->runtime->fill($slot->defaultQuestion()));
+            $context->runtime->say($context->runtime->fill($slot->defaultQuestion()), $this->choicesOf($slot));
 
             return StepResult::wait()->traced(RunStep::WAITING, ['slot' => $slot->key()]);
         }
@@ -288,6 +289,24 @@ final class FormStep extends StepType
         $this->stopAsking($context);
 
         return StepResult::next()->traced(RunStep::ANSWERED, ['collected' => true]);
+    }
+
+    /**
+     * The answers a choice slot already knows, offered as buttons.
+     *
+     * Without them a question like "beach, sightseeing or both?" arrived as
+     * bare text: the visitor had to type one of the words exactly, and a
+     * channel that draws buttons for every other question drew none here. The
+     * parser already accepts the position as well as the label, so a pressed
+     * button and a typed word land on the same value.
+     *
+     * @return list<string>
+     */
+    private function choicesOf(Slot $slot): array
+    {
+        return $slot->kind() === SlotKind::Choice
+            ? array_values(array_map(static fn (mixed $label): string => (string) $label, $slot->choices()))
+            : [];
     }
 
     /**

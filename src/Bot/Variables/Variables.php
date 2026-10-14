@@ -32,8 +32,20 @@ final class Variables
      * Spaces inside the braces are allowed because authors type them. `{{ name }}`
      * left unmatched would be sent to the visitor as markup, which is exactly
      * the failure the empty-string rule below exists to prevent.
+     *
+     * **Any letter, not only Latin ones.** Names are chosen by whoever draws the
+     * scenario — a set node writing `интерес`, a lookup writing into `поездка` —
+     * and the old `[A-Za-z]` matched none of them. Such a placeholder was not
+     * left empty, it was not touched at all: the visitor received «Нашёл вот
+     * что: {{поездка_hotel}}» in a sentence that looked finished on the canvas.
+     *
+     * **`{{name|fallback}}`** says what to print when the value is blank. A
+     * summary the visitor is asked to confirm must not show an empty line where
+     * an unanswered question was: «Бюджет: » reads as a fault, «Бюджет: не
+     * уточнено» reads as the truth. The fallback is literal text, never itself
+     * a placeholder, for the same reason values are never expanded.
      */
-    private const PLACEHOLDER = '/\{\{\s*([A-Za-z0-9_.\-]+)\s*\}\}/u';
+    private const PLACEHOLDER = '/\{\{\s*([\p{L}\p{N}_.\-]+)\s*(?:\|([^}]*))?\}\}/u';
 
     public function __construct(private readonly ChatbotRegistry $registry) {}
 
@@ -59,7 +71,11 @@ final class Variables
 
         $filled = preg_replace_callback(
             self::PLACEHOLDER,
-            fn (array $matches): string => $this->value($conversation, $matches[1], $said) ?? '',
+            function (array $matches) use ($conversation, $said): string {
+                $value = $this->value($conversation, $matches[1], $said) ?? '';
+
+                return trim($value) === '' && isset($matches[2]) ? trim($matches[2]) : $value;
+            },
             $template,
         );
 

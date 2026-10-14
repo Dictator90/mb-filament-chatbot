@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use MB\FilamentChatbot\Bot\Slots\Slot;
 use MB\FilamentChatbot\Facades\Chatbot;
 use MB\FilamentChatbot\Models\Bot;
 use MB\FilamentChatbot\Models\Conversation;
@@ -173,4 +174,34 @@ it('takes the could-not exit when a required slot stays unanswered', function ()
 
     expect(botSaid($this->conversation))->toContain('Let me fetch someone.')
         ->and(botSaid($this->conversation))->not->toContain('Got it.');
+});
+
+/**
+ * Вопрос-выбор внутри анкеты приходит с кнопками.
+ *
+ * «Пляжный, экскурсионный или комбинированный?» уходил голым текстом: человеку
+ * приходилось набирать слово в точности, а канал, рисующий кнопки у каждого
+ * другого вопроса, здесь не рисовал ни одной. Нажатая кнопка приходит номером,
+ * и разбор понимает его так же, как слово.
+ */
+it('предлагает варианты выбора кнопками', function (): void {
+    Chatbot::registerSlot(
+        Slot::choice('trip_type', ['beach' => 'Пляжный', 'tour' => 'Экскурсионный'])->question('Какой отдых планируете?'),
+    );
+
+    scenarioOf([
+        ['key' => 'start', 'type' => 'start', 'next_key' => 'who', 'config' => ['trigger' => 'fallback']],
+        ['key' => 'who', 'type' => 'form', 'next_key' => 'thanks', 'config' => ['slots' => ['trip_type']]],
+        ['key' => 'thanks', 'type' => 'say', 'body' => 'Принято: {{trip_type}}.'],
+    ]);
+
+    visitorSays($this->conversation, 'хочу отдохнуть');
+
+    $asked = $this->conversation->messages()->where('body', 'Какой отдых планируете?')->sole();
+
+    expect($asked->meta['options'] ?? null)->toBe(['Пляжный', 'Экскурсионный']);
+
+    visitorSays($this->conversation, '2');
+
+    expect(botSaid($this->conversation))->toContain('Принято: tour.');
 });

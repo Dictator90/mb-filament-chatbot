@@ -6,6 +6,23 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 this package intends to follow [Semantic Versioning](https://semver.org/) once
 it reaches 1.0.
 
+## [0.9.0] — 2026-10-14
+
+- **Placeholders accept any letter.** A set node writing `интерес` or a lookup
+  writing into `поездка` produced names the old `[A-Za-z]` pattern never
+  matched, and such a placeholder was not left empty — it was not touched at
+  all: the visitor received «Нашёл вот что: {{поездка_hotel}}» from a sentence
+  that looked finished on the canvas.
+- **`{{name|fallback}}`** prints literal text when the value is blank. A summary
+  the visitor is asked to confirm must not show an empty line where an
+  unanswered question was; «Бюджет: не уточнено» is the truth, «Бюджет: » reads
+  as a fault. The fallback is never itself expanded.
+- **A choice slot inside a form is asked with buttons.** The form said the
+  question as bare text, so a messenger that draws buttons everywhere else drew
+  none for "beach, sightseeing or both?" and the visitor had to type the word
+  exactly. A pressed button arrives as its position, which the parser already
+  read.
+
 ## [0.8.3] — 2026-10-14
 
 - **The desk no longer makes its own page scroll.** Filament renders two empty
