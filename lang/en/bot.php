@@ -55,6 +55,30 @@ return [
     ],
 
     /**
+     * Month names as regular-expression fragments, January first.
+     *
+     * Fragments rather than words because a month is written in several forms
+     * and only a pattern can say "jan or january" without also matching "may"
+     * inside "maybe" — each fragment is matched as a whole word. English is
+     * always read as well as the app's own language.
+     */
+    'months' => [
+        'jan(?:uary)?', 'feb(?:ruary)?', 'mar(?:ch)?', 'apr(?:il)?', 'may', 'june?',
+        'july?', 'aug(?:ust)?', 'sep(?:t(?:ember)?)?', 'oct(?:ober)?', 'nov(?:ember)?', 'dec(?:ember)?',
+    ],
+
+    /**
+     * The words after an amount that multiply it, as whole-word patterns.
+     *
+     * "150k" and "1.5 million" are how a budget is said; read without these
+     * they become a hundred and fifty and one and a half.
+     */
+    'money_multipliers' => [
+        'thousand' => ['k', 'thousands?', 'grand'],
+        'million' => ['m', 'mln', 'millions?'],
+    ],
+
+    /**
      * What replaces a piece of personal data on its way to a language model.
      *
      * Translated because the model reads them: an English placeholder dropped

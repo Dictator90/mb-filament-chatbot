@@ -187,6 +187,7 @@ final class CollectStep extends StepType
 
         if ($parsed->ok()) {
             $context->runtime->store($name, $parsed->value());
+            $context->runtime->store($name.'_said', trim($answer));
 
             foreach ($parsed->extra() as $key => $value) {
                 $context->runtime->store($name.'_'.$key, (string) $value);

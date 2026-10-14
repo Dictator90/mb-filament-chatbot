@@ -320,3 +320,28 @@ it('не путает вариант выбора «Не знаю» с проп�
 
     expect(botSaid($this->conversation))->toContain('Паспорт: unsure.');
 });
+
+/**
+ * Анкета помнит и разобранное, и сказанное.
+ *
+ * Разобранное нужно для расчёта и записи, сказанное — чтобы показать человеку
+ * его же слова. Резюме на подтверждение, собранное из одних разобранных
+ * значений, говорило туристу «Даты: 2027-02-01» в ответ на «в феврале», и
+ * подтвердить такое — значит подтвердить, что бот понял не то.
+ */
+it('запоминает ответ дословно рядом с разобранным', function (): void {
+    app()->setLocale('ru');
+
+    Chatbot::registerSlot(Slot::money('budget')->question('Какой бюджет?'));
+
+    scenarioOf([
+        ['key' => 'start', 'type' => 'start', 'next_key' => 'who', 'config' => ['trigger' => 'fallback']],
+        ['key' => 'who', 'type' => 'form', 'next_key' => 'thanks', 'config' => ['slots' => ['budget']]],
+        ['key' => 'thanks', 'type' => 'say', 'body' => '{{budget}} / {{budget_said}}'],
+    ]);
+
+    visitorSays($this->conversation, 'здравствуйте');
+    visitorSays($this->conversation, ' 150 тысяч ');
+
+    expect(botSaid($this->conversation))->toContain('150000 / 150 тысяч');
+});

@@ -200,6 +200,7 @@ final class FormStep extends StepType
 
         if ($parsed->ok()) {
             $context->runtime->store($slot->key(), $parsed->value());
+            $context->runtime->store($slot->key().'_said', trim($answer));
 
             foreach ($parsed->extra() as $key => $value) {
                 $context->runtime->store($slot->key().'_'.$key, (string) $value);

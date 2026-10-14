@@ -111,10 +111,20 @@ silently reading "-2" as 2 would store a number nobody typed.
 decimal is decided by what follows it, not by locale: three digits after the last
 separator mean thousands (`$1,200`), one or two mean a fraction (`1 200,50`).
 Guessing by locale would turn one of those into a thousandfold error in a number
-somebody is quoted back.
+somebody is quoted back. A multiplier word after the amount applies — `150k`,
+`150 тысяч`, `1.5 million` — from `chatbot::bot.money_multipliers`, because that
+is how budgets are said and the digits alone store a hundred and fifty. A range
+("200–230 тысяч", "from 200 to 230k") is stored as its upper end, the honest
+reading of a ceiling, with both ends in `extra` under `from` and `to`; the left
+end borrows the right end's multiplier while it is too small to be an amount on
+its own.
 
-**`date`** — `today`, `tomorrow`, `2026-05-10`, `10.05`, `10/05/26`, and
-anything else Carbon can read. Stored as `Y-m-d`.
+**`date`** — `today`, `tomorrow`, `2026-05-10`, `10.05`, `10/05/26`, a month by
+name with or without a day (`12 июня`, `в феврале 2027`, `june`) from
+`chatbot::bot.months`, and anything else Carbon can read. Stored as `Y-m-d`. A
+month named without a day is stored as its first day with the month itself in
+`extra` under `month` (`2027-02`): "in February" asks for February, not for the
+first of it. English month names are read whatever the app's language.
 
 **`date_range`** — two dates out of one sentence, stored as a readable
 `10.05.2026 – 17.05.2026` with machine halves in `extra` under `from` and `to`.
@@ -159,6 +169,12 @@ The machine halves go into `extra`, and the `Collect` node stores them as
 sibling variables named `<slot>_<key>` — so a `travel_dates` slot fills
 `travel_dates`, `travel_dates_from` and `travel_dates_to`, and a `phone` slot
 fills `phone` and `phone_digits`. Query on those.
+
+Both `Collect` and `Form` also keep the answer exactly as written under
+`<slot>_said`. A summary the visitor is asked to confirm should quote them, not
+the parsed value: "Dates: 2027-02-01" in reply to "in February" reads as a bot
+that misunderstood, and "Budget: 150000" in reply to "150 тысяч" as one that
+cannot count.
 
 ### What happens to an answer that cannot be read
 

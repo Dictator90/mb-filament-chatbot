@@ -6,6 +6,20 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 this package intends to follow [Semantic Versioning](https://semver.org/) once
 it reaches 1.0.
 
+## [0.9.3] — 2026-10-14
+
+- **Amounts understand multipliers and ranges.** "150 тысяч" was stored as 150 —
+  the figure the visitor was asked to confirm and the manager searched with.
+  `150k`, `1,5 млн`, `200–230 тысяч` and `от 150000 до 200 тыс` now read as
+  meant; a range stores its upper end with `from` and `to` in `extra`.
+- **Dates understand month names.** «в феврале», «12 июня», «декабрь 2026» did
+  not parse at all, so a required date question re-asked until the visitor gave
+  up; a bare English "february" was read by Carbon as this year's February even
+  in November. A month without a day goes forwards and keeps `month` in
+  `extra`.
+- **`Form` and `Collect` keep the answer as written** under `<slot>_said`, so a
+  confirmation can quote the visitor instead of `2027-02-01`.
+
 ## [0.9.2] — 2026-10-14
 
 - **A choice the slot offers is never read as "skip".** A button labelled

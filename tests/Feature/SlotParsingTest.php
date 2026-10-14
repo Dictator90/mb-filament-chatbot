@@ -240,3 +240,64 @@ it('не теряет ответ, в котором одна зацепка', fu
     expect(app(SlotParser::class)->parse(app(ChatbotRegistry::class)->slot('name'), 'Меня зовут')->value())
         ->toBe('Меня зовут');
 });
+
+/**
+ * Бюджет называют с множителем, и читать одни цифры — значит записать сто
+ * пятьдесят рублей вместо ста пятидесяти тысяч. Эту цифру турист потом видел
+ * в резюме на подтверждение, а менеджер искал по ней туры.
+ */
+it('понимает тысячи и миллионы в сумме', function (): void {
+    app()->setLocale('ru');
+
+    $parser = new SlotParser;
+    $slot = Slot::money('budget');
+
+    expect($parser->parse($slot, '150 тысяч')->value())->toBe('150000')
+        ->and($parser->parse($slot, 'около 150к на двоих')->value())->toBe('150000')
+        ->and($parser->parse($slot, '1,5 млн')->value())->toBe('1500000')
+        ->and($parser->parse($slot, '220 000 руб')->value())->toBe('220000')
+        ->and($parser->parse($slot, '150 km')->value())->toBe('150');
+});
+
+/**
+ * Вилка «от и до» остаётся вилкой: значение — верхний край («не дороже»),
+ * края — отдельно. Левый край без своего множителя берёт правый, но только
+ * пока сам слишком мал, чтобы быть суммой.
+ */
+it('читает вилку бюджета', function (): void {
+    app()->setLocale('ru');
+
+    $parser = new SlotParser;
+    $slot = Slot::money('budget');
+
+    $range = $parser->parse($slot, '200–230 тысяч');
+
+    expect($range->value())->toBe('230000')
+        ->and($range->extra())->toBe(['from' => '200000', 'to' => '230000'])
+        ->and($parser->parse($slot, 'от 150000 до 200 тыс')->extra())->toBe(['from' => '150000', 'to' => '200000'])
+        ->and($parser->parse($slot, '2 взрослых, 200 тысяч')->extra())->toBe([]);
+});
+
+/**
+ * Дату в поездку называют месяцем чаще, чем цифрами. Прежде «в феврале» не
+ * разбиралось вовсе, а голое "february" Carbon читал февралём текущего года —
+ * в ноябре это дата в прошлом, которую никто ниже по течению не оспорит.
+ */
+it('понимает месяц словом и не уходит в прошлое', function (): void {
+    app()->setLocale('ru');
+    CarbonImmutable::setTestNow('2026-11-15 10:00:00');
+    Carbon::setTestNow('2026-11-15 10:00:00');
+
+    $parser = new SlotParser;
+    $slot = Slot::date('departure');
+
+    $month = $parser->parse($slot, 'в феврале');
+
+    expect($month->value())->toBe('2027-02-01')
+        ->and($month->extra())->toBe(['month' => '2027-02'])
+        ->and($parser->parse($slot, '12 июня')->value())->toBe('2027-06-12')
+        ->and($parser->parse($slot, 'декабрь 2026')->extra())->toBe(['month' => '2026-12'])
+        ->and($parser->parse($slot, 'в ноябре')->value())->toBe('2026-11-01')
+        ->and($parser->parse($slot, 'february')->value())->toBe('2027-02-01')
+        ->and($parser->parse($slot, 'маяк')->ok())->toBeFalse();
+});
