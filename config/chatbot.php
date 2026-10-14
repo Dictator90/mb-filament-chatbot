@@ -358,6 +358,34 @@ return [
                  */
                 'price_per_million_input' => env('CHATBOT_AI_PRICE_INPUT', 0),
                 'price_per_million_output' => env('CHATBOT_AI_PRICE_OUTPUT', 0),
+
+                /*
+                 * Through a tunnel, where the provider cannot be reached
+                 * directly. The same field on every HTTP driver, and the same
+                 * reason as on a messenger connection: a blocked route fails as
+                 * a silent timeout, which reads on screen as the model being
+                 * slow rather than as a network that cannot call out.
+                 */
+                'proxy' => env('CHATBOT_AI_PROXY'),
+            ],
+
+            /*
+             * Anthropic's own Messages API, not its OpenAI-compatible endpoint.
+             * The instruction travels in a field of its own, the answer arrives
+             * as content blocks, and the token counts have different names —
+             * three translations a compatibility layer would hide and this
+             * driver does not.
+             */
+            'anthropic' => [
+                'base_url' => env('CHATBOT_ANTHROPIC_BASE_URL', 'https://api.anthropic.com/v1'),
+                'api_key' => env('CHATBOT_ANTHROPIC_API_KEY'),
+                'model' => env('CHATBOT_ANTHROPIC_MODEL', 'claude-sonnet-5-5'),
+                'timeout' => 30,
+                'temperature' => 0.2,
+                'max_tokens' => 600,
+                'price_per_million_input' => env('CHATBOT_ANTHROPIC_PRICE_INPUT', 0),
+                'price_per_million_output' => env('CHATBOT_ANTHROPIC_PRICE_OUTPUT', 0),
+                'proxy' => env('CHATBOT_ANTHROPIC_PROXY'),
             ],
 
             /*

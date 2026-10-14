@@ -6,6 +6,25 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 this package intends to follow [Semantic Versioning](https://semver.org/) once
 it reaches 1.0.
 
+## [0.7.0] — 2026-10-14
+
+### Anthropic as a driver, and a proxy for model calls
+
+- **`anthropic` speaks the Messages API directly.** Not the OpenAI-compatible
+  endpoint: the instruction is a `system` field of its own, the answer arrives
+  as content blocks, and the token counts have different names. Routing that
+  through a compatibility layer means debugging two translations whenever an
+  answer is wrong, and the request itself is four fields.
+- **`proxy` on an AI driver**, with `chatbot.ai.proxy` as the fallback. A
+  network that cannot reach the provider fails as a silent timeout, which reads
+  on screen as the model being slow rather than as a closed route — the same
+  symptom, and the same cure, as on a messenger connection.
+- **The two HTTP drivers now share one decoder.** Composing the instruction,
+  asking for JSON, stripping a fenced code block, reading the sources back and
+  pricing the tokens were about to exist twice; the copy is what drifts, and
+  the fence-stripping rule in particular was learned from live models once
+  already.
+
 ## [0.6.0] — 2026-10-14
 
 ### The desk's contact line, and a knowledge base you can actually search

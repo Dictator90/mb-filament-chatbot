@@ -473,3 +473,76 @@ it('builds a host driver registered into the factory', function (): void {
     expect($factory->make())->toBeInstanceOf(NullGateway::class)
         ->and($factory->names())->toHaveKey('house');
 });
+
+/**
+ * Anthropic отвечает по-своему, и драйвер читает именно это.
+ *
+ * Три отличия от OpenAI-формы — инструкция отдельным полем `system`, ответ
+ * списком блоков вместо «выбора», свои имена у счётчиков токенов. Через
+ * слой совместимости их было бы три перевода, а здесь это один запрос.
+ */
+it('читает ответ Anthropic блоками и считает его токены', function (): void {
+    config()->set('chatbot.ai.drivers.anthropic', [
+        'base_url' => 'https://api.anthropic.test/v1',
+        'api_key' => 'ключ',
+        'model' => 'claude-sonnet-5-5',
+        'price_per_million_input' => 3,
+        'price_per_million_output' => 15,
+    ]);
+
+    Http::fake([
+        '*/messages' => Http::response([
+            'content' => [
+                ['type' => 'text', 'text' => 'Офис работает '],
+                ['type' => 'text', 'text' => 'с девяти до шести.'],
+            ],
+            'usage' => ['input_tokens' => 100, 'output_tokens' => 20],
+        ]),
+    ]);
+
+    $reply = app(AiGatewayFactory::class)->make('anthropic')->ask(
+        new AiPrompt(instruction: 'Отвечай коротко.', question: 'Когда вы работаете?'),
+    );
+
+    expect($reply->ok())->toBeTrue()
+        /* Склеено из обоих блоков: читать только первый — обрывать ответ на полуслове. */
+        ->and($reply->text())->toBe('Офис работает с девяти до шести.')
+        ->and($reply->usage()->inputTokens)->toBe(100)
+        ->and($reply->usage()->outputTokens)->toBe(20)
+        ->and($reply->usage()->costMicro)->toBe(600);
+
+    Http::assertSent(function ($request): bool {
+        $data = $request->data();
+
+        return $request->hasHeader('x-api-key', 'ключ')
+            && $request->hasHeader('anthropic-version')
+            && str_contains((string) $data['system'], 'Отвечай коротко.')
+            && $data['messages'][0]['content'] === 'Когда вы работаете?';
+    });
+});
+
+/**
+ * Сеть, из которой до поставщика не достучаться, лечится тем же прокси,
+ * что и мессенджеры: закрытый маршрут обрывается молчанием, и на экране это
+ * выглядит как «модель думает», а не как «позвонить некуда».
+ */
+it('берёт прокси драйвера, а установочный — только за его отсутствием', function (): void {
+    config()->set('chatbot.ai.proxy', 'socks5://установка:1080');
+    config()->set('chatbot.ai.drivers.anthropic', [
+        'base_url' => 'https://api.anthropic.test/v1',
+        'api_key' => 'ключ',
+        'proxy' => 'socks5://свой:1080',
+    ]);
+
+    $proxyOf = fn (): string => app(AiGatewayFactory::class)->make('anthropic')->proxy();
+
+    expect($proxyOf())->toBe('socks5://свой:1080');
+
+    config()->set('chatbot.ai.drivers.anthropic.proxy', null);
+
+    expect($proxyOf())->toBe('socks5://установка:1080');
+
+    config()->set('chatbot.ai.proxy', null);
+
+    expect($proxyOf())->toBe('');
+});

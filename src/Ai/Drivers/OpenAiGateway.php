@@ -6,13 +6,12 @@ namespace MB\FilamentChatbot\Ai\Drivers;
 
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\Response;
-use Illuminate\Support\Facades\Http;
 use MB\FilamentChatbot\Ai\AiFailure;
 use MB\FilamentChatbot\Ai\AiGateway;
 use MB\FilamentChatbot\Ai\AiPrompt;
 use MB\FilamentChatbot\Ai\AiReply;
 use MB\FilamentChatbot\Ai\AiUsage;
-use Throwable;
+use MB\FilamentChatbot\Ai\Drivers\Concerns\TalksToModels;
 
 /**
  * Any endpoint that speaks the OpenAI chat-completions shape.
@@ -36,6 +35,8 @@ use Throwable;
  */
 final class OpenAiGateway implements AiGateway
 {
+    use TalksToModels;
+
     /**
      * @param  array<string, mixed>  $config
      */
@@ -58,30 +59,6 @@ final class OpenAiGateway implements AiGateway
         return $this->apiKey() !== '' && $this->baseUrl() !== '';
     }
 
-    public function ask(AiPrompt $prompt): AiReply
-    {
-        if (! $this->isAvailable()) {
-            return AiReply::declined(AiFailure::NotConfigured);
-        }
-
-        try {
-            $response = $this->send($prompt);
-        } catch (ConnectionException $exception) {
-            return AiReply::declined($this->connectionFailure($exception), $exception->getMessage());
-        } catch (Throwable $exception) {
-            return AiReply::declined(AiFailure::Unavailable, $exception::class.': '.$exception->getMessage());
-        }
-
-        if (! $response->successful()) {
-            return AiReply::declined(
-                $response->status() >= 500 ? AiFailure::Unavailable : AiFailure::Refused,
-                $this->complaint($response),
-            );
-        }
-
-        return $this->read($prompt, $response);
-    }
-
     /**
      * The provider's own words about why it said no, with the status behind them.
      *
@@ -96,7 +73,7 @@ final class OpenAiGateway implements AiGateway
      * `[{"error": {...}}]`, wrapped in a list. Reading only the first would have
      * dropped the message in exactly the case this was written for.
      */
-    private function complaint(Response $response): string
+    protected function complaint(Response $response): string
     {
         $body = $response->json();
         $error = $body['error'] ?? ($body[0]['error'] ?? null);
@@ -110,11 +87,10 @@ final class OpenAiGateway implements AiGateway
     /**
      * @throws ConnectionException
      */
-    private function send(AiPrompt $prompt): Response
+    protected function send(AiPrompt $prompt): Response
     {
-        return Http::withToken($this->apiKey())
-            ->timeout($this->timeout())
-            ->acceptJson()
+        return $this->request()
+            ->withToken($this->apiKey())
             ->post($this->baseUrl().'/chat/completions', $this->payload($prompt));
     }
 
@@ -147,51 +123,6 @@ final class OpenAiGateway implements AiGateway
     }
 
     /**
-     * The instruction, the material and the shape of the answer, in that order.
-     *
-     * The rule about sources is repeated here in the prompt and enforced again
-     * by the caller against the keys it passed. Asking politely is not a
-     * control — a model that names an article nobody gave it has invented both
-     * the article and the answer — so the sentence below is only there to make
-     * the honest case easy, and the check upstream is what makes the dishonest
-     * one harmless.
-     */
-    private function systemMessage(AiPrompt $prompt): string
-    {
-        $parts = [trim($prompt->instruction)];
-
-        if ($prompt->hasContext()) {
-            $parts[] = "Answer only from the material below. Each fragment starts with its key in square brackets.\n\n".$prompt->contextText();
-        }
-
-        if ($this->wantsJson($prompt)) {
-            $parts[] = 'Answer with a single JSON object and nothing else. '.$this->shapeSentence($prompt);
-        }
-
-        return implode("\n\n", array_filter($parts, static fn (string $part): bool => $part !== ''));
-    }
-
-    private function shapeSentence(AiPrompt $prompt): string
-    {
-        $fields = [];
-
-        foreach ($prompt->schema ?? ['answer' => 'the reply, in the visitor\'s language'] as $name => $description) {
-            $fields[] = $description === '' ? '"'.$name.'"' : '"'.$name.'": '.$description;
-        }
-
-        if ($prompt->hasContext()) {
-            $fields[] = '"sources": the keys of the fragments you used, as an array of strings; use an empty array when the material does not answer the question';
-        }
-
-        return 'Keys: '.implode('; ', $fields).'.';
-    }
-
-    private function wantsJson(AiPrompt $prompt): bool
-    {
-        return $prompt->wantsStructure() || $prompt->hasContext();
-    }
-
-    /**
      * Turns the provider's answer into a reply.
      *
      * An empty body, a missing choice and unreadable JSON all land on
@@ -200,7 +131,7 @@ final class OpenAiGateway implements AiGateway
      * them, and the second exit exists so that something else can happen
      * instead.
      */
-    private function read(AiPrompt $prompt, Response $response): AiReply
+    protected function read(AiPrompt $prompt, Response $response): AiReply
     {
         $body = $response->json();
         $usage = $this->usageOf(is_array($body) ? $body : []);
@@ -237,39 +168,6 @@ final class OpenAiGateway implements AiGateway
      *
      * @return array<string, mixed>|null
      */
-    private function decode(string $content): ?array
-    {
-        if (str_starts_with($content, '```')) {
-            $content = trim((string) preg_replace('/^```[a-z]*\s*|\s*```$/iu', '', $content));
-        }
-
-        $decoded = json_decode($content, true);
-
-        return is_array($decoded) ? $decoded : null;
-    }
-
-    /**
-     * @param  array<string, mixed>  $data
-     * @return list<string>
-     */
-    private function sourcesOf(array $data): array
-    {
-        $sources = $data['sources'] ?? [];
-
-        if (is_string($sources)) {
-            $sources = [$sources];
-        }
-
-        if (! is_array($sources)) {
-            return [];
-        }
-
-        return array_values(array_filter(
-            array_map(static fn (mixed $key): string => trim((string) (is_scalar($key) ? $key : '')), $sources),
-            static fn (string $key): bool => $key !== '',
-        ));
-    }
-
     /**
      * @param  array<string, mixed>  $body
      */
@@ -281,82 +179,10 @@ final class OpenAiGateway implements AiGateway
         return new AiUsage($input, $output, $this->costOf($input, $output));
     }
 
-    /**
-     * What those tokens cost, at the price this installation was told.
-     *
-     * **No endpoint in this shape returns a price**, and the price is not the
-     * package's to know: the same request costs one thing on OpenAI, another
-     * through OpenRouter and nothing at all against a model running on the
-     * host's own machine. So the figures come from this driver's own
-     * configuration, stated per million tokens the way every provider quotes
-     * them, and unpriced means zero rather than a guess — the money ceiling then
-     * never stops the month, which somebody can see and set, instead of stopping
-     * it against a number nobody agreed to.
-     *
-     * The conversion needs no scaling factor because the two units cancel:
-     * cost is kept in millionths and prices are quoted per million tokens, so a
-     * token priced at P per million costs exactly P micro-units.
-     */
-    private function costOf(int $inputTokens, int $outputTokens): int
-    {
-        $cost = $inputTokens * $this->price('price_per_million_input')
-            + $outputTokens * $this->price('price_per_million_output');
-
-        return max(0, (int) round($cost));
-    }
-
-    private function price(string $key): float
-    {
-        return max(0.0, (float) ($this->config[$key] ?? 0));
-    }
-
-    /**
-     * A timeout and a refused connection arrive as the same exception class,
-     * and they are told apart by the message because that is the only thing
-     * the client gives us. Wrong either way it is still a decline; the split
-     * only decides which sentence the run journal shows.
-     */
-    private function connectionFailure(ConnectionException $exception): AiFailure
-    {
-        return str_contains(mb_strtolower($exception->getMessage()), 'timed out')
-            || str_contains(mb_strtolower($exception->getMessage()), 'timeout')
-            ? AiFailure::Timeout
-            : AiFailure::Unavailable;
-    }
-
-    private function baseUrl(): string
-    {
-        return rtrim(trim((string) ($this->config['base_url'] ?? '')), '/');
-    }
-
-    private function apiKey(): string
-    {
-        return trim((string) ($this->config['api_key'] ?? ''));
-    }
-
     private function model(): string
     {
         $model = trim((string) ($this->config['model'] ?? ''));
 
         return $model === '' ? 'gpt-4o-mini' : $model;
-    }
-
-    private function timeout(): int
-    {
-        $timeout = (int) ($this->config['timeout'] ?? 20);
-
-        return $timeout > 0 ? $timeout : 20;
-    }
-
-    private function temperature(): float
-    {
-        return (float) ($this->config['temperature'] ?? 0.2);
-    }
-
-    private function maxTokens(): int
-    {
-        $tokens = (int) ($this->config['max_tokens'] ?? 600);
-
-        return $tokens > 0 ? $tokens : 600;
     }
 }

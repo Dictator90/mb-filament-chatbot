@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace MB\FilamentChatbot\Ai;
 
 use Closure;
+use MB\FilamentChatbot\Ai\Drivers\AnthropicGateway;
 use MB\FilamentChatbot\Ai\Drivers\LaravelAiGateway;
 use MB\FilamentChatbot\Ai\Drivers\NullGateway;
 use MB\FilamentChatbot\Ai\Drivers\OpenAiGateway;
@@ -82,6 +83,7 @@ class AiGatewayFactory
 
         return match ($name) {
             'openai' => new OpenAiGateway($config),
+            'anthropic' => new AnthropicGateway($config),
             'laravel-ai' => new LaravelAiGateway($config),
             default => new NullGateway,
         };

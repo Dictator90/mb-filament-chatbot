@@ -47,6 +47,19 @@ Configured under `chatbot.ai`:
             'max_tokens' => 600,
             'price_per_million_input' => env('CHATBOT_AI_PRICE_INPUT', 0),
             'price_per_million_output' => env('CHATBOT_AI_PRICE_OUTPUT', 0),
+            'proxy' => env('CHATBOT_AI_PROXY'),
+        ],
+
+        'anthropic' => [
+            'base_url' => env('CHATBOT_ANTHROPIC_BASE_URL', 'https://api.anthropic.com/v1'),
+            'api_key' => env('CHATBOT_ANTHROPIC_API_KEY'),
+            'model' => env('CHATBOT_ANTHROPIC_MODEL', 'claude-sonnet-5-5'),
+            'timeout' => 30,
+            'temperature' => 0.2,
+            'max_tokens' => 600,
+            'price_per_million_input' => env('CHATBOT_ANTHROPIC_PRICE_INPUT', 0),
+            'price_per_million_output' => env('CHATBOT_ANTHROPIC_PRICE_OUTPUT', 0),
+            'proxy' => env('CHATBOT_ANTHROPIC_PROXY'),
         ],
 
         'laravel-ai' => [
@@ -65,6 +78,21 @@ that never needed a model keeps working.
 **`openai`** — any endpoint speaking the OpenAI chat-completions shape. Point
 `base_url` at a local runner, a gateway or a compatible provider; the driver has
 no opinion about who is on the other end.
+
+**`anthropic`** — Anthropic's own Messages API, not its OpenAI-compatible
+endpoint. Three things differ where it matters: the instruction is a `system`
+field of its own rather than a message with a role, the answer arrives as a list
+of content blocks, and the token counts have different names. A compatibility
+layer would hide all three behind somebody else's second priority, and this
+request is four fields. There is no `response_format` in that API, so JSON is
+asked for in words and read back with the same fence-stripping decoder every
+driver here uses.
+
+**`proxy`** on either driver routes its calls through a tunnel —
+`socks5://127.0.0.1:1080`, `http://user:pass@host:port` — with
+`chatbot.ai.proxy` as the installation-wide fallback. The case is a network that
+cannot reach the provider at all: it fails as a silent timeout, which on screen
+reads as the model being slow rather than as a route that is closed.
 
 The two prices are what your account pays per million tokens, in whole units of
 whatever currency it is billed in. No endpoint of this shape reports a price, and
