@@ -156,7 +156,7 @@ The same goes for `Date::use(CarbonImmutable::class)`: the desk is typed against
 
 The desk takes the window, not its content — otherwise a long conversation
 pushes the reply box below the fold. Its height is
-`calc(100dvh - var(--chatbot-inbox-offset, 7rem))`, where `7rem` is Filament's
+`calc(100dvh - var(--chatbot-inbox-offset, 8rem))`, where `8rem` is Filament's
 own topbar and page padding.
 
 If your panel adds chrome of its own, set the variable. The common case is a
@@ -169,13 +169,13 @@ looks perfect.
 <style>
 @media (max-width: 1023px) {
     .chatbot-inbox {
-        --chatbot-inbox-offset: calc(10rem + env(safe-area-inset-bottom, 0px));
+        --chatbot-inbox-offset: calc(12rem + env(safe-area-inset-bottom, 0px));
     }
 }
 </style>
 ```
 
-Here `10rem` is the topbar and page padding (6rem) plus a 4rem bottom menu, and
+Here `12rem` is the topbar and the page padding above and below the desk (8rem) plus a 4rem bottom menu, and
 the safe-area inset covers phones with a home indicator. A render hook at
 `PanelsRenderHook::HEAD_END` is the usual place for it.
 

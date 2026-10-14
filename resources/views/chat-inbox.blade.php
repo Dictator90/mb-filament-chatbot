@@ -90,8 +90,14 @@
                 and an empty band opens above the bottom menu. Nothing errors,
                 and on a desktop it looks perfect. The host knows its chrome;
                 it sets `--chatbot-inbox-offset` and the desk fits.
+
+                `8rem` is Filament's own chrome, measured rather than guessed:
+                a 4rem topbar, 2rem of page padding above the desk and 2rem
+                below it. The old `7rem` left the page a few pixels taller than
+                the window on every screen — invisible on a desktop, a scroll
+                that hides the header on a phone.
             */
-            height: calc(100dvh - var(--chatbot-inbox-offset, 7rem));
+            height: calc(100dvh - var(--chatbot-inbox-offset, 8rem));
             min-height: 20rem;
         }
 
@@ -107,6 +113,20 @@
             --ci-bot: color-mix(in srgb, var(--primary-500, rgb(99 102 241)) 22%, var(--gray-900, rgb(24 24 27)));
             --ci-accent: var(--primary-500, rgb(99 102 241));
             --ci-mark: var(--danger-500, rgb(239 68 68));
+        }
+
+        /*
+            No gap after the desk on its own page.
+
+            Filament renders two empty containers after the page's content —
+            for action modals and the like — and the page's flex gap puts 2rem
+            in front of each. That is 4rem of nothing under the desk, which made
+            every screen scroll: the reply box sat at the bottom of the window
+            and the page went on past it. The gap matters between real blocks
+            on other pages; on this one there is only the desk.
+        */
+        .fi-page-content:has(> .chatbot-inbox) {
+            row-gap: 0;
         }
 
         /*

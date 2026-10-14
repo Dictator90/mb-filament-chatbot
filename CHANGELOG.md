@@ -6,6 +6,16 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 this package intends to follow [Semantic Versioning](https://semver.org/) once
 it reaches 1.0.
 
+## [0.8.3] — 2026-10-14
+
+- **The desk no longer makes its own page scroll.** Filament renders two empty
+  containers after a page's content, and the page's flex gap put 2rem in front
+  of each — 4rem of nothing under the desk, on every screen. The gap is removed
+  on the desk's own page, and the default offset is now the measured `8rem`
+  (topbar plus the page padding above and below) rather than `7rem`, which left
+  the page a few pixels taller than the window: invisible on a desktop, a
+  scroll that hid the conversation header on a phone.
+
 ## [0.8.2] — 2026-10-14
 
 - **The desk's height subtracts a variable, `--chatbot-inbox-offset`.** A panel
