@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace MB\FilamentChatbot\Filament\Resources\Bots\Schemas;
 
 use Filament\Actions\Action;
+use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
 use Filament\Notifications\Notification;
@@ -13,6 +14,7 @@ use Filament\Schemas\Components\Tabs;
 use Filament\Schemas\Components\Tabs\Tab;
 use Filament\Schemas\Components\Text;
 use MB\FilamentChatbot\Channels\ChannelConnections;
+use MB\FilamentChatbot\Channels\ChannelPolling;
 use MB\FilamentChatbot\Channels\ChannelSetup;
 use MB\FilamentChatbot\Filament\Resources\Bots\Pages\EditBot;
 use MB\FilamentChatbot\Models\Bot;
@@ -88,6 +90,23 @@ class BotChannels
                 ->helperText(__('chatbot::panel.bots.channels.is_active_hint')),
         ];
 
+        /*
+         * Only where the driver can actually fetch. Offering the choice for a
+         * provider with no polling API would let somebody switch a working
+         * channel into a mode where nothing arrives and nothing says why.
+         */
+        if ($driver instanceof ChannelPolling) {
+            $fields[] = Select::make("channels.{$channel}.delivery")
+                ->label(__('chatbot::panel.bots.channels.delivery'))
+                ->options([
+                    ChannelConnection::DELIVERY_WEBHOOK => __('chatbot::panel.bots.channels.delivery_webhook'),
+                    ChannelConnection::DELIVERY_POLL => __('chatbot::panel.bots.channels.delivery_poll'),
+                ])
+                ->default(ChannelConnection::DELIVERY_WEBHOOK)
+                ->selectablePlaceholder(false)
+                ->helperText(__('chatbot::panel.bots.channels.delivery_hint'));
+        }
+
         foreach ($driver->credentialFields() as $name => $field) {
             $input = TextInput::make("channels.{$channel}.credentials.{$name}")
                 ->label($field['label'])
@@ -147,7 +166,9 @@ class BotChannels
             return __('chatbot::panel.bots.channels.unsaved');
         }
 
-        $lines = [__('chatbot::panel.bots.channels.address').': '.self::webhookUrl($connection)];
+        $lines = $connection->delivery === ChannelConnection::DELIVERY_POLL
+            ? [__('chatbot::panel.bots.channels.polled')]
+            : [__('chatbot::panel.bots.channels.address').': '.self::webhookUrl($connection)];
 
         if ($connection->verified_at !== null) {
             $lines[] = __('chatbot::panel.bots.channels.verified', [
@@ -274,7 +295,7 @@ class BotChannels
      * Channels with no row yet still get an entry, so that a messenger which
      * has never been set up draws empty fields rather than nothing at all.
      *
-     * @return array<string, array{is_active: bool, credentials: array<string, string>}>
+     * @return array<string, array{is_active: bool, delivery: string, credentials: array<string, string>}>
      */
     public static function state(Bot $bot): array
     {
@@ -291,6 +312,7 @@ class BotChannels
 
             $state[$key] = [
                 'is_active' => (bool) ($connection?->is_active ?? false),
+                'delivery' => $connection?->delivery ?? ChannelConnection::DELIVERY_WEBHOOK,
                 'credentials' => $credentials,
             ];
         }
@@ -311,13 +333,24 @@ class BotChannels
      * a live webhook at an address that no longer exists, and nothing would say
      * so until a customer wrote.
      *
-     * @param  array<string, array{is_active?: bool, credentials?: array<string, string>}>  $state
+     * @param  array<string, array{is_active?: bool, delivery?: string, credentials?: array<string, string>}>  $state
      */
     public static function persist(Bot $bot, array $state): void
     {
         foreach (self::drivers() as $key => $driver) {
             $input = $state[$key] ?? [];
             $isActive = (bool) ($input['is_active'] ?? false);
+
+            /*
+             * Anything but a driver that polls, asked for in so many words,
+             * means the webhook. The column is read by a command that runs
+             * unattended, and a value it does not recognise would be a channel
+             * that is neither delivered to nor fetched from.
+             */
+            $delivery = $driver instanceof ChannelPolling
+                && ($input['delivery'] ?? null) === ChannelConnection::DELIVERY_POLL
+                    ? ChannelConnection::DELIVERY_POLL
+                    : ChannelConnection::DELIVERY_WEBHOOK;
 
             $credentials = [];
 
@@ -343,6 +376,7 @@ class BotChannels
                     'bot_id' => $bot->getKey(),
                     'channel' => $key,
                     'is_active' => $isActive,
+                    'delivery' => $delivery,
                     'credentials' => $credentials,
                 ]);
 
@@ -351,6 +385,7 @@ class BotChannels
 
             $connection->forceFill([
                 'is_active' => $isActive,
+                'delivery' => $delivery,
                 'credentials' => $credentials,
             ])->save();
         }

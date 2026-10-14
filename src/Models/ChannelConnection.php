@@ -33,6 +33,19 @@ class ChannelConnection extends Model
 
     protected $table = 'chatbot_channel_connections';
 
+    /**
+     * The provider connects to us and delivers each update as it happens.
+     */
+    public const DELIVERY_WEBHOOK = 'webhook';
+
+    /**
+     * We connect to the provider and ask what has arrived.
+     *
+     * For networks where the first way is impossible rather than merely
+     * slower — see `ChannelPolling`.
+     */
+    public const DELIVERY_POLL = 'poll';
+
     protected $guarded = [];
 
     /**
@@ -87,6 +100,21 @@ class ChannelConnection extends Model
     public function scopeActive(Builder $query): void
     {
         $query->where('is_active', true);
+    }
+
+    /**
+     * The accounts the poller is responsible for.
+     *
+     * Active as well as polled: a connection switched off is one whose owner
+     * has said it must not answer, and fetching its updates anyway would both
+     * consume them from the provider's queue and hand them to a bot nobody
+     * asked to run.
+     *
+     * @param  Builder<$this>  $query
+     */
+    public function scopePolled(Builder $query): void
+    {
+        $query->active()->where('delivery', self::DELIVERY_POLL);
     }
 
     /**

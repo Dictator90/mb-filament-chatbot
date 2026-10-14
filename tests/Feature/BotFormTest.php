@@ -118,6 +118,36 @@ it('saves a messenger account from the bot screen and gives it an address', func
 });
 
 /**
+ * The delivery mode is carried by the same hand-written wiring as the
+ * credentials, and it goes missing in the same silence.
+ *
+ * It decides whether an unattended command fetches this account's messages at
+ * all. A choice that does not reach the column leaves the screen saying
+ * "polling" while the poller walks past the connection, and the only sign is a
+ * messenger nobody answers — which is the state this feature exists to end.
+ */
+it('remembers that a messenger is delivered by polling', function (): void {
+    $bot = Bot::factory()->create();
+
+    Livewire::test(EditBot::class, ['record' => $bot->getKey()])
+        ->fillForm([
+            'channels.telegram.is_active' => true,
+            'channels.telegram.delivery' => ChannelConnection::DELIVERY_POLL,
+            'channels.telegram.credentials.token' => '123:abc',
+            'channels.telegram.credentials.secret' => 'shared-secret',
+        ])
+        ->call('save')
+        ->assertHasNoFormErrors();
+
+    $connection = ChannelConnection::query()->where('bot_id', $bot->getKey())->sole();
+
+    expect($connection->delivery)->toBe(ChannelConnection::DELIVERY_POLL);
+
+    Livewire::test(EditBot::class, ['record' => $bot->getKey()])
+        ->assertFormSet(['channels.telegram.delivery' => ChannelConnection::DELIVERY_POLL]);
+});
+
+/**
  * A messenger nobody filled in gets no row.
  *
  * The alternative is a connection per registered driver for every bot, each

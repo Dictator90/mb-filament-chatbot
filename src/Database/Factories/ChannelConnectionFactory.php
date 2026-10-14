@@ -42,6 +42,17 @@ class ChannelConnectionFactory extends Factory
     }
 
     /**
+     * An account whose updates are fetched rather than delivered.
+     */
+    public function polled(?string $cursor = null): static
+    {
+        return $this->state(fn (): array => [
+            'delivery' => ChannelConnection::DELIVERY_POLL,
+            'poll_cursor' => $cursor,
+        ]);
+    }
+
+    /**
      * @param  array<string, string>  $credentials
      */
     public function on(string $channel, array $credentials = []): static

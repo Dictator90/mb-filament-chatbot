@@ -204,8 +204,53 @@ wins, because two bots can sit behind different routes.
 
 **It fixes one direction only.** The webhook travels the other way: the
 provider connects to this server, and no proxy of ours is in that path. An
-installation whose inbound is blocked as well needs polling, which this package
-does not do.
+installation whose inbound is blocked as well needs polling, below.
+
+### Polling, where the provider cannot reach this server
+
+The other half of the same blocked route, and the worse half, because nothing
+looks broken: the webhook registers, the provider resolves the address, and
+every delivery dies in silence. `getWebhookInfo` says `Connection timed out`
+while the server's own access log has no entry at all — the requests never
+arrive.
+
+Every connection whose driver can fetch has a **How messages arrive** field:
+
+| Mode | What happens |
+| --- | --- |
+| Webhook (default) | The provider calls this server as each update happens. |
+| Polling | This application asks the provider what has arrived. |
+
+Polling needs a process kept running:
+
+```bash
+php artisan chatbot:poll
+```
+
+It loops over every connection that is switched on and set to polling, waiting
+at the provider for something to appear rather than asking again every second,
+so an answer costs no more delay than a webhook would. Under systemd it belongs
+in a unit beside the queue worker, with `Restart=always`. `--once` makes a
+single pass, for the scheduler or for a test; `--channel=telegram` narrows it.
+
+Three things it does deliberately:
+
+- **It removes a webhook that stands in the way.** Telegram refuses
+  `getUpdates` with 409 while one is registered, and an installation that has
+  just switched to polling always has one — it is how it was set up before the
+  network made that impossible. Pending updates are kept, so the questions
+  already waiting are the first thing polling delivers.
+- **The cursor lives on the connection and is saved after the messages have
+  been handed on.** Delivery is at-least-once: an interrupted pass fetches the
+  same updates again and the router drops them as already received. The reverse
+  order would lose a customer's question on every restart.
+- **One account's refusal never ends the pass.** The reason is written onto
+  that connection, where the Channels tab shows it, and the next account is
+  asked anyway.
+
+Polling and the proxy are independent, and an installation behind a blocked
+route needs both: the proxy is how the outgoing call gets out, polling is what
+makes the incoming one unnecessary.
 
 ### The quirks that are not optional
 

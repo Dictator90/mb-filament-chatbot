@@ -6,7 +6,28 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 this package intends to follow [Semantic Versioning](https://semver.org/) once
 it reaches 1.0.
 
-## [Unreleased]
+## [0.3.0] — 2026-10-14
+
+### Polling, for networks the provider cannot reach
+
+- **`chatbot:poll` fetches what is waiting**, for connections switched to the
+  new *How messages arrive → Polling* mode. The case is a webhook that is
+  registered, resolved and never delivered: a Russian host's inbound from
+  Telegram is dropped on the way, so `getWebhookInfo` reports a timeout while
+  the server's access log has no entry at all. A proxy cannot help, because a
+  proxy of ours is only in the path of calls this application makes.
+- **Updates are decoded by the code the webhook uses**, wrapped back into a
+  request. Fetched and delivered updates are the same object, and a second
+  decoder would drift on the first fix — buttons being the half that breaks
+  first and says nothing.
+- **The cursor lives on the connection**, saved only after the batch has been
+  handed on. An interrupted pass refetches and the router drops the duplicates;
+  the other order loses the question instead.
+- **A webhook in the way is removed rather than reported.** Telegram refuses
+  `getUpdates` while one is registered, and an installation switching to
+  polling has one by definition. Pending updates are kept.
+
+## [0.2.0] — 2026-10-14, with the proxy in [0.2.1]
 
 ### Messengers belong to a bot
 

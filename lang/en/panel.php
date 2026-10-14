@@ -76,6 +76,11 @@ return [
             'last_event' => 'Last delivery from the provider: :moment.',
             'verify' => 'Check the connection',
             'install' => 'Install the webhook',
+            'delivery' => 'How messages arrive',
+            'delivery_webhook' => 'Webhook — the provider calls us',
+            'delivery_poll' => 'Polling — we ask the provider',
+            'delivery_hint' => 'Polling is for networks the provider cannot reach: the webhook is registered and every delivery dies as a timeout. The chatbot:poll command fetches the messages instead, and has to be kept running.',
+            'polled' => 'Messages are fetched by polling: the webhook address is unused and chatbot:poll does the work.',
         ],
         'identity' => [
             'heading' => 'Identity',

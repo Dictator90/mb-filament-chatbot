@@ -65,6 +65,7 @@ use MB\FilamentChatbot\Chat\NoContactDirectory;
 use MB\FilamentChatbot\Console\Commands\DemoConversationCommand;
 use MB\FilamentChatbot\Console\Commands\DoctorCommand;
 use MB\FilamentChatbot\Console\Commands\ImportKnowledgeCommand;
+use MB\FilamentChatbot\Console\Commands\PollChannelsCommand;
 use MB\FilamentChatbot\Console\Commands\RunQualityChecksCommand;
 use MB\FilamentChatbot\Console\Commands\SeedDemoDataCommand;
 use MB\FilamentChatbot\Console\Commands\SyncDataResourcesCommand;
@@ -251,6 +252,7 @@ class ChatbotServiceProvider extends ServiceProvider
             RunQualityChecksCommand::class,
             SyncDataResourcesCommand::class,
             ImportKnowledgeCommand::class,
+            PollChannelsCommand::class,
         ]);
     }
 

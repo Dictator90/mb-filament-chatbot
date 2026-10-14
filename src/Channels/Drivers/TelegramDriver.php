@@ -5,15 +5,18 @@ declare(strict_types=1);
 namespace MB\FilamentChatbot\Channels\Drivers;
 
 use Illuminate\Http\Client\ConnectionException;
+use Illuminate\Http\Client\Response as ClientResponse;
 use Illuminate\Http\Request;
 use MB\FilamentChatbot\Channels\ChannelConnections;
 use MB\FilamentChatbot\Channels\ChannelDriver;
 use MB\FilamentChatbot\Channels\ChannelHttp;
+use MB\FilamentChatbot\Channels\ChannelPolling;
 use MB\FilamentChatbot\Channels\ChannelSetup;
 use MB\FilamentChatbot\Channels\ChannelStatus;
 use MB\FilamentChatbot\Channels\ChannelText;
 use MB\FilamentChatbot\Channels\DeliveryResult;
 use MB\FilamentChatbot\Channels\InboundMessage;
+use MB\FilamentChatbot\Channels\PollBatch;
 use MB\FilamentChatbot\Models\ChannelConnection;
 use MB\FilamentChatbot\Models\Conversation;
 use MB\FilamentChatbot\Models\Message;
@@ -37,7 +40,7 @@ use Symfony\Component\HttpFoundation\Response;
  * it, so an installation set up before connections existed keeps answering
  * until it is moved over.
  */
-final class TelegramDriver implements ChannelDriver, ChannelSetup
+final class TelegramDriver implements ChannelDriver, ChannelPolling, ChannelSetup
 {
     public const KEY = 'telegram';
 
@@ -439,6 +442,146 @@ final class TelegramDriver implements ChannelDriver, ChannelSetup
         return $description === ''
             ? 'Telegram refused the request with status '.$status.'.'
             : $description;
+    }
+
+    /**
+     * Asks Telegram what has arrived since the cursor.
+     *
+     * **The updates are decoded by the same method the webhook uses.** An
+     * update fetched by `getUpdates` and an update delivered to a webhook are
+     * byte-for-byte the same object, so a second decoder would be a copy that
+     * drifts: the first fix to button handling would land in one of them, and
+     * the installation on the other path would keep the bug with nothing on
+     * screen to say why. Wrapping it back into a `Request` is the cheap half of
+     * that bargain.
+     *
+     * **A webhook in the way is removed rather than reported.** Telegram
+     * refuses `getUpdates` with 409 while one is registered, and an installation
+     * that has just switched to polling has one by definition — it is how it was
+     * set up before the network made it impossible. Answering with the error
+     * would describe a state the person has already told us to leave.
+     * `drop_pending_updates` stays off, so the questions waiting in the queue
+     * are the first thing polling delivers.
+     */
+    public function pull(ChannelConnection $connection, ?string $cursor, int $waitSeconds): PollBatch
+    {
+        $token = $connection->credential('token');
+
+        if ($token === '') {
+            return PollBatch::failed('No bot token.');
+        }
+
+        $response = $this->getUpdates($connection, $token, $cursor, $waitSeconds);
+
+        if ($response instanceof PollBatch) {
+            return $response;
+        }
+
+        $body = (array) $response->json();
+
+        if (! $response->successful() || ($body['ok'] ?? false) !== true) {
+            if ($response->status() === 409) {
+                $this->dropWebhook($connection, $token);
+
+                $retry = $this->getUpdates($connection, $token, $cursor, $waitSeconds);
+
+                if ($retry instanceof PollBatch) {
+                    return $retry;
+                }
+
+                $response = $retry;
+                $body = (array) $response->json();
+            }
+
+            if (! $response->successful() || ($body['ok'] ?? false) !== true) {
+                return PollBatch::failed($this->reason($body, $response->status()));
+            }
+        }
+
+        $updates = array_values(array_filter((array) ($body['result'] ?? []), 'is_array'));
+        $messages = [];
+        $next = $cursor;
+
+        foreach ($updates as $update) {
+            $id = (int) ($update['update_id'] ?? 0);
+
+            if ($id > 0) {
+                /*
+                 * One past the highest, which is how Telegram's offset is
+                 * defined: sending the id itself would fetch the same update
+                 * forever, and the conversation would be answered on a loop.
+                 */
+                $next = (string) ($id + 1);
+            }
+
+            $inbound = $this->decode($this->asRequest($update), $connection);
+
+            if ($inbound !== null) {
+                $messages[] = $inbound;
+            }
+        }
+
+        return PollBatch::of($messages, $next);
+    }
+
+    private function getUpdates(ChannelConnection $connection, string $token, ?string $cursor, int $waitSeconds): ClientResponse|PollBatch
+    {
+        $payload = [
+            'timeout' => $waitSeconds,
+            'allowed_updates' => ['message', 'edited_message', 'callback_query'],
+        ];
+
+        if ($cursor !== null && $cursor !== '') {
+            $payload['offset'] = (int) $cursor;
+        }
+
+        try {
+            /*
+             * The read timeout has to outlast the long poll itself, or every
+             * pull is cancelled by our own client a moment before Telegram
+             * would have answered — which looks exactly like a network fault
+             * and is the reason the margin is here rather than in config.
+             */
+            return ChannelHttp::for(self::KEY, $connection)
+                ->timeout($waitSeconds + 10)
+                ->asJson()
+                ->post($this->endpoint($token, 'getUpdates'), $payload);
+        } catch (ConnectionException $exception) {
+            return PollBatch::failed($exception->getMessage());
+        }
+    }
+
+    /**
+     * Unregisters the webhook so that polling is allowed at all.
+     *
+     * Failure is deliberately silent: the caller is already about to retry, and
+     * the retry's own answer is the honest report. A message here would name
+     * `deleteWebhook` to somebody who asked for their messages.
+     */
+    private function dropWebhook(ChannelConnection $connection, string $token): void
+    {
+        try {
+            ChannelHttp::for(self::KEY, $connection)
+                ->asJson()
+                ->post($this->endpoint($token, 'deleteWebhook'), ['drop_pending_updates' => false]);
+        } catch (ConnectionException) {
+            // The retry reports what is still wrong.
+        }
+    }
+
+    /**
+     * One fetched update, in the shape `decode()` reads a delivered one in.
+     *
+     * @param  array<array-key, mixed>  $update
+     */
+    private function asRequest(array $update): Request
+    {
+        return Request::create(
+            uri: '/',
+            method: 'POST',
+            server: ['CONTENT_TYPE' => 'application/json'],
+            content: (string) json_encode($update),
+        );
     }
 
     private function endpoint(string $token, string $method): string
