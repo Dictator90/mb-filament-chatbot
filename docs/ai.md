@@ -295,6 +295,7 @@ conversation rather than the application:
 | `search_knowledge` | Answer from the company's own material instead of from what the model knows about the world |
 | `remember` | Write a value where the scenario, the templates and the desk can read it — into the slots the author named |
 | `call_human` | Say this needs a person. A model with no way to ask improvises instead, which is how a bot promises a refund |
+| `pass_on` | Say its part is finished, which is what takes the node's first exit — offered only when that exit leads somewhere |
 
 And reading is a tool per allow-listed data resource, `read_<resource>`. That is
 how an agent answers "what have I got booked" without a second road to the same

@@ -238,7 +238,7 @@ return [
 
         'ai_agent' => [
             'label' => 'Conversation led by a model',
-            'exits' => ['answered', 'needs a person'],
+            'exits' => ['passed on', 'needs a person'],
             'writes' => 'changes data',
             'summary_header' => 'What is already known from this conversation:',
             'summary_instruction' => 'You keep a short memory of a conversation with a customer. From the previous summary and the new lines, write a single summary of three to five lines: who this person is, what they want, what they have already been told or promised, and any dates and names given. Facts from the conversation only — no guesses and no pleasantries. Answer in the language of the conversation.',
@@ -288,6 +288,8 @@ return [
                 'remember' => 'Remember something the person said about themselves, so the operator and the later steps can see it.',
                 'remember_field' => 'Which value this is',
                 'remember_value' => 'The value, in the person\'s own words',
+                'pass' => 'Say that your part of the conversation is finished and pass it on to the next step. Call it only when everything the instruction asks for has been collected and you have not just asked a question.',
+                'pass_note' => 'One line for the journal: why you consider it collected',
                 'human' => 'Hand the conversation to a human operator. For anything outside the material, and for money, complaints and promises.',
                 'human_reason' => 'Why a person is needed — one line, for the operator',
                 'read_limit' => 'How many records to show, at most twenty',

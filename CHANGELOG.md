@@ -6,6 +6,37 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 this package intends to follow [Semantic Versioning](https://semver.org/) once
 it reaches 1.0.
 
+## [0.11.0] — 2026-10-15
+
+- **The model says when its part is done: `pass_on`.** The `ai_agent` node's
+  first exit is taken on that tool rather than after every answer, and an
+  ordinary answer leaves the conversation with the model, waiting at the node.
+  It was the other way round for one release, with a condition on the canvas
+  deciding — "once these values are filled, carry on" — and one live
+  conversation showed why that cannot work: the model asked "куда бы Вы хотели
+  поехать?", the visitor's previous message happened to complete the list, and
+  the scenario spoke over the question it had just asked. The customer read a
+  question and then a summary answering a different one. Only the model knows
+  whether it has just asked something.
+- **The next message comes back to the node instead of being routed again.** A
+  conversation the model is leading must not be taken from it mid-sentence by a
+  scenario that matched a keyword. Breaking out stays its own decision: fetch a
+  person, or pass the conversation on.
+- `pass_on` is offered only when the first exit leads somewhere. A node without
+  one is a conversation the model holds to the end, and offering to pass it on
+  there would end a turn in silence.
+
+## [0.10.2] — 2026-10-15
+
+- **Said out loud what the agent does not promise, unlike the answer node.**
+  That one refuses to speak an answer whose claimed sources were not among the
+  fragments it was handed, which is what makes an invented refund policy
+  harmless. The agent's answer is composed after several tool results, it was
+  never asked to name a source, and there is nothing to check a claim against.
+  What remains real: the knowledge search goes through `KnowledgeSource`, which
+  never offers a topic whose mode says "fetch a person" or "run a scenario". The
+  rest is the instruction's job — which is why it is required.
+
 ## [0.10.1] — 2026-10-15
 
 - **The agent can read, through the data resources.** A tool per allow-listed

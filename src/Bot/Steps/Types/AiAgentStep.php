@@ -190,6 +190,20 @@ final class AiAgentStep extends StepType
         ];
     }
 
+    /**
+     * The next message of a conversation the model is holding comes back here.
+     *
+     * Same work as `run()`: the answer is already in the context as what was
+     * said this turn, and a second reading of it would be a second copy of the
+     * same decision. What the override buys is the default not applying —
+     * `StepType::resume()` answers `next()`, which would push the conversation
+     * out of the agent's hands on the visitor's second message.
+     */
+    public function resume(StepContext $context, string $answer): StepResult
+    {
+        return $this->run($context);
+    }
+
     public function run(StepContext $context): StepResult
     {
         $gateway = $this->gateways->guarded(
@@ -257,10 +271,37 @@ final class AiAgentStep extends StepType
             ])->spoken($outcome->text !== '');
         }
 
-        return StepResult::next()->traced(RunStep::SAID, [
+        /*
+         * An ordinary answer leaves the conversation here, waiting for the next
+         * message, and the first exit is taken only when the model says its
+         * part is done.
+         *
+         * This was the other way round for one release, with a condition on the
+         * canvas deciding — "once these values are filled, carry on" — and a
+         * live conversation showed why it cannot be: the model asked "куда бы
+         * Вы хотели поехать?", the visitor's previous message happened to
+         * complete the list, and the scenario spoke over the question it had
+         * just asked. The customer read a question and then a summary
+         * answering a different one. Only the model knows whether it has just
+         * asked something, so the hand-off is its decision.
+         *
+         * Waiting rather than ending the walk, so the next message comes back
+         * to this node instead of being routed again: a conversation the model
+         * is leading must not be taken from it mid-sentence by a scenario that
+         * matched a keyword. Breaking out stays possible — it calls a person,
+         * or it passes the conversation on.
+         */
+        if (! $outcome->passedOn) {
+            return StepResult::wait()->traced(RunStep::SAID, [
+                'provider' => $gateway->name(),
+                ...$outcome->trace(),
+            ])->spoken();
+        }
+
+        return StepResult::next()->traced(RunStep::PASSED, [
             'provider' => $gateway->name(),
             ...$outcome->trace(),
-        ])->spoken();
+        ])->spoken($outcome->text !== '');
     }
 
     /**
@@ -381,6 +422,7 @@ final class AiAgentStep extends StepType
             canCallHuman: (bool) $context->setting('call_human', true),
             slots: $slots,
             resources: $this->resources($context),
+            canPassOn: filled($context->step->next_key),
         );
     }
 

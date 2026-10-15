@@ -1052,7 +1052,7 @@ offers, and answers in its own words.
 | | |
 | --- | --- |
 | Class | `AiAgentStep` |
-| Outputs | `Pair` — `answered` / `needs a person` |
+| Outputs | `Pair` — `passed on` / `needs a person` |
 | Speaks | no |
 | Trace | `said`, `passed`, `failed` |
 
@@ -1083,12 +1083,28 @@ that works is this node for the conversation — greeting, questions about
 anything, reading a booking, working out what the person actually wants — with
 `remember` writing what it learns into the same slots a form would have filled.
 
-**Three tools are the package's own**, switched on per node rather than
-registered by a host, because all three are about the conversation rather than
+**Four tools are the package's own**, switched on per node rather than
+registered by a host, because all four are about the conversation rather than
 about the application: `search_knowledge` looks something up in the company's
 own material, `remember` writes a value where the rest of the bot can read it,
-and `call_human` says this needs a person. A model with no way to ask for help
-improvises instead, which is how a bot promises a refund.
+`call_human` says this needs a person, and `pass_on` says the model's part is
+finished. A model with no way to ask for help improvises instead, which is how
+a bot promises a refund.
+
+**An ordinary answer leaves the conversation here, and the first exit is taken
+only on `pass_on`.** The node waits after answering, so the next message comes
+back to it rather than being routed again — a conversation the model is leading
+must not be taken from it mid-sentence by a scenario that matched a keyword.
+
+This was the other way round for one release, with a condition on the canvas
+deciding — "once these values are filled, carry on" — and a live conversation
+showed why it cannot be: the model asked "куда бы Вы хотели поехать?", the
+visitor's previous message happened to complete the list, and the scenario spoke
+over the question it had just asked. The customer read a question and then a
+summary answering a different one. Only the model knows whether it has just
+asked something. `pass_on` is offered only when the first exit leads somewhere:
+a node without one is a conversation the model holds to the end, and offering to
+pass it on would end a turn in silence.
 
 **Reading goes through the data resources, as `read_<resource>`.** The rows are
 narrowed to the person being talked to by the scopes the resource declared,

@@ -33,6 +33,7 @@ final class AgentOutcome
         public readonly AiUsage $usage,
         public readonly array $did,
         public readonly int $rounds,
+        public readonly bool $passedOn = false,
     ) {}
 
     /**
@@ -52,6 +53,21 @@ final class AgentOutcome
     }
 
     /**
+     * The model says its part is done and the conversation may carry on.
+     *
+     * A success like `spoke()`, and told apart from it because the node's first
+     * exit hangs on exactly this difference: an ordinary answer leaves the
+     * conversation with the model, this one passes it to whatever the author
+     * drew next.
+     *
+     * @param  list<array<string, mixed>>  $did
+     */
+    public static function passedOn(string $note, string $text, AiUsage $usage, array $did, int $rounds): self
+    {
+        return new self(true, trim($text), false, trim($note) === '' ? null : trim($note), $usage, $did, $rounds, true);
+    }
+
+    /**
      * @param  list<array<string, mixed>>  $did
      */
     public static function failed(string $reason, AiUsage $usage, array $did = [], int $rounds = 0): self
@@ -68,6 +84,7 @@ final class AgentOutcome
             'rounds' => $this->rounds,
             'reason' => $this->reason,
             'wants_human' => $this->wantsHuman ?: null,
+            'passed_on' => $this->passedOn ?: null,
             'did' => $this->did === [] ? null : $this->did,
             'usage' => $this->usage->toArray(),
         ], static fn (mixed $value): bool => $value !== null);

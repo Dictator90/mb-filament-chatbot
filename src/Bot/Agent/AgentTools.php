@@ -48,6 +48,22 @@ final class AgentTools
     public const HUMAN = 'call_human';
 
     /**
+     * The tool with which the model says its part is finished.
+     *
+     * The alternative was a condition on the canvas — "once these values are
+     * filled, carry on" — and it was tried on a live conversation. It fails in
+     * a way nothing else could have shown: the model asks "куда бы Вы хотели
+     * поехать?", the visitor's previous message happened to complete the list,
+     * and the scenario speaks over the question it had just asked. The customer
+     * reads a question and then a summary answering a different one.
+     *
+     * Only the model knows whether it has just asked something. So the hand-off
+     * is its own decision, and the node's first exit is taken on this tool
+     * rather than after every answer.
+     */
+    public const PASS = 'pass_on';
+
+    /**
      * The prefix a declared data resource is offered to the model under.
      *
      * Prefixed rather than named after the resource alone, so that a resource
@@ -69,6 +85,7 @@ final class AgentTools
         private readonly bool $canCallHuman = true,
         private readonly array $slots = [],
         private readonly array $resources = [],
+        private readonly bool $canPassOn = false,
     ) {}
 
     /**
@@ -83,6 +100,7 @@ final class AgentTools
         bool $canCallHuman,
         array $slots = [],
         array $resources = [],
+        bool $canPassOn = false,
     ): self {
         $keyed = [];
 
@@ -96,7 +114,7 @@ final class AgentTools
             $reads[self::READ.AiTool::nameFor((string) $resource['key'])] = $resource;
         }
 
-        return new self($keyed, $canSearch, $canRemember, $canCallHuman, $slots, $reads);
+        return new self($keyed, $canSearch, $canRemember, $canCallHuman, $slots, $reads, $canPassOn);
     }
 
     /**
@@ -139,6 +157,19 @@ final class AgentTools
                         'value' => ['type' => 'string', 'description' => __('chatbot::nodes.steps.ai_agent.tools.remember_value')],
                     ],
                     'required' => ['field', 'value'],
+                ],
+            );
+        }
+
+        if ($this->canPassOn) {
+            $tools[] = new AiTool(
+                self::PASS,
+                __('chatbot::nodes.steps.ai_agent.tools.pass'),
+                [
+                    'type' => 'object',
+                    'properties' => [
+                        'note' => ['type' => 'string', 'description' => __('chatbot::nodes.steps.ai_agent.tools.pass_note')],
+                    ],
                 ],
             );
         }

@@ -186,11 +186,73 @@ it('lets the model use a host action and answer from what it returned', function
         'что с моей бронью A-17?',
     ));
 
-    expect($result->flow)->toBe(StepFlow::Next)
+    expect($result->flow)->toBe(StepFlow::Wait)
         ->and($seen->calls)->toBe([['reference' => 'A-17']])
         ->and($this->runtime->said)->toBe(['Бронь подтверждена.'])
         ->and($result->trace['did'][0]['tool'])->toBe('crm_booking_state')
         ->and($result->trace['usage']['input_tokens'])->toBe(45);
+});
+
+/**
+ * Обычный ответ оставляет разговор у модели, а не продвигает сценарий.
+ *
+ * Так и было наоборот одну версию: первый выход брался после каждого ответа,
+ * а решал условие на полотне — «собрано столько-то значений, идём дальше».
+ * Живой разговор на бою показал, чего так увидеть нельзя: модель спросила
+ * «куда бы Вы хотели поехать?», предыдущая реплика человека как раз дособрала
+ * список, и сценарий заговорил поверх собственного вопроса — человек прочитал
+ * вопрос, а следом резюме про другое.
+ *
+ * Ждём на том же узле, а не кончаем прогон: следующее сообщение должно вернуться
+ * к модели, а не разойтись по маршрутизации — иначе разговор, который она ведёт,
+ * у неё посреди фразы отберёт сценарий, поймавший зацепку.
+ */
+it('оставляет разговор у модели, пока она не передала его дальше', function (): void {
+    anthropicReplies([
+        anthropicSays('Расскажите, куда хотите поехать?'),
+        anthropicAsks('pass_on', ['note' => 'собрано всё'], text: 'Передаю подбор.'),
+    ]);
+
+    $node = agentNode(['tools' => [], 'search' => false]);
+    $node->next_key = 'дальше';
+
+    $answered = app(AiAgentStep::class)->run(agentContext($this->conversation, $node, $this->runtime, 'здравствуйте'));
+
+    expect($answered->flow)->toBe(StepFlow::Wait)
+        ->and($this->runtime->said)->toBe(['Расскажите, куда хотите поехать?']);
+
+    $passed = app(AiAgentStep::class)->resume(
+        agentContext($this->conversation, $node, $this->runtime, 'в Турцию, вылет из Ростова'),
+        'в Турцию, вылет из Ростова',
+    );
+
+    expect($passed->flow)->toBe(StepFlow::Next)
+        ->and($passed->trace['passed_on'])->toBeTrue()
+        ->and($this->runtime->said)->toBe(['Расскажите, куда хотите поехать?', 'Передаю подбор.']);
+});
+
+/**
+ * Передавать некуда — инструмента нет вовсе.
+ *
+ * Узел без первого выхода — это разговор, который ведёт только модель:
+ * предложи ей «передать дальше», и она это сделает, а передавать будет некуда
+ * — прогон кончится молча, и человек останется без ответа.
+ */
+it('не предлагает передать разговор, когда первый выход никуда не ведёт', function (): void {
+    anthropicReplies([anthropicSays('Слушаю Вас.')]);
+
+    app(AiAgentStep::class)->run(agentContext(
+        $this->conversation,
+        agentNode(['tools' => [], 'search' => false]),
+        $this->runtime,
+        'здравствуйте',
+    ));
+
+    Http::assertSent(function ($request): bool {
+        $names = array_column((array) ($request->data()['tools'] ?? []), 'name');
+
+        return ! in_array('pass_on', $names, true) && in_array('call_human', $names, true);
+    });
 });
 
 /**
@@ -214,7 +276,7 @@ it('refuses a tool it never offered and lets the model recover', function (): vo
         'отмени мою бронь',
     ));
 
-    expect($result->flow)->toBe(StepFlow::Next)
+    expect($result->flow)->toBe(StepFlow::Wait)
         ->and($this->runtime->said)->toBe(['Отменить бронь я не могу, передам менеджеру.'])
         ->and($result->trace['did'][0]['ok'])->toBeFalse();
 });
@@ -247,7 +309,7 @@ it('запоминает узнанное в разрешённые поля и 
         'меня зовут Ирина',
     ));
 
-    expect($result->flow)->toBe(StepFlow::Next)
+    expect($result->flow)->toBe(StepFlow::Wait)
         ->and($this->runtime->stored['name'] ?? null)->toBe('Ирина')
         ->and($this->runtime->stored)->not->toHaveKey('notes')
         ->and($this->conversation->refresh()->display_name)->toBe('Ирина')
@@ -454,7 +516,7 @@ it('читает данные через объявленный источник
         'что у меня забронировано?',
     ));
 
-    expect($result->flow)->toBe(StepFlow::Next)
+    expect($result->flow)->toBe(StepFlow::Wait)
         ->and($result->trace['did'][0]['ok'])->toBeTrue();
 
     Http::assertSent(function ($request): bool {

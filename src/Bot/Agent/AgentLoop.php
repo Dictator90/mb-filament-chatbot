@@ -100,6 +100,18 @@ final class AgentLoop
             $turn = $turn->with(AiMessage::asking($reply->calls(), $reply->text()));
 
             foreach ($reply->calls() as $call) {
+                if ($call->name === AgentTools::PASS) {
+                    $did[] = ['tool' => $call->name, 'ok' => true];
+
+                    return AgentOutcome::passedOn(
+                        trim((string) ($call->input['note'] ?? '')),
+                        $reply->text(),
+                        $usage,
+                        $did,
+                        $round,
+                    );
+                }
+
                 if ($call->name === AgentTools::HUMAN) {
                     $did[] = ['tool' => $call->name, 'ok' => true];
 
