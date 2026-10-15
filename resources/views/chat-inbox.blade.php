@@ -141,8 +141,6 @@
             padding: 0.3rem 0.55rem;
             font-size: 0.78rem;
             color: var(--ci-muted);
-            background: var(--ci-surface);
-            border: 1px solid var(--ci-line);
             border-radius: 0.5rem;
         }
 
@@ -871,31 +869,95 @@
             buttons underneath, which is a form, not a chat. An operator
             answering twenty threads reads the same four controls twenty times,
             and a reply is a sentence rather than a document.
+
+            **Both rows are `display: contents`,** so the paperclip and the
+            stock phrases end up as children of the form and can be ordered
+            beside each other. They live in different containers in the markup —
+            one above the line, one below it — and nothing else can put them
+            side by side. The phrases used to sit on their own row with a word
+            on the button, which cost the height of the reply box itself for a
+            control reached for occasionally.
         */
-        .chatbot-inbox__composer-row {
+        .chatbot-inbox__composer form {
             display: flex;
-            gap: 0.4rem;
-            align-items: flex-end;
+            flex-wrap: wrap;
+            gap: 0.35rem;
+            align-items: center;
+        }
+
+        .chatbot-inbox__composer-row,
+        .chatbot-inbox__composer-under {
+            display: contents;
+        }
+
+        .chatbot-inbox__attach {
+            order: 1;
+        }
+
+        .chatbot-inbox__quick {
+            order: 2;
+        }
+
+        .chatbot-inbox__composer textarea {
+            flex: 1 1 8rem;
+            order: 3;
+        }
+
+        .chatbot-inbox__composer-row > .fi-btn {
+            order: 4;
         }
 
         /*
-            The stock phrases sit under the line rather than in it. They are
-            reached for occasionally and are the widest control here; on the
-            line they pushed the box that everything is typed into down to a
-            few characters on a laptop.
+            Значками и без рамок: скрепка и молния — спутники поля ответа,
+            а не самостоятельные кнопки. Рамка вокруг каждой делала их крупнее
+            самих значков и спорила с рамкой самого поля, внутри которого они
+            и лежат.
+
+            Нулевой кегль прячет подпись: Filament рисует её голым текстовым
+            узлом прямо в кнопке, и взять её селектором не за что. Текст
+            остаётся в разметке — экранный диктор читает кнопку по-прежнему.
         */
-        .chatbot-inbox__composer-under {
-            display: flex;
-            gap: 0.5rem;
-            align-items: center;
-            margin-top: 0.4rem;
+        .chatbot-inbox__attach .fi-btn,
+        .chatbot-inbox__quick .fi-btn,
+        .chatbot-inbox__emoji .fi-btn {
+            gap: 0;
+            padding: 0.3rem;
+            font-size: 0;
+            background: transparent;
+            border: 0;
+            box-shadow: none;
         }
 
-        .chatbot-inbox__counter {
-            margin-inline-start: auto;
-            font-size: 0.7rem;
-            color: var(--ci-muted);
+        .chatbot-inbox__attach .fi-btn:hover,
+        .chatbot-inbox__quick .fi-btn:hover,
+        .chatbot-inbox__emoji .fi-btn:hover {
+            background: color-mix(in srgb, currentColor 10%, transparent);
         }
+
+        /* Значки читаются как один набор, поэтому стоят вплотную. */
+        .chatbot-inbox__emoji,
+        .chatbot-inbox__attach {
+            margin-inline-end: -0.25rem;
+        }
+
+        /*
+            Действия разговора рисуются значками без рамок — это делает сам
+            Filament, когда действию сказано `iconButton()`; здесь не остаётся
+            ничего, что пришлось бы доправлять стилями. Подпись живёт
+            в подсказке при наведении и в `aria-label`.
+
+            Кнопка «к списку» — своя, не Filament, и рамки у неё нет по той же
+            причине: рядом со значками без рамок она выглядела бы единственной
+            настоящей кнопкой в шапке.
+        */
+        .chatbot-inbox__back:hover {
+            background: color-mix(in srgb, currentColor 10%, transparent);
+        }
+
+        .chatbot-inbox__emoji {
+            order: 0;
+        }
+
 
         /*
             On a phone the emoji button goes, and send loses its word.
@@ -913,6 +975,118 @@
             .chatbot-inbox__send-text {
                 display: none;
             }
+
+            /*
+                На телефоне шапка разговора забирала четверть экрана.
+                Кнопка «к списку», аватар, имя, строка контакта, строка канала
+                и три кнопки действий переносились в четыре ряда, под ними
+                ложилась полоса «отвечает бот» — и на саму переписку оставалась
+                половина окна, а поле ответа уезжало за край. Здесь шапка
+                сжимается до одного ряда: у кнопок остаются значки, мета-строки
+                режутся многоточием, а всё, что не помогает ответить прямо
+                сейчас, уходит.
+
+                Меняется только узкий экран: на широком шапка та же.
+            */
+            .chatbot-inbox__stage-head {
+                flex-wrap: nowrap;
+                gap: 0.4rem;
+                min-height: 0;
+                padding: 0.4rem 0.6rem;
+            }
+
+            /*
+                Слово у кнопки «к списку» прячется, стрелка остаётся: подписи
+                у действий убраны самими действиями (`iconButton()`), а эта
+                кнопка — своя, и Filament её не рисует.
+
+                Нулевым кеглем, а не `display: none`: подпись здесь голый
+                текстовый узел, взять её селектором не за что. Текст остаётся
+                в разметке — экранный диктор читает кнопку по-прежнему,
+                и `aria-label` у неё свой.
+            */
+            .chatbot-inbox__back {
+                gap: 0;
+                font-size: 0;
+            }
+
+            .chatbot-inbox__back {
+                flex: none;
+                padding: 0.3rem 0.5rem;
+            }
+
+            .chatbot-inbox__back span[aria-hidden] {
+                font-size: 1rem;
+            }
+
+            .chatbot-inbox__avatar {
+                display: none;
+            }
+
+            .chatbot-inbox__who h3,
+            .chatbot-inbox__contact,
+            .chatbot-inbox__who p {
+                overflow: hidden;
+                text-overflow: ellipsis;
+                white-space: nowrap;
+            }
+
+            .chatbot-inbox__contact {
+                flex-wrap: nowrap;
+            }
+
+            .chatbot-inbox__who h3 {
+                font-size: 0.92rem;
+            }
+
+            .chatbot-inbox__who p {
+                font-size: 0.68rem;
+            }
+
+            /*
+                Полоса про бота — одной строкой и мельче: она предупреждает,
+                а не объясняет, и читают её один раз.
+            */
+            .chatbot-inbox__banner {
+                padding: 0.3rem 0.6rem;
+                font-size: 0.68rem;
+            }
+
+            /*
+                Страница отдаёт столу всю ширину. Отступы и скругления
+                Filament на телефоне съедали по десятку точек с каждой
+                стороны — на экране в 375 точек это заметная часть строки.
+            */
+            .fi-main {
+                padding-inline: 0;
+            }
+
+            .chatbot-inbox {
+                border-radius: 0;
+                border-inline: 0;
+            }
+
+            .chatbot-inbox__composer {
+                padding: 0.5rem 0.6rem 0.6rem;
+            }
+
+            .chatbot-inbox__composer textarea {
+                flex-basis: 6rem;
+            }
+
+            /*
+                Отправка на телефоне — квадрат со значком: слово рядом с ним
+                уже спрятано, а кнопка оставалась широкой и съедала строку
+                ввода. Квадрат читается как кнопка-значок и попадает под
+                палец — сторона равна высоте поля.
+            */
+            .chatbot-inbox__composer-row > .fi-btn {
+                justify-content: center;
+                width: 2.25rem;
+                height: 2.25rem;
+                padding: 0;
+            }
+
         }
 
         .chatbot-inbox__error {
@@ -1442,25 +1616,13 @@
                 <div class="chatbot-inbox__composer">
                     @if ($record->status === \MB\FilamentChatbot\Enums\ConversationStatus::Open)
                         {{--
-                            The counter reads the draft instead of keeping its own
-                            copy of how long it is. `wire:model` without `.live`
-                            still updates `$wire` on every keystroke — the value is
-                            held in the browser and merely not sent to the server —
-                            so this costs no round trip, and there is no second
-                            number that can fall out of step with the first.
-
-                            It did fall out of step. A mirrored length has to be
-                            resynced from every place the server clears the draft,
-                            and there are three: sending, opening another
-                            conversation, and closing the one that was open. Each is
-                            a separate line somebody has to remember to write, the
-                            miss is invisible on screen, and near the limit a stale
-                            number reads as "no room left" over an empty box.
+                            Счётчика знаков здесь больше нет. Предел держит само
+                            поле (`maxlength`), и до него не доходит никто:
+                            ответ оператора — несколько фраз, а не документ,
+                            и строка «0 / 4000» под каждым разговором считала
+                            то, чего никто не превышает.
                         --}}
-                        <form
-                            wire:submit="sendReply"
-                            x-data="{ get length() { return ($wire.composerBody ?? '').length } }"
-                        >
+                        <form wire:submit="sendReply">
                             {{--
                                 Everything typed on one line: the two icons, the
                                 box, and send. It was a paragraph-sized textarea
@@ -1635,9 +1797,6 @@
                                     </div>
                                 </div>
 
-                                <span class="chatbot-inbox__counter">
-                                    <span x-text="length">0</span> / {{ $this->maxLength() }}
-                                </span>
                             </div>
 
                             {{--

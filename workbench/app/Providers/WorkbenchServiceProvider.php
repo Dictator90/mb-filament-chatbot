@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace Workbench\App\Providers;
 
 use Illuminate\Support\ServiceProvider;
+use MB\FilamentChatbot\Contracts\ContactDirectory;
+use Workbench\App\DemoContacts;
 
 /**
  * Application wiring for the workbench that is not the panel.
@@ -69,6 +71,21 @@ class WorkbenchServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        /*
+         * A contact directory, so that the desk's linked-thread state can be
+         * looked at. Without one the second line under the name — who this is,
+         * and the buttons that relink and unlink — never renders here, and that
+         * line is where the desk is tightest on a phone.
+         *
+         * Never in the test suite: the tests are the package's, not the
+         * showroom's, and the ones that assert a desk with no contact card
+         * would be answering this stand-in instead of the package's own
+         * `NoContactDirectory`.
+         */
+        if (! $this->app->runningUnitTests()) {
+            $this->app->bind(ContactDirectory::class, DemoContacts::class);
+        }
+
         $configured = rtrim((string) $this->app['config']->get('app.url'), '/');
 
         /*

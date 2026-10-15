@@ -6,6 +6,28 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 this package intends to follow [Semantic Versioning](https://semver.org/) once
 it reaches 1.0.
 
+## [0.9.7] — 2026-10-15
+
+- **The desk fits a phone.** Its header took a quarter of a 375-point screen:
+  the back button, the avatar, the name, the contact line, the channel line and
+  three labelled buttons wrapped into four rows, with the "a bot is answering"
+  strip under them, and the reply box went off the bottom. The header is now a
+  single row — 52 points, 71 with a contact attached — meta lines are clipped
+  rather than wrapped, the page gives the desk its full width, and the send
+  button is a square.
+- **Conversation actions are icon buttons with tooltips.** Take it, close,
+  file a contact, hand back to the bot, relink and unlink: six labelled
+  buttons competed with the name of the person being talked to. The label
+  lives in the tooltip and in `aria-label`.
+- **The composer is one row at every width.** The stock phrases moved up beside
+  the paperclip as an icon, and emoji, paperclip and phrases lost their borders
+  — a border around each made them larger than the icons inside them and
+  argued with the border of the field they sit in.
+- **The character counter is gone.** The field's own `maxlength` holds the
+  limit, and nobody writes four thousand characters into a chat reply.
+- The workbench gained a demo contact directory, so the desk's linked-thread
+  state can be looked at at all — it is where the header is tightest.
+
 ## [0.9.6] — 2026-10-15
 
 - **A button pressed in a messenger is read as the word it carried.** Callback

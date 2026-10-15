@@ -681,6 +681,19 @@ class ChatInbox extends Page
                 : __('chatbot::panel.inbox.take'))
             ->icon(fn (): Heroicon => $this->isMine() ? Heroicon::OutlinedArrowUturnLeft : Heroicon::OutlinedHandRaised)
             ->color('gray')
+            /*
+                Значком и с подсказкой, а не словом на кнопке.
+
+                Четыре подписанные кнопки занимали в шапке разговора больше
+                места, чем имя человека, с которым разговаривают: на телефоне
+                они переносились в три ряда и забирали четверть экрана.
+                Подпись не пропадает — `iconButton()` оставляет её
+                в `aria-label`, а `tooltip()` показывает при наведении.
+            */
+            ->iconButton()
+            ->tooltip(fn (): string => $this->isMine()
+                ? __('chatbot::panel.inbox.release')
+                : __('chatbot::panel.inbox.take'))
             ->authorize(fn (): bool => $this->canUpdateActive())
             ->action(function (): void {
                 $conversation = $this->activeConversation;
@@ -711,6 +724,10 @@ class ChatInbox extends Page
                 : __('chatbot::panel.inbox.reopen'))
             ->icon(fn (): Heroicon => $this->isOpen() ? Heroicon::OutlinedArchiveBox : Heroicon::OutlinedArchiveBoxArrowDown)
             ->color('gray')
+            ->iconButton()
+            ->tooltip(fn (): string => $this->isOpen()
+                ? __('chatbot::panel.inbox.close')
+                : __('chatbot::panel.inbox.reopen'))
             ->authorize(fn (): bool => $this->canUpdateActive())
             ->action(function (): void {
                 $conversation = $this->activeConversation;
@@ -745,6 +762,8 @@ class ChatInbox extends Page
             ->label(__('chatbot::panel.inbox.return_to_bot'))
             ->icon(Heroicon::OutlinedCpuChip)
             ->color('gray')
+            ->iconButton()
+            ->tooltip(__('chatbot::panel.inbox.return_to_bot'))
             ->requiresConfirmation()
             ->modalDescription(__('chatbot::panel.inbox.return_to_bot_description'))
             ->authorize(fn (): bool => $this->canUpdateActive())
@@ -784,6 +803,8 @@ class ChatInbox extends Page
             ->label(__('chatbot::panel.inbox.create_contact'))
             ->icon(Heroicon::OutlinedUserPlus)
             ->color('gray')
+            ->iconButton()
+            ->tooltip(__('chatbot::panel.inbox.create_contact'))
             ->authorize(fn (): bool => $this->canUpdateActive())
             ->action(function (): void {
                 $conversation = $this->activeConversation;
@@ -832,7 +853,10 @@ class ChatInbox extends Page
             ->icon(Heroicon::OutlinedLink)
             ->color('gray')
             ->size(Size::ExtraSmall)
-            ->link()
+            ->iconButton()
+            ->tooltip(fn (): string => $this->activeConversation?->contact_id === null
+                ? __('chatbot::panel.inbox.link_contact_empty')
+                : __('chatbot::panel.inbox.link_contact'))
             ->authorize(fn (): bool => $this->canUpdateActive())
             ->schema([
                 Select::make('contact')
@@ -881,7 +905,8 @@ class ChatInbox extends Page
             ->icon(Heroicon::OutlinedLinkSlash)
             ->color('gray')
             ->size(Size::ExtraSmall)
-            ->link()
+            ->iconButton()
+            ->tooltip(__('chatbot::panel.inbox.unlink_contact'))
             ->requiresConfirmation()
             ->modalDescription(__('chatbot::panel.inbox.unlink_contact_description'))
             ->authorize(fn (): bool => $this->canUpdateActive())

@@ -32,7 +32,14 @@ something unread, and tags for the channel, the bot and whether the row is
 
 **The thread** shows the transcript with the visitor on the left and the bot and
 the operator on the right, told apart by colour and by a name above each bubble.
-Under it sits the reply box, a character counter and the stock phrases.
+Under it sits the reply box, with emoji, the paperclip and the stock phrases as
+icons inside it.
+
+**On a phone the header folds to one row.** The actions become icon buttons
+whose label lives in a tooltip and in `aria-label`, the meta lines are clipped
+rather than wrapped, the page gives the desk its full width and the send button
+is a square. The header used to take a quarter of the screen and push the reply
+box off the bottom — a desk an operator could read but not answer from.
 
 The list is capped at 80 conversations and says so when it is capped. It is not
 a page of results to walk through: a desk with more than eighty conversations
