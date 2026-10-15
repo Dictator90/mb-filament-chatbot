@@ -164,6 +164,12 @@ final class AiAgentStep extends StepType
                 ->options(fn (): array => $this->slotOptions())
                 ->hint(__('chatbot::nodes.steps.ai_agent.fields.slots.hint')),
 
+            Field::select('requires')
+                ->label(__('chatbot::nodes.steps.ai_agent.fields.requires.label'))
+                ->multiple()
+                ->options(fn (): array => $this->slotOptions())
+                ->hint(__('chatbot::nodes.steps.ai_agent.fields.requires.hint')),
+
             Field::toggle('search')
                 ->label(__('chatbot::nodes.steps.ai_agent.fields.search.label'))
                 ->default(true)
@@ -423,6 +429,7 @@ final class AiAgentStep extends StepType
             slots: $slots,
             resources: $this->resources($context),
             canPassOn: filled($context->step->next_key),
+            requires: $this->chosen($context, 'requires'),
         );
     }
 

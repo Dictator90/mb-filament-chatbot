@@ -6,6 +6,20 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 this package intends to follow [Semantic Versioning](https://semver.org/) once
 it reaches 1.0.
 
+## [0.11.1] — 2026-10-15
+
+- **`requires`: what must be collected before `pass_on` is allowed.** The
+  clearest example in this package of an instruction not being a check. The
+  node's text said, in as many words, to call `pass_on` only when everything
+  was collected and never in the same turn in which the model had asked
+  something — and the very first live reply asked "Сколько лет детям?" and
+  called `pass_on` alongside it, with no name collected at all. The
+  conversation left the model in the middle of its own question. The refusal
+  now happens in code and names the missing values, which the model reads like
+  any other tool result and carries on asking within the same turn. Dropping
+  the call silently would be worse than either: the visitor would hear "передаю
+  подбор" and then nothing.
+
 ## [0.11.0] — 2026-10-15
 
 - **The model says when its part is done: `pass_on`.** The `ai_agent` node's

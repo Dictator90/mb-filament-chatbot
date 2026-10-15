@@ -101,6 +101,20 @@ final class AgentLoop
 
             foreach ($reply->calls() as $call) {
                 if ($call->name === AgentTools::PASS) {
+                    $missing = $this->missing($tools, $context);
+
+                    if ($missing !== []) {
+                        $did[] = ['tool' => $call->name, 'ok' => false, 'reason' => 'не хватает: '.implode(', ', $missing)];
+
+                        $turn = $turn->with(AiMessage::result(
+                            $call->id,
+                            __('chatbot::nodes.steps.ai_agent.tools.pass_refused', ['fields' => implode(', ', $missing)]),
+                            false,
+                        ));
+
+                        continue;
+                    }
+
                     $did[] = ['tool' => $call->name, 'ok' => true];
 
                     return AgentOutcome::passedOn(
@@ -142,6 +156,29 @@ final class AgentLoop
             $did,
             $rounds,
         );
+    }
+
+    /**
+     * Which of the node's required values are still empty.
+     *
+     * Read through the runtime rather than off the conversation row, because a
+     * value the model remembered earlier in this same turn is in the runtime
+     * and not yet anywhere else — and refusing the hand-off over a field the
+     * model had just filled would loop it until the rounds ran out.
+     *
+     * @return list<string>
+     */
+    private function missing(AgentTools $tools, StepContext $context): array
+    {
+        $missing = [];
+
+        foreach ($tools->requires() as $field) {
+            if (trim((string) $context->runtime->value($field)) === '') {
+                $missing[] = $field;
+            }
+        }
+
+        return $missing;
     }
 
     /**

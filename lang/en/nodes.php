@@ -261,6 +261,10 @@ return [
                     'label' => 'What it may read',
                     'hint' => 'Declared data resources. Rows are narrowed to the person being talked to by the resource\'s own rules, not by the model: the value that does the narrowing is never shown to it and never asked of it.',
                 ],
+                'requires' => [
+                    'label' => 'What must be collected before passing on',
+                    'hint' => 'While any of these is empty, `pass_on` is refused and the model reads which ones are missing. The instruction is no help here: on the very first live conversation the model passed the request on in the same turn in which it asked about the children, with no name collected at all.',
+                ],
                 'slots' => [
                     'label' => 'What it may remember',
                     'hint' => 'The names it writes what it learns under: conditions, templates and later nodes read them. Choose none and it cannot remember anything.',
@@ -290,6 +294,7 @@ return [
                 'remember_value' => 'The value, in the person\'s own words',
                 'pass' => 'Say that your part of the conversation is finished and pass it on to the next step. Call it only when everything the instruction asks for has been collected and you have not just asked a question.',
                 'pass_note' => 'One line for the journal: why you consider it collected',
+                'pass_refused' => 'You cannot pass it on yet: :fields are missing. Ask the person for them — one question at a time.',
                 'human' => 'Hand the conversation to a human operator. For anything outside the material, and for money, complaints and promises.',
                 'human_reason' => 'Why a person is needed — one line, for the operator',
                 'read_limit' => 'How many records to show, at most twenty',

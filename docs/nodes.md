@@ -1062,6 +1062,7 @@ offers, and answers in its own words.
 | `instruction` | Required. Who the model is, how it speaks, what it may not promise |
 | `tools` | The capabilities it may call. An allow-list, per node |
 | `resources` | The declared data resources it may read. Also an allow-list |
+| `requires` | Values that must be filled before `pass_on` is allowed |
 | `slots` | The names `remember` may write to. None chosen, no remembering |
 | `search` | Offer the knowledge search. On by default |
 | `call_human` | Offer "this needs a person". On by default |
@@ -1105,6 +1106,17 @@ summary answering a different one. Only the model knows whether it has just
 asked something. `pass_on` is offered only when the first exit leads somewhere:
 a node without one is a conversation the model holds to the end, and offering to
 pass it on would end a turn in silence.
+
+**`requires` is the check behind it, and the clearest example in this package
+of an instruction not being one.** The node's text said, in as many words: call
+`pass_on` only when all of this is collected, and never in the same turn in
+which you asked something. The very first live reply asked "Сколько лет
+детям?" and called `pass_on` alongside it, with no name collected at all — the
+conversation left the model in the middle of its own question. So the list is
+declared on the node and the refusal happens in code: the tool answers "not
+yet, these are missing", which the model reads like any other tool result and
+carries on asking within the same turn. Dropping the call silently would be
+worse than either — the visitor would hear "передаю подбор" and then nothing.
 
 **Reading goes through the data resources, as `read_<resource>`.** The rows are
 narrowed to the person being talked to by the scopes the resource declared,

@@ -77,6 +77,7 @@ final class AgentTools
      * @param  array<string, CapabilityAction>  $actions  keyed by the tool name each is offered under
      * @param  array<string, array{key: string, label: string, description: string}>  $resources  keyed the same way
      * @param  list<string>  $slots  the names `remember` may write to; empty allows any
+     * @param  list<string>  $requires  the names that must be filled before `pass_on` is allowed
      */
     public function __construct(
         private readonly array $actions = [],
@@ -86,6 +87,7 @@ final class AgentTools
         private readonly array $slots = [],
         private readonly array $resources = [],
         private readonly bool $canPassOn = false,
+        private readonly array $requires = [],
     ) {}
 
     /**
@@ -101,6 +103,7 @@ final class AgentTools
         array $slots = [],
         array $resources = [],
         bool $canPassOn = false,
+        array $requires = [],
     ): self {
         $keyed = [];
 
@@ -114,7 +117,7 @@ final class AgentTools
             $reads[self::READ.AiTool::nameFor((string) $resource['key'])] = $resource;
         }
 
-        return new self($keyed, $canSearch, $canRemember, $canCallHuman, $slots, $reads, $canPassOn);
+        return new self($keyed, $canSearch, $canRemember, $canCallHuman, $slots, $reads, $canPassOn, $requires);
     }
 
     /**
@@ -229,6 +232,29 @@ final class AgentTools
     public function resource(string $name): ?string
     {
         return isset($this->resources[$name]) ? (string) $this->resources[$name]['key'] : null;
+    }
+
+    /**
+     * What must be filled before the model may pass the conversation on.
+     *
+     * **The instruction is not a check, and this is the clearest example of it
+     * in the package.** The node's text said, in as many words, "call pass_on
+     * only when all of this is collected, and not in the same turn in which you
+     * asked something". The model's very first live reply asked "Сколько лет
+     * детям?" and called `pass_on` alongside it, with no name collected at all
+     * — the conversation left the model in the middle of its own question.
+     *
+     * So the list is declared on the node and the refusal happens in code: the
+     * tool answers "not yet, these are missing", the model reads that as any
+     * other tool result and carries on asking in the same turn. A silent drop
+     * would be worse than either — the visitor would hear "передаю подбор" and
+     * then nothing at all.
+     *
+     * @return list<string>
+     */
+    public function requires(): array
+    {
+        return $this->requires;
     }
 
     /**

@@ -232,6 +232,71 @@ it('оставляет разговор у модели, пока она не п
 });
 
 /**
+ * Передать дальше без собранного — отказ, и модель читает, чего не хватает.
+ *
+ * Самый ясный в пакете случай, когда инструкция не защита. Текст узла говорил
+ * дословно: зови pass_on, только когда всё собрано, и не тем же ходом, которым
+ * о чём-то спросил. Первая же живая реплика на бою: модель спросила «Сколько
+ * лет детям?» и тем же ходом вызвала pass_on — имени она при этом не знала,
+ * и разговор ушёл от неё посреди её собственного вопроса.
+ *
+ * Молча проглотить такой вызов было бы хуже отказа: человек услышал бы
+ * «передаю подбор» и больше ничего.
+ */
+it('отказывает в передаче, пока не собрано обязательное', function (): void {
+    anthropicReplies([
+        anthropicAsks('pass_on', ['note' => 'кажется, всё'], text: 'Передаю подбор.'),
+        anthropicSays('А как Вас зовут?'),
+    ]);
+
+    $node = agentNode(['tools' => [], 'search' => false, 'slots' => ['name'], 'requires' => ['name']]);
+    $node->next_key = 'дальше';
+
+    $result = app(AiAgentStep::class)->run(agentContext($this->conversation, $node, $this->runtime, 'хочу тур'));
+
+    expect($result->flow)->toBe(StepFlow::Wait)
+        ->and($result->trace['did'][0]['ok'])->toBeFalse()
+        ->and($result->trace['did'][0]['reason'])->toContain('name')
+        ->and($this->runtime->said)->toBe(['А как Вас зовут?']);
+
+    Http::assertSent(function ($request): bool {
+        foreach ($request->data()['messages'] ?? [] as $message) {
+            foreach ((array) ($message['content'] ?? []) as $block) {
+                if (is_array($block) && ($block['type'] ?? '') === 'tool_result') {
+                    return ($block['is_error'] ?? false) === true
+                        && str_contains((string) $block['content'], 'name');
+                }
+            }
+        }
+
+        return false;
+    });
+});
+
+/**
+ * А собранное обязательное передачу разрешает.
+ */
+it('передаёт дальше, когда обязательное собрано', function (): void {
+    anthropicReplies([
+        anthropicAsks('pass_on', ['note' => 'всё собрано'], text: 'Передаю подбор.'),
+    ]);
+
+    $this->conversation->forceFill(['bot_answers' => ['name' => 'Максим']])->save();
+
+    $node = agentNode(['tools' => [], 'search' => false, 'slots' => ['name'], 'requires' => ['name']]);
+    $node->next_key = 'дальше';
+
+    $runtime = new RecordingRuntime;
+    $runtime->stored['name'] = 'Максим';
+
+    $result = app(AiAgentStep::class)->run(agentContext($this->conversation, $node, $runtime, 'оформляйте'));
+
+    expect($result->flow)->toBe(StepFlow::Next)
+        ->and($result->trace['passed_on'])->toBeTrue()
+        ->and($runtime->said)->toBe(['Передаю подбор.']);
+});
+
+/**
  * Передавать некуда — инструмента нет вовсе.
  *
  * Узел без первого выхода — это разговор, который ведёт только модель:
