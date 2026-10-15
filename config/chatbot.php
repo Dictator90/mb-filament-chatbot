@@ -442,6 +442,27 @@ return [
             'instruction' => 'You answer customers on behalf of this company. Use only the material you are given, keep the reply short and in the language the customer wrote in, and say plainly that you do not know when the material does not answer the question.',
             'candidates' => 5,
         ],
+
+        /*
+         * Defaults for the node where the model leads the conversation.
+         *
+         * No instruction here, unlike `answer` above, and the omission is
+         * deliberate: an agent's instruction is the whole of what it is — the
+         * voice, the promises it may not make, when to fetch a person — and an
+         * installation-wide default would be a persona quietly inherited by
+         * every agent node anybody draws. That node requires its own.
+         *
+         * `window` is how many of the most recent messages go up verbatim, and
+         * `rounds` how many times the model may be asked within one visitor
+         * message. Both are ceilings on money as much as on behaviour: every
+         * round is a billed request carrying the window and the whole tool
+         * catalogue, so a generous window multiplied by a generous round count
+         * is the most expensive thing this package can be configured to do.
+         */
+        'agent' => [
+            'window' => 12,
+            'rounds' => 4,
+        ],
     ],
 
     /*

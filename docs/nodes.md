@@ -6,7 +6,7 @@ nav_order: 4
 
 # Node reference
 
-Twenty-six node kinds ship with the package. Each one is a class under
+Twenty-seven node kinds ship with the package. Each one is a class under
 `MB\FilamentChatbot\Bot\Steps\Types`, registered by the service provider under a
 key that is stable forever: that string is what a saved graph refers to, and
 renaming it orphans every node of that kind in every published version.
@@ -1043,6 +1043,73 @@ the budget spent, the answer unreadable, no material found, or an answer that
 named no material at all. A scenario drawn without that exit connected goes
 silent the first time a provider hiccups — which is why the node reports a
 warning while editing when no model is available.
+
+## `ai_agent`
+
+Hands one turn to the model: it reads the thread, may use the tools this node
+offers, and answers in its own words.
+
+| | |
+| --- | --- |
+| Class | `AiAgentStep` |
+| Outputs | `Pair` — `answered` / `needs a person` |
+| Speaks | no |
+| Trace | `said`, `passed`, `failed` |
+
+| Setting | |
+| --- | --- |
+| `provider` | Must be a driver that can hold a conversation — `anthropic` today |
+| `instruction` | Required. Who the model is, how it speaks, what it may not promise |
+| `tools` | The capabilities it may call. An allow-list, per node |
+| `slots` | The names `remember` may write to. None chosen, no remembering |
+| `search` | Offer the knowledge search. On by default |
+| `call_human` | Offer "this needs a person". On by default |
+| `window` | Messages sent verbatim. 2 to 60, default `chatbot.ai.agent.window` |
+| `rounds` | Model calls allowed per turn. 1 to 8, default `chatbot.ai.agent.rounds` |
+
+**The difference from `ai` is who decides what happens.** `ai` answers one
+question from material the scenario found for it, and the scenario decides
+everything else: what to ask next, when to file the request, when to fetch a
+person. Here those decisions are the model's, inside the bounds this node draws.
+That is what makes a conversation feel answered rather than processed, and it is
+also why the bounds are on the canvas and not in the instruction: a sentence in
+a prompt is a request, a missing tool is a fact.
+
+**A scripted form is still the better place for a required interview.** The
+twelve questions an agency needs are a list somebody is accountable for; a model
+asked to collect them will get eleven and improvise the twelfth. The division
+that works is this node for the conversation — greeting, questions about
+anything, reading a booking, working out what the person actually wants — with
+`remember` writing what it learns into the same slots a form would have filled.
+
+**Three tools are the package's own**, switched on per node rather than
+registered by a host, because all three are about the conversation rather than
+about the application: `search_knowledge` looks something up in the company's
+own material, `remember` writes a value where the rest of the bot can read it,
+and `call_human` says this needs a person. A model with no way to ask for help
+improvises instead, which is how a bot promises a refund.
+
+**Rounds are capped and the cap is low.** A model that cannot finish asks for
+the same thing again, and every round is a billed request carrying the whole
+window and the whole catalogue. Uncapped, one confused turn spends a month's
+budget while the visitor watches nothing happen; capped, it ends in the second
+exit, which the author has already wired to a person.
+
+**A tool that was not offered is refused and reported back to the model** rather
+than ending the turn. Models do invent a tool, usually a plausible one —
+`cancel_booking` sounds like something a travel bot would have. Answering "there
+is no such tool" lets it recover within the turn and say something honest.
+
+**Nothing reaches the visitor until the model has finished.** A model usually
+says a sentence alongside its request — "сейчас посмотрю" — and speaking those
+would mean two or three messages per answer in a channel where each one is a
+notification. They are kept for the journal; what the visitor reads is the
+answer the model gave after seeing what the tools returned.
+
+How much of the thread the model sees is decided by `ConversationMemory`: a
+window of recent messages verbatim, a running summary of what fell out of it,
+and a line drawn under both when a scenario finishes. Everything leaving goes
+through the redactor, the visitor's own words included.
 
 ## `ai_task`
 

@@ -98,4 +98,14 @@ return [
         'phone' => '[phone]',
         'number' => '[number]',
     ],
+
+    /**
+     * Who said it, in the lines a model writes a conversation summary from.
+     * Unlabelled, the summary comes back describing the bot's own suggestions
+     * as the customer's wishes.
+     */
+    'memory' => [
+        'visitor' => 'Customer',
+        'bot' => 'Bot',
+    ],
 ];

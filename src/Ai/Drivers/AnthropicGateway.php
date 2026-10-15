@@ -6,12 +6,17 @@ namespace MB\FilamentChatbot\Ai\Drivers;
 
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\Response;
+use MB\FilamentChatbot\Ai\AiConversationGateway;
 use MB\FilamentChatbot\Ai\AiFailure;
-use MB\FilamentChatbot\Ai\AiGateway;
 use MB\FilamentChatbot\Ai\AiPrompt;
 use MB\FilamentChatbot\Ai\AiReply;
+use MB\FilamentChatbot\Ai\AiTool;
+use MB\FilamentChatbot\Ai\AiToolCall;
+use MB\FilamentChatbot\Ai\AiTurn;
 use MB\FilamentChatbot\Ai\AiUsage;
 use MB\FilamentChatbot\Ai\Drivers\Concerns\TalksToModels;
+use stdClass;
+use Throwable;
 
 /**
  * Anthropic's Messages API, spoken directly.
@@ -32,7 +37,7 @@ use MB\FilamentChatbot\Ai\Drivers\Concerns\TalksToModels;
  * node whose author drew a second exit for exactly this, and an exception
  * instead would end the visitor's turn in silence.
  */
-final class AnthropicGateway implements AiGateway
+final class AnthropicGateway implements AiConversationGateway
 {
     use TalksToModels;
 
@@ -65,12 +70,191 @@ final class AnthropicGateway implements AiGateway
      */
     protected function send(AiPrompt $prompt): Response
     {
+        return $this->post($this->payload($prompt));
+    }
+
+    /**
+     * Carries on an exchange, with the tools the caller is willing to run.
+     *
+     * The same endpoint as `ask()` and a different body, which is the whole of
+     * the difference: history goes up as `messages`, tool results as
+     * `tool_result` blocks inside a user turn, and what comes back is read for
+     * `tool_use` blocks before it is read for text.
+     *
+     * Failures are handled here rather than in {@see TalksToModels} because
+     * that trait's `ask()` is written around an `AiPrompt` — asking it to serve
+     * both would mean a prompt argument this path has nothing to put in it.
+     */
+    public function converse(AiTurn $turn): AiReply
+    {
+        if (! $this->isAvailable()) {
+            return AiReply::declined(AiFailure::NotConfigured);
+        }
+
+        try {
+            $response = $this->post($this->exchange($turn));
+        } catch (ConnectionException $exception) {
+            return AiReply::declined($this->connectionFailure($exception), $exception->getMessage());
+        } catch (Throwable $exception) {
+            return AiReply::declined(AiFailure::Unavailable, $exception::class.': '.$exception->getMessage());
+        }
+
+        if (! $response->successful()) {
+            return AiReply::declined(
+                $response->status() >= 500 ? AiFailure::Unavailable : AiFailure::Refused,
+                $this->complaint($response),
+            );
+        }
+
+        return $this->readExchange($response);
+    }
+
+    /**
+     * @param  array<string, mixed>  $payload
+     *
+     * @throws ConnectionException
+     */
+    private function post(array $payload): Response
+    {
         return $this->request()
             ->withHeaders([
                 'x-api-key' => $this->apiKey(),
                 'anthropic-version' => self::API_VERSION,
             ])
-            ->post($this->baseUrl().'/messages', $this->payload($prompt));
+            ->post($this->baseUrl().'/messages', $payload);
+    }
+
+    /**
+     * The request body for an exchange.
+     *
+     * Consecutive tool results are merged into one user turn, because that is
+     * how the API wants them: a model that asked for three things at once gets
+     * one user message holding three `tool_result` blocks, and sending three
+     * separate messages instead is refused with a complaint about roles.
+     *
+     * @return array<string, mixed>
+     */
+    private function exchange(AiTurn $turn): array
+    {
+        $payload = [
+            'model' => $this->model(),
+            'max_tokens' => $turn->maxTokens > 0 ? $turn->maxTokens : $this->maxTokens(),
+            'system' => $turn->instruction,
+            'messages' => $this->messagesOf($turn),
+        ];
+
+        if ($turn->hasTools()) {
+            $payload['tools'] = array_map(static fn (AiTool $tool): array => [
+                'name' => $tool->name,
+                'description' => $tool->description,
+                'input_schema' => $tool->schema === [] ? ['type' => 'object'] : $tool->schema,
+            ], $turn->tools);
+        }
+
+        if ($turn->temperature !== null) {
+            $payload['temperature'] = $turn->temperature;
+        }
+
+        return $payload;
+    }
+
+    /**
+     * @return list<array<string, mixed>>
+     */
+    private function messagesOf(AiTurn $turn): array
+    {
+        $messages = [];
+
+        foreach ($turn->messages as $message) {
+            if ($message->isToolResult()) {
+                $block = [
+                    'type' => 'tool_result',
+                    'tool_use_id' => (string) $message->callId,
+                    'content' => $message->text,
+                ];
+
+                if (! $message->ok) {
+                    $block['is_error'] = true;
+                }
+
+                $last = count($messages) - 1;
+
+                if ($last >= 0 && ($messages[$last]['role'] ?? '') === 'user' && is_array($messages[$last]['content'] ?? null)) {
+                    $messages[$last]['content'][] = $block;
+
+                    continue;
+                }
+
+                $messages[] = ['role' => 'user', 'content' => [$block]];
+
+                continue;
+            }
+
+            if ($message->hasCalls()) {
+                $content = [];
+
+                if ($message->text !== '') {
+                    $content[] = ['type' => 'text', 'text' => $message->text];
+                }
+
+                foreach ($message->calls as $call) {
+                    $content[] = [
+                        'type' => 'tool_use',
+                        'id' => $call->id,
+                        'name' => $call->name,
+                        'input' => $call->input === [] ? new stdClass : $call->input,
+                    ];
+                }
+
+                $messages[] = ['role' => 'assistant', 'content' => $content];
+
+                continue;
+            }
+
+            if ($message->text === '') {
+                continue;
+            }
+
+            $messages[] = ['role' => $message->role, 'content' => $message->text];
+        }
+
+        return $messages;
+    }
+
+    /**
+     * Tool requests first, text second.
+     *
+     * A model that asks for something usually says a sentence alongside it, and
+     * reading the text first would end the round there — the tool never runs,
+     * and the visitor is told the bot is "looking into it" by a bot that has
+     * stopped.
+     */
+    private function readExchange(Response $response): AiReply
+    {
+        $body = $response->json();
+        $body = is_array($body) ? $body : [];
+        $usage = $this->usageOf($body);
+        $calls = [];
+
+        foreach ((array) ($body['content'] ?? []) as $block) {
+            if (is_array($block) && ($block['type'] ?? '') === 'tool_use') {
+                $calls[] = new AiToolCall(
+                    id: (string) ($block['id'] ?? ''),
+                    name: (string) ($block['name'] ?? ''),
+                    input: is_array($block['input'] ?? null) ? $block['input'] : [],
+                );
+            }
+        }
+
+        $text = $this->textOf($body);
+
+        if ($calls !== []) {
+            return AiReply::calling($calls, $text, $usage);
+        }
+
+        return $text === ''
+            ? AiReply::declined(AiFailure::Unparseable, 'The provider answered with an empty message.', $usage)
+            : AiReply::answered($text, [], $usage);
     }
 
     /**

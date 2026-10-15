@@ -103,7 +103,7 @@ Built-in nodes today:
 the visitor, collecting a phone number — is written once as its own scenario and
 called from everywhere, instead of being copied into each one and drifting.
 
-Twenty-six kinds in all, `mutate` among them: a bot can write one row of a data
+Twenty-seven kinds in all, `mutate` among them: a bot can write one row of a data
 resource, but only where the resource was declared writable, only into the
 columns it named, and only with an approval node above it on the branch —
 publishing refuses a graph where a write is reachable without one.

@@ -236,6 +236,65 @@ return [
             ],
         ],
 
+        'ai_agent' => [
+            'label' => 'Conversation led by a model',
+            'exits' => ['answered', 'needs a person'],
+            'writes' => 'changes data',
+            'summary_header' => 'What is already known from this conversation:',
+            'summary_instruction' => 'You keep a short memory of a conversation with a customer. From the previous summary and the new lines, write a single summary of three to five lines: who this person is, what they want, what they have already been told or promised, and any dates and names given. Facts from the conversation only — no guesses and no pleasantries. Answer in the language of the conversation.',
+            'summary_known' => 'Previous summary:',
+            'summary_new' => 'New lines:',
+            'fields' => [
+                'provider' => [
+                    'label' => 'Model',
+                    'hint' => 'Needs a model that can hold a conversation and call actions. One that only answers a single question takes the second exit.',
+                ],
+                'instruction' => [
+                    'label' => 'Who it is and what it may do',
+                    'hint' => 'The main text of this node: how to speak, what not to promise, when to fetch a person. The model reads it before every answer.',
+                ],
+                'tools' => [
+                    'label' => 'Actions it may use',
+                    'hint' => 'Only the ones chosen here. Nothing else exists as far as the model is concerned, and the list is visible to whoever reviews the scenario.',
+                ],
+                'slots' => [
+                    'label' => 'What it may remember',
+                    'hint' => 'The names it writes what it learns under: conditions, templates and later nodes read them. Choose none and it cannot remember anything.',
+                ],
+                'search' => [
+                    'label' => 'Search the knowledge base',
+                    'hint' => 'The difference between answering from what the agency wrote and answering from whatever the model knows about travel.',
+                ],
+                'call_human' => [
+                    'label' => 'May fetch a person',
+                    'hint' => 'Without it a model that does not know improvises instead, which is how a bot promises a refund.',
+                ],
+                'window' => [
+                    'label' => 'How many messages it remembers',
+                    'hint' => 'This many of the most recent messages go to the model verbatim. Anything older goes as a short summary.',
+                ],
+                'rounds' => [
+                    'label' => 'How many times it may be asked per turn',
+                    'hint' => 'Every tool request is a separate billed call. A model that does not finish takes the second exit, which is a person.',
+                ],
+            ],
+            'tools' => [
+                'search' => 'Find an answer in the agency material. Answer only from what comes back; say so when nothing does.',
+                'search_query' => 'What is being asked, in plain words',
+                'remember' => 'Remember something the person said about themselves, so the operator and the later steps can see it.',
+                'remember_field' => 'Which value this is',
+                'remember_value' => 'The value, in the person\'s own words',
+                'human' => 'Hand the conversation to a human operator. For anything outside the material, and for money, complaints and promises.',
+                'human_reason' => 'Why a person is needed — one line, for the operator',
+            ],
+            'issues' => [
+                'no_instruction' => 'This node does not tell the model who it is or what it may do. Without that it answers in the provider\'s voice and decides for itself what to do.',
+                'no_model' => 'No model is configured, so this node will always take its second exit. Make sure that exit leads somewhere.',
+                'driver_cannot_converse' => 'The [:driver] driver can answer a single question but cannot hold a conversation with tools. This node will always take its second exit.',
+                'model_may_write' => 'The [:action] action changes data, and the decision to call it is the model\'s rather than the scenario\'s. Make sure that is what you want.',
+            ],
+        ],
+
         'ai_task' => [
             'label' => 'Extract with a model',
             'exits' => ['extracted', 'could not'],

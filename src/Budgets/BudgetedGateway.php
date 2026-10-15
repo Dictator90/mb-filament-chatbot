@@ -4,10 +4,12 @@ declare(strict_types=1);
 
 namespace MB\FilamentChatbot\Budgets;
 
+use MB\FilamentChatbot\Ai\AiConversationGateway;
 use MB\FilamentChatbot\Ai\AiFailure;
 use MB\FilamentChatbot\Ai\AiGateway;
 use MB\FilamentChatbot\Ai\AiPrompt;
 use MB\FilamentChatbot\Ai\AiReply;
+use MB\FilamentChatbot\Ai\AiTurn;
 use MB\FilamentChatbot\Models\Bot;
 use Throwable;
 
@@ -37,7 +39,7 @@ use Throwable;
  * afternoon must degrade the bot exactly as a bad afternoon at the provider
  * does, and not end the visitor's turn in silence.
  */
-final class BudgetedGateway implements AiGateway
+final class BudgetedGateway implements AiConversationGateway
 {
     /**
      * Characters per token in the estimate, deliberately low.
@@ -112,6 +114,56 @@ final class BudgetedGateway implements AiGateway
     }
 
     /**
+     * The same reservation around an exchange, and the reason the wrapper
+     * declares the richer contract even when the driver behind it does not.
+     *
+     * An agent runs several rounds inside one visitor message, each one a
+     * billed request carrying the whole history and the whole tool catalogue —
+     * the most expensive thing in the package by a wide margin. Reached around
+     * the budget it would be the one caller that spends uncounted, which is
+     * exactly what this class exists to make impossible, so the agent is given
+     * no way to ask for an unwrapped gateway.
+     *
+     * A driver that cannot hold an exchange is answered here rather than
+     * asked: declining with a reason that names the driver puts "this
+     * installation's model answers questions but cannot run an agent" in the
+     * run journal, where the author of the scenario will read it. Letting the
+     * call through to a driver without the method would be a `TypeError`
+     * ending a visitor's turn in silence.
+     */
+    public function converse(AiTurn $turn): AiReply
+    {
+        if (! $this->inner instanceof AiConversationGateway) {
+            return AiReply::declined(
+                AiFailure::NotConfigured,
+                "The [{$this->inner->name()}] driver answers single questions and cannot hold a conversation with tools.",
+            );
+        }
+
+        if (! $this->inner->isAvailable()) {
+            return $this->inner->converse($turn);
+        }
+
+        $reservation = $this->guard->reserve($this->bot, $this->estimateTurn($turn));
+
+        if ($reservation->isDenied()) {
+            return AiReply::declined(AiFailure::BudgetExhausted, $reservation->reason);
+        }
+
+        try {
+            $reply = $this->inner->converse($turn);
+        } catch (Throwable $exception) {
+            $this->guard->release($reservation);
+
+            throw $exception;
+        }
+
+        $this->close($reservation, $reply);
+
+        return $reply;
+    }
+
+    /**
      * Turns the estimate into what the call really cost, in one of three ways.
      *
      * Usage reported, whatever the outcome: settle with it. A request that left,
@@ -168,6 +220,36 @@ final class BudgetedGateway implements AiGateway
         $text = $prompt->instruction."\n".$prompt->question."\n".$prompt->contextText();
 
         $output = $prompt->maxTokens > 0 ? $prompt->maxTokens : self::ASSUMED_OUTPUT_TOKENS;
+
+        return (int) ceil(mb_strlen($text) / self::CHARS_PER_TOKEN) + $output;
+    }
+
+    /**
+     * The same guess for an exchange, with the tool catalogue counted in.
+     *
+     * The catalogue is not a rounding error: a dozen actions with their field
+     * descriptions is comparable in size to the history, and it is re-sent on
+     * every round of every turn. Left out, the estimate would be reliably and
+     * increasingly low on precisely the installations that give the agent most
+     * to do.
+     */
+    private function estimateTurn(AiTurn $turn): int
+    {
+        $text = $turn->instruction;
+
+        foreach ($turn->messages as $message) {
+            $text .= "\n".$message->text;
+
+            foreach ($message->calls as $call) {
+                $text .= "\n".$call->name.' '.json_encode($call->input);
+            }
+        }
+
+        foreach ($turn->tools as $tool) {
+            $text .= "\n".$tool->name.' '.$tool->description.' '.json_encode($tool->schema);
+        }
+
+        $output = $turn->maxTokens > 0 ? $turn->maxTokens : self::ASSUMED_OUTPUT_TOKENS;
 
         return (int) ceil(mb_strlen($text) / self::CHARS_PER_TOKEN) + $output;
     }

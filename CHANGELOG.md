@@ -6,6 +6,52 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 this package intends to follow [Semantic Versioning](https://semver.org/) once
 it reaches 1.0.
 
+## [0.10.0] — 2026-10-15
+
+### A conversation the model can lead
+
+- **`ai_agent`: a new node where the model reads the thread, uses the tools the
+  node offers and answers in its own words.** The two model nodes so far could
+  answer one question and pull values out of a sentence; everything else — what
+  to ask next, when to file the request, when to fetch a person — was the
+  scenario's. This node hands those decisions to the model inside bounds drawn
+  on the canvas, which is the difference between a conversation that feels
+  answered and one that feels processed.
+- **A second gateway contract, opted into per driver.** `AiConversationGateway`
+  adds one method, `converse(AiTurn): AiReply`; `anthropic` implements it. The
+  reasoning that kept tool calling out of `AiGateway` still holds for hosts
+  satisfying it with an HTTP endpoint, so a driver that cannot hold an exchange
+  is not broken — the node takes its second exit and the journal names the
+  driver.
+- **The agent cannot reach a provider around the budget.** It is the most
+  expensive caller in the package: every round is a billed request carrying the
+  window and the whole tool catalogue. `BudgetedGateway` therefore implements
+  the conversation contract as well, reserves against the same ceiling, and is
+  the only way in.
+- **What the model may do is an allow-list on the node, not a sentence in the
+  prompt.** Handed the whole capability registry, a model is one confidently
+  worded customer message away from cancelling a booking — and that conversation
+  reads like an ordinary request politely granted. A tool that was not named
+  does not exist; one the model invents is refused and the refusal goes back to
+  it, so it recovers inside the turn instead of leaving the visitor with
+  silence.
+- **Three tools are the package's own**: `search_knowledge` (answer from the
+  company's material rather than from the model's world knowledge), `remember`
+  (write into the slots the author named, where the scenario and the desk read
+  them) and `call_human` (a model with no way to ask for help improvises, which
+  is how a bot promises a refund).
+- **Rounds are capped and the cap is low.** A model that cannot finish asks for
+  the same thing again; uncapped, one confused turn spends a month's budget
+  while the visitor watches nothing happen.
+- **`ConversationMemory`: a window, a running summary and a line that can be
+  drawn under both.** The model sees the last few exchanges verbatim plus a
+  summary of what fell out of the window, rewritten once per windowful rather
+  than per turn. `closeWindow()` restarts the window where a scenario finished —
+  nothing is deleted, the transcript is still the record, but the model stops
+  re-opening a request that closed three weeks ago — and `forget()` drops the
+  summary too. Everything leaving goes through the redactor, the visitor's own
+  words included.
+
 ## [0.9.11] — 2026-10-15
 
 - **The desk can delete a conversation.** Closing a thread was all it could do,
@@ -411,8 +457,11 @@ The first tagged release. Everything below shipped in it.
 
 ### Scenarios
 
-- Twenty-six kinds of node, walked one turn at a time by an engine that decides
-  where the conversation goes while each node only reports what it did.
+- A kind of node for each thing a conversation does, walked one turn at a time by
+  an engine that decides where the conversation goes while each node only reports
+  what it did. (The count of them is deliberately not written here: a release
+  note is a record of one day, and a number in it goes stale the next time a node
+  is added. The current count lives in the node reference.)
 - `call` and `result`: a scenario can be called from another and return a value,
   so shared work is written once instead of copied and left to drift.
 - Publishing freezes the graph together with the data resources, capabilities

@@ -22,6 +22,7 @@ final class AiReply
     /**
      * @param  array<string, mixed>  $data
      * @param  list<string>  $sources
+     * @param  list<AiToolCall>  $calls
      */
     private function __construct(
         private readonly bool $ok,
@@ -31,6 +32,7 @@ final class AiReply
         private readonly ?AiFailure $failure = null,
         private readonly ?string $error = null,
         private readonly AiUsage $usage = new AiUsage,
+        private readonly array $calls = [],
     ) {}
 
     /**
@@ -62,6 +64,31 @@ final class AiReply
             data: $data,
             sources: array_values($sources),
             usage: $usage ?? new AiUsage,
+        );
+    }
+
+    /**
+     * The model wants something done before it answers.
+     *
+     * A successful reply, not a third state: the request arrived, it was
+     * billed, and what came back is a well-formed turn. Whether the tools are
+     * ones the caller offered, whether their arguments fit and whether they may
+     * run at all is the caller's business — a reply type that tried to decide
+     * any of that would be deciding it without the conversation in hand.
+     *
+     * The text travels with the calls because models often say something first
+     * ("смотрю Вашу бронь") and ask in the same breath. Dropping it loses the
+     * only sentence the visitor would have seen while a tool ran.
+     *
+     * @param  list<AiToolCall>  $calls
+     */
+    public static function calling(array $calls, string $text = '', ?AiUsage $usage = null): self
+    {
+        return new self(
+            ok: true,
+            text: $text,
+            usage: $usage ?? new AiUsage,
+            calls: array_values($calls),
         );
     }
 
@@ -113,6 +140,21 @@ final class AiReply
     public function sources(): array
     {
         return $this->sources;
+    }
+
+    /**
+     * What the model asked to have done, in the order it asked.
+     *
+     * @return list<AiToolCall>
+     */
+    public function calls(): array
+    {
+        return $this->calls;
+    }
+
+    public function wantsTools(): bool
+    {
+        return $this->calls !== [];
     }
 
     public function failure(): ?AiFailure

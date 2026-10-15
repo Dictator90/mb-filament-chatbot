@@ -34,6 +34,7 @@ use MB\FilamentChatbot\Bot\Recipes\GreetingMenuRecipe;
 use MB\FilamentChatbot\Bot\Recipes\KnowledgeDeskRecipe;
 use MB\FilamentChatbot\Bot\Slots\BuiltInSlots;
 use MB\FilamentChatbot\Bot\Steps\Types\ActionStep;
+use MB\FilamentChatbot\Bot\Steps\Types\AiAgentStep;
 use MB\FilamentChatbot\Bot\Steps\Types\AiStep;
 use MB\FilamentChatbot\Bot\Steps\Types\AiTaskStep;
 use MB\FilamentChatbot\Bot\Steps\Types\AnswerStep;
@@ -297,6 +298,7 @@ class ChatbotServiceProvider extends ServiceProvider
             ResultStep::class,
             AnswerStep::class,
             AiStep::class,
+            AiAgentStep::class,
             AiTaskStep::class,
             QueryStep::class,
             ChooseStep::class,

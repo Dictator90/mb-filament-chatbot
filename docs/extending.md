@@ -339,7 +339,7 @@ visible and the release can say what moved underneath it.
 ### Cosmetics, and one that is not
 
 `icon()`, `color()`, `nextTypes()` and `isBasic()` are how your node behaves on
-the canvas. `isBasic()` deserves a moment: a palette with twenty-six buttons in
+the canvas. `isBasic()` deserves a moment: a palette with twenty-seven buttons in
 one row reads as a settings list rather than a choice, and the seven nodes every
 scenario is actually built from get lost in it. Say `true` only if yours is one
 of those for your installation.

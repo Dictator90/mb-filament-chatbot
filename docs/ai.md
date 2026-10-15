@@ -194,7 +194,7 @@ An empty answer is refused on the same path.
 
 ---
 
-## The two nodes
+## The three nodes
 
 ### `ai` — Answer with a model
 
@@ -255,6 +255,69 @@ model in it.
 **Nothing is written on the failure path.** Partial or invented values would be
 worse than no extraction at all: the conversation would carry on confidently
 against a passenger count nobody said.
+
+### `ai_agent` — A conversation led by a model
+
+Two exits: **answered** and **needs a person**. The model reads the thread, may
+use the tools this node offers, and answers in its own words. The settings are
+in the [node reference]({{ site.baseurl }}/nodes); what follows is why they are
+shaped that way.
+
+**A driver has to opt in.** Tool calling and conversation state were left out of
+`AiGateway` on purpose, and that reasoning still holds for a contract a host may
+satisfy with an HTTP endpoint or nothing at all. What changed is that some
+drivers *can* express them, so there is a second contract —
+`AiConversationGateway`, one method, `converse(AiTurn): AiReply` — and the
+built-in `anthropic` driver implements it. A driver that does not is not broken:
+the node takes its second exit and the journal names the driver.
+
+**The agent cannot reach a provider around the budget.** It is the most
+expensive caller in the package — every round is a billed request carrying the
+window and the whole tool catalogue — so `BudgetedGateway` implements the
+conversation contract too, reserves against the same month's ceiling, and is the
+only way in. A driver that cannot converse is declined by the wrapper rather
+than called.
+
+**What the model may do is a list on the canvas, not a sentence in the prompt.**
+Capabilities are how a host teaches the bot to do things, and some of them cancel
+bookings or move money. A model handed the whole registry is one confidently
+worded customer message away from using any of them — and the conversation that
+did it reads, in the transcript, like an ordinary request politely granted. The
+author names the actions per node; a tool that was not named does not exist, and
+one the model invents is refused and reported back to it so it can recover within
+the turn.
+
+**Three tools belong to the package**, because all three are about the
+conversation rather than the application:
+
+| Tool | What it is for |
+| --- | --- |
+| `search_knowledge` | Answer from the company's own material instead of from what the model knows about the world |
+| `remember` | Write a value where the scenario, the templates and the desk can read it — into the slots the author named |
+| `call_human` | Say this needs a person. A model with no way to ask improvises instead, which is how a bot promises a refund |
+
+**Memory is a window, a summary and a line that can be drawn under both.** A
+thread with a regular customer runs to hundreds of messages: sending them costs
+money every turn, pushes the company's own instruction further from the model's
+attention, and is eventually refused for length. So the model sees the last few
+exchanges verbatim, plus a running summary of what fell out of the window —
+rewritten once per windowful rather than per turn, because a summary call is a
+second billed request. When a scenario finishes, the host draws a line
+(`ConversationMemory::closeWindow()`): nothing is deleted, the transcript is the
+record, but the model stops re-opening a request that was closed three weeks ago.
+`forget()` drops the summary as well, for "забудьте, что я говорил" and for a
+thread relinked to somebody else.
+
+Everything leaving goes through the redactor, the visitor's own words included —
+the same rule as a single question, and it matters more here, because an agent is
+shown far more of a transcript than an answer node ever is.
+
+**A scripted form is still the better place for a required interview.** The
+twelve questions an agency needs are a list somebody is accountable for; a model
+asked to collect them will get eleven and improvise the twelfth. What works is
+the agent for the conversation — greeting, questions about anything, reading a
+booking, working out what the person actually wants — with `remember` writing
+what it learns into the same slots a form would have filled.
 
 ---
 
