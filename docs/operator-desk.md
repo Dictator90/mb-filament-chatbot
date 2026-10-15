@@ -120,9 +120,20 @@ find out.
 an operator who opened one would answer a customer who does not exist. A global
 scope keeps them off the desk, and the desk does not lift it.
 
-**It does not delete conversations.** Closing sets a status; the transcript
-stays. What a customer was told is a record, and a screen where it can be made
-to disappear is a screen where it will be.
+**It does not delete a conversation by closing it.** Closing sets a status; the
+transcript stays, because what a customer was told is a record. Deleting one is
+a separate button, asked for separately: a customer who wants their messages
+gone, a thread somebody opened with a photograph of their passport in it, a
+rehearsal that reached a real chat. All three were cleared out of the database
+by hand before it existed, which in practice meant they stayed.
+
+The button is confirmed, says what goes, and asks the policy for `delete`
+rather than `update` — so a host that wants deletion kept with the owner
+defines `chatbot.delete.conversations`, and for everybody else the button is
+not drawn at all. What goes is the thread, its messages, the bot's runs over it
+and the files that came through it: an attachment row is the only thing that
+knows where its bytes are, so deleting rows alone would leave the photograph on
+the disk at its old address with nothing left in the application to find it by.
 
 **It has no page-per-conversation.** `?conversation=41` restores an open thread,
 so a link still works and a refresh does not lose the place, but the desk is one

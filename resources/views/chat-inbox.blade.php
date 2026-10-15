@@ -1453,6 +1453,10 @@
                     @if ($this->canReturnToBot())
                         {{ $this->returnToBotAction }}
                     @endif
+
+                    @if ($this->canDeleteConversation())
+                        {{ $this->deleteConversationAction }}
+                    @endif
                 </header>
 
                 @if ($this->botIsAnswering())

@@ -6,6 +6,22 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 this package intends to follow [Semantic Versioning](https://semver.org/) once
 it reaches 1.0.
 
+## [0.9.11] — 2026-10-15
+
+- **The desk can delete a conversation.** Closing a thread was all it could do,
+  and the three cases that need more than closing — a customer asking for their
+  messages to be gone, a thread holding a photograph of somebody's passport, a
+  rehearsal that reached a real chat — were cleared out of the database by hand,
+  which in practice meant they stayed. Confirmed, named for what it removes, and
+  it takes the files with the rows: an attachment row is the only thing that
+  knows where its bytes are, so deleting rows alone leaves the photograph on the
+  disk at its old address with nothing left to find it by.
+- **Deleting asks the host about deleting.** The policy tries
+  `chatbot.delete.<subject>`, then `chatbot.delete`, and only then `manage`, so
+  everybody who answers the chat may write in it while removing a year of it
+  stays with whoever the host says. An application that has said nothing about
+  `chatbot.delete` behaves exactly as before.
+
 ## [0.9.10] — 2026-10-15
 
 - **What the channel vouched for is kept apart from what it was told.**

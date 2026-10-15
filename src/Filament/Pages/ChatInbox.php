@@ -27,6 +27,7 @@ use Livewire\WithFileUploads;
 use MB\FilamentChatbot\Chat\AttachmentRefused;
 use MB\FilamentChatbot\Chat\AttachmentStore;
 use MB\FilamentChatbot\Chat\ContactCard;
+use MB\FilamentChatbot\Chat\ConversationEraser;
 use MB\FilamentChatbot\Chat\OperatorReply;
 use MB\FilamentChatbot\Contracts\ContactDirectory;
 use MB\FilamentChatbot\Contracts\ContactPicker;
@@ -932,6 +933,58 @@ class ChatInbox extends Page
     }
 
     /**
+     * Deletes the conversation and everything that was said in it.
+     *
+     * The one action here that cannot be undone, and the only one that removes
+     * rather than changes. It exists because a transcript is personal data: a
+     * customer who asks for their messages to be deleted, a thread opened by
+     * mistake with somebody's passport photo in it, a rehearsal that reached a
+     * real chat — all of them had to be cleared out of the database by hand
+     * before this, which in practice meant they stayed.
+     *
+     * Files go with the rows ({@see ConversationEraser}), which is the half an
+     * operator cannot check: an attachment whose row is gone is a photo on the
+     * disk that nothing in the application can find any more, and nobody will
+     * ever delete.
+     *
+     * Asks the policy for `delete` rather than `update`. Everybody who answers
+     * the chat may write in it; removing it is a different question, and a host
+     * that wants to keep it with the owner says so with `chatbot.delete`.
+     */
+    public function deleteConversationAction(): Action
+    {
+        return Action::make('deleteConversation')
+            ->label(__('chatbot::panel.inbox.delete_conversation'))
+            ->icon(Heroicon::OutlinedTrash)
+            ->color('danger')
+            ->size(Size::ExtraSmall)
+            ->iconButton()
+            ->tooltip(__('chatbot::panel.inbox.delete_conversation'))
+            ->requiresConfirmation()
+            ->modalHeading(__('chatbot::panel.inbox.delete_conversation'))
+            ->modalDescription(__('chatbot::panel.inbox.delete_conversation_description'))
+            ->modalSubmitActionLabel(__('chatbot::panel.inbox.delete_conversation_confirm'))
+            ->authorize(fn (): bool => $this->canDeleteConversation())
+            ->action(function (): void {
+                $conversation = $this->activeConversation;
+
+                if (! $conversation instanceof Conversation) {
+                    return;
+                }
+
+                app(ConversationEraser::class)->erase($conversation);
+
+                $this->conversationId = null;
+                $this->forgetThread();
+
+                Notification::make()
+                    ->body(__('chatbot::panel.inbox.delete_conversation_done'))
+                    ->success()
+                    ->send();
+            });
+    }
+
+    /**
      * Whether there is a link to take off.
      */
     public function canUnlinkContact(): bool
@@ -1214,6 +1267,23 @@ class ChatInbox extends Page
 
         return $conversation instanceof Conversation
             && Filament::auth()->user()?->can('update', $conversation) === true;
+    }
+
+    /**
+     * Whether this operator may delete the open conversation.
+     *
+     * Public because the view has to ask it. An action embedded in markup draws
+     * itself whatever its own authorisation says — a forbidden one comes out as
+     * a greyed-out button rather than as nothing — and a disabled "delete
+     * conversation" on the desk of somebody who may not delete it reads as a
+     * screen that is broken.
+     */
+    public function canDeleteConversation(): bool
+    {
+        $conversation = $this->activeConversation;
+
+        return $conversation instanceof Conversation
+            && Filament::auth()->user()?->can('delete', $conversation) === true;
     }
 
     private function normaliseFilters(): void

@@ -2,13 +2,18 @@
 
 declare(strict_types=1);
 
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Facades\Storage;
 use Livewire\Livewire;
+use MB\FilamentChatbot\Chat\AttachmentStore;
 use MB\FilamentChatbot\Chat\OperatorReply;
 use MB\FilamentChatbot\ChatbotPlugin;
 use MB\FilamentChatbot\Enums\BotState;
 use MB\FilamentChatbot\Enums\MessageAuthor;
 use MB\FilamentChatbot\Filament\Pages\ChatInbox;
+use MB\FilamentChatbot\Models\Attachment;
 use MB\FilamentChatbot\Models\Bot;
 use MB\FilamentChatbot\Models\Conversation;
 use MB\FilamentChatbot\Models\Message;
@@ -363,4 +368,67 @@ it('возвращает к списку разговоров', function (): voi
     $desk->call('clearSelection');
 
     expect($desk->instance()->activeConversation)->toBeNull();
+});
+
+/**
+ * Удаление чата уносит и присланные файлы.
+ *
+ * Строки уходят сами: сообщения, прогоны и записи о вложениях висят
+ * на разговоре каскадом. Байты не уходят, и это та половина, которую
+ * оператор проверить не может: запись о вложении — единственное, что знает,
+ * где лежит файл, так что фотография паспорта осталась бы на диске
+ * доступной по прежнему адресу, а найти её в приложении было бы уже нечем.
+ */
+it('удаляет переписку вместе с файлами на диске', function (): void {
+    Storage::fake('local');
+    config(['chatbot.attachments.disk' => 'local']);
+
+    signIn();
+
+    $conversation = Conversation::factory()->create(['last_message_at' => now()]);
+    $message = Message::factory()->for($conversation)->create();
+
+    $attachment = app(AttachmentStore::class)->store(
+        $message,
+        UploadedFile::fake()->create('passport.pdf', 10, 'application/pdf'),
+    );
+
+    expect(Storage::disk('local')->exists($attachment->path))->toBeTrue();
+
+    Livewire::test(ChatInbox::class)
+        ->call('selectConversation', $conversation->getKey())
+        ->callAction('deleteConversation');
+
+    expect(Conversation::query()->whereKey($conversation->getKey())->exists())->toBeFalse()
+        ->and(Message::query()->whereKey($message->getKey())->exists())->toBeFalse()
+        ->and(Attachment::query()->whereKey($attachment->getKey())->exists())->toBeFalse()
+        ->and(Storage::disk('local')->exists($attachment->path))->toBeFalse();
+});
+
+/**
+ * Удалять переписку — не то же, что в ней отвечать.
+ *
+ * Отвечают все, кого пустили на стол; стереть год переписки с клиентом,
+ * вместе с присланными документами, — дело владельца. Хозяин говорит это
+ * правом `chatbot.delete`, и кнопки у остальных нет вовсе: действие,
+ * вставленное в разметку, рисуется серой кнопкой, что бы ни отвечала его
+ * проверка прав, а серая «удалить чат» читается как сломанный экран.
+ */
+it('не даёт удалить переписку тому, кому хозяин этого не разрешил', function (): void {
+    Gate::define('chatbot.manage', fn (): bool => true);
+    Gate::define('chatbot.delete.conversations', fn (): bool => false);
+
+    signIn();
+
+    $conversation = Conversation::factory()->create(['last_message_at' => now()]);
+
+    Message::factory()->for($conversation)->create();
+
+    $desk = Livewire::test(ChatInbox::class)->call('selectConversation', $conversation->getKey());
+
+    expect($desk->instance()->canDeleteConversation())->toBeFalse();
+
+    $desk->assertActionHidden('deleteConversation');
+
+    expect(Conversation::query()->whereKey($conversation->getKey())->exists())->toBeTrue();
 });
