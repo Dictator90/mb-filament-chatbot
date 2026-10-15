@@ -49,6 +49,18 @@ use MB\FilamentChatbot\Registry\ChatbotRegistry;
  * filled, so whatever the model did get is there for the manager and for the
  * nodes downstream.
  *
+ * **What this node cannot promise, and `ai` can.** That one refuses to speak an
+ * answer whose claimed sources were not among the fragments it handed over —
+ * the check that makes an invented refund policy harmless. Here the answer is
+ * composed after several tool results, the model was never asked to name a
+ * source for it, and there is nothing to check a claim against. What remains is
+ * narrower and real: the knowledge search goes through `KnowledgeSource`, which
+ * never offers a topic whose mode says "fetch a person" or "run a scenario", so
+ * the material the model can answer from is material somebody approved for
+ * answering. Everything past that is the instruction's job, which is why the
+ * instruction is required and why its wording lists the forbidden subjects by
+ * name rather than asking for care in general.
+ *
  * Two exits. The second covers everything that is not an answer to speak: no
  * conversation-capable driver, a provider refusing, the budget spent, the model
  * running out of rounds — and the one that is not a failure at all, the model

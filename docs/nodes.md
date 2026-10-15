@@ -1118,6 +1118,17 @@ would mean two or three messages per answer in a channel where each one is a
 notification. They are kept for the journal; what the visitor reads is the
 answer the model gave after seeing what the tools returned.
 
+**What this node cannot promise, and `ai` can.** That one refuses to speak an
+answer whose claimed sources were not among the fragments it handed over — the
+check that makes an invented refund policy harmless. Here the answer is composed
+after several tool results, the model was never asked to name a source for it,
+and there is nothing to check a claim against. What remains is narrower and
+real: the knowledge search goes through `KnowledgeSource`, which never offers a
+topic whose mode says "fetch a person" or "run a scenario", so the material the
+model may answer from is material somebody approved for answering. Everything
+past that is the instruction's job — which is why it is required, and why a good
+one names the forbidden subjects instead of asking for care in general.
+
 How much of the thread the model sees is decided by `ConversationMemory`: a
 window of recent messages verbatim, a running summary of what fell out of it,
 and a line drawn under both when a scenario finishes. Everything leaving goes
