@@ -6,6 +6,7 @@ namespace MB\FilamentChatbot\Bot\Steps\Types;
 
 use MB\FilamentChatbot\Bot\Fields\Field;
 use MB\FilamentChatbot\Bot\Slots\Slot;
+use MB\FilamentChatbot\Bot\Slots\SlotKind;
 use MB\FilamentChatbot\Bot\Slots\SlotParser;
 use MB\FilamentChatbot\Bot\Steps\StepContext;
 use MB\FilamentChatbot\Bot\Steps\StepResult;
@@ -166,7 +167,7 @@ final class CollectStep extends StepType
          * default question is what it was written for.
          */
         if (trim((string) $context->step->body) === '') {
-            $context->runtime->say($context->runtime->fill($slot->defaultQuestion()));
+            $context->runtime->say($context->runtime->fill($slot->defaultQuestion()), [], $slot->kind() === SlotKind::Phone);
         }
 
         $this->rememberAsking($context, 0);
@@ -209,7 +210,7 @@ final class CollectStep extends StepType
 
         if ($used < $allowed) {
             $this->rememberAsking($context, $used);
-            $context->runtime->say($context->runtime->fill($slot->defaultQuestion()));
+            $context->runtime->say($context->runtime->fill($slot->defaultQuestion()), [], $slot->kind() === SlotKind::Phone);
 
             return StepResult::wait()->traced(RunStep::WAITING, [
                 'slot' => $slot->key(),

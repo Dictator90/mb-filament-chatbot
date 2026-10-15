@@ -79,6 +79,13 @@ return [
     ],
 
     /**
+     * The button a messenger draws to hand over its own account's contact
+     * card. Not an answer among others: pressing it sends a number the
+     * messenger vouches for rather than one typed out by hand.
+     */
+    'share_contact' => 'Send my number',
+
+    /**
      * What replaces a piece of personal data on its way to a language model.
      *
      * Translated because the model reads them: an English placeholder dropped

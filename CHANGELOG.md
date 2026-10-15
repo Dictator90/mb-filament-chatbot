@@ -6,6 +6,21 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 this package intends to follow [Semantic Versioning](https://semver.org/) once
 it reaches 1.0.
 
+## [0.9.9] — 2026-10-15
+
+- **A phone number the messenger vouches for.** Asked for a number, the bot
+  now offers Telegram's own "share my contact" key next to the question, and
+  what comes back carries the account it came from. A number typed into a
+  message is a claim about somebody — anybody — and a host that looks up a
+  customer by it hands the chat whatever that customer's record holds. The
+  card Telegram fills in is checked against the sender (`contact.user_id` has
+  to be the person writing), and only then does the conversation get its
+  `identified_at` mark; a forwarded card, or a number read out in words,
+  arrives as plain text with no mark at all.
+- **`Runtime::say()` takes a third argument.** `say($text, $options,
+  $wantsContact)`; a channel that cannot ask for a contact card ignores the
+  flag. Phone slots of `form` and `collect` set it themselves.
+
 ## [0.9.8] — 2026-10-15
 
 - **A pressed button stays visible in Telegram.** Tapping an inline button

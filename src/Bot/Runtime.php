@@ -35,9 +35,15 @@ interface Runtime
      * question with three buttons arrived on every channel as a bare line of
      * text, and the visitor was left to guess the wording.
      *
+     * `$wantsContact` asks the channel for the person's own contact card
+     * instead of an answer typed out. Only a messenger can offer that, and
+     * only its own account's card counts: a number read out in a message is a
+     * claim, a card the messenger fills in is proof. A channel that cannot ask
+     * ignores the flag and the question stands as asked.
+     *
      * @param  list<string>  $options
      */
-    public function say(string $text, array $options = []): void;
+    public function say(string $text, array $options = [], bool $wantsContact = false): void;
 
     /**
      * Remembers a value under a name, for later steps and for message templates.

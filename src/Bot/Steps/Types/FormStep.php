@@ -321,7 +321,19 @@ final class FormStep extends StepType
         $choices = $this->choicesOf($context, $slot);
 
         $this->rememberButtons($context, $choices);
-        $context->runtime->say($context->runtime->fill($slot->defaultQuestion()), $choices);
+
+        /*
+         * Телефон спрашивается кнопкой «отдать свой контакт» там, где канал
+         * это умеет. Набранный руками номер — всего лишь слова, и привязка
+         * по нему открыла бы чужие заявки тому, кто знает чужой номер;
+         * карточку аккаунта заполняет сам мессенджер. Руками ввести
+         * по-прежнему можно: клавиатура не закрывает поле ввода.
+         */
+        $context->runtime->say(
+            $context->runtime->fill($slot->defaultQuestion()),
+            $choices,
+            $slot->kind() === SlotKind::Phone,
+        );
     }
 
     /**

@@ -265,13 +265,53 @@ final class TelegramDriver implements ChannelDriver, ChannelPolling, ChannelSetu
         }
 
         $chatId = $this->chatId($message);
+        $sender = $this->from($message['from'] ?? null);
+
+        /*
+         * A shared contact is the one phone number in this package that is
+         * proof rather than a claim.
+         *
+         * Telegram fills `contact.user_id` itself, and it fills it with the
+         * account the card belongs to — so a card whose `user_id` equals the
+         * sender is that sender's own number, confirmed by Telegram and not
+         * typed by anybody. A number read out in a message proves nothing:
+         * whoever knows a customer's phone could otherwise be handed their
+         * bookings by a bot that believed words.
+         *
+         * A forwarded card — somebody else's contact — arrives with a
+         * different `user_id` or none at all. It is kept as text, so the
+         * conversation goes on, and the thread stays unproved.
+         */
+        $contact = $message['contact'] ?? null;
+
+        if (is_array($contact)) {
+            $number = trim((string) ($contact['phone_number'] ?? ''));
+            $owner = $contact['user_id'] ?? null;
+            $from = $message['from']['id'] ?? null;
+            $itsOwn = $number !== '' && $owner !== null && $from !== null && (string) $owner === (string) $from;
+
+            if ($chatId === null || $number === '') {
+                return null;
+            }
+
+            return new InboundMessage(
+                channel: self::KEY,
+                externalConversationId: $chatId,
+                externalMessageId: (string) ($message['message_id'] ?? ''),
+                body: $number,
+                displayName: $sender['displayName'],
+                username: $sender['username'],
+                phone: $itsOwn ? $number : null,
+                botId: $connection->bot_id,
+                identified: $itsOwn,
+            );
+        }
+
         $text = trim((string) ($message['text'] ?? $message['caption'] ?? ''));
 
         if ($chatId === null || $text === '') {
             return null;
         }
-
-        $sender = $this->from($message['from'] ?? null);
 
         return new InboundMessage(
             channel: self::KEY,
@@ -533,10 +573,30 @@ final class TelegramDriver implements ChannelDriver, ChannelPolling, ChannelSetu
      * row of truncated labels on a phone — which is the device almost every
      * Telegram conversation happens on.
      *
-     * @return array{inline_keyboard: list<list<array{text: string, callback_data: string}>>}|null
+     * @return array<string, mixed>|null
      */
     private function keyboard(Message $message): ?array
     {
+        /*
+         * «Отправить мой номер» — не вариант ответа, а просьба к Telegram.
+         *
+         * Inline-кнопка такого не умеет: контакт отдаёт только обычная
+         * клавиатура под полем ввода, и Telegram сам подставляет в неё
+         * карточку того аккаунта, с которого пишут. Набранный руками номер
+         * доказательством не является — по нему кто угодно получил бы чужие
+         * брони, — а этот приходит от Telegram вместе с `user_id` владельца.
+         *
+         * Клавиатура одноразовая: она занимает нижнюю треть экрана и после
+         * ответа там не нужна.
+         */
+        if ((bool) (((array) $message->meta)['request_contact'] ?? false)) {
+            return [
+                'keyboard' => [[['text' => __('chatbot::bot.share_contact'), 'request_contact' => true]]],
+                'resize_keyboard' => true,
+                'one_time_keyboard' => true,
+            ];
+        }
+
         $options = ChannelText::options($message);
 
         if ($options === []) {

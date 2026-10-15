@@ -252,3 +252,102 @@ it('не выдумывает подпись, когда клавиатуры в
     Http::assertSent(fn ($request): bool => str_contains($request->url(), '/editMessageReplyMarkup')
         && ($request->data()['message_id'] ?? null) === 407);
 });
+
+/**
+ * Контакт, отданный кнопкой, — единственный телефон, которому бот верит.
+ *
+ * `contact.user_id` заполняет сам Telegram, и заполняет аккаунтом, которому
+ * карточка принадлежит: совпал с отправителем — номер его собственный.
+ * Набранный в сообщении номер не доказывает ничего, и привязка по нему
+ * отдала бы чужие брони любому, кто знает чужой телефон.
+ */
+it('верит номеру, который Telegram отдал карточкой своего аккаунта', function (): void {
+    $connection = ChannelConnection::factory()->create([
+        'credentials' => ['token' => 'bot-token', 'secret' => 'shared-secret'],
+    ]);
+
+    Http::fake(['*' => Http::response(['ok' => true, 'result' => true])]);
+
+    $this->postJson('/chatbot/webhook/telegram/'.$connection->public_id, [
+        'update_id' => 10,
+        'message' => [
+            'message_id' => 500,
+            'chat' => ['id' => 600],
+            'from' => ['id' => 42, 'first_name' => 'Нина'],
+            'contact' => ['phone_number' => '+79990001122', 'first_name' => 'Нина', 'user_id' => 42],
+        ],
+    ], ['X-Telegram-Bot-Api-Secret-Token' => 'shared-secret'])->assertNoContent();
+
+    $conversation = Conversation::query()->where('external_id', '600')->sole();
+
+    expect($conversation->contact_phone)->toBe('+79990001122')
+        ->and($conversation->identified_at)->not->toBeNull();
+});
+
+/**
+ * А пересланная чужая карточка — не доказательство: `user_id` в ней чужой
+ * или его нет вовсе. Разговор продолжается, номер остаётся словами.
+ */
+it('не верит пересланной чужой карточке', function (): void {
+    $connection = ChannelConnection::factory()->create([
+        'credentials' => ['token' => 'bot-token', 'secret' => 'shared-secret'],
+    ]);
+
+    Http::fake(['*' => Http::response(['ok' => true, 'result' => true])]);
+
+    $this->postJson('/chatbot/webhook/telegram/'.$connection->public_id, [
+        'update_id' => 11,
+        'message' => [
+            'message_id' => 501,
+            'chat' => ['id' => 601],
+            'from' => ['id' => 42, 'first_name' => 'Нина'],
+            'contact' => ['phone_number' => '+79994445566', 'first_name' => 'Пётр', 'user_id' => 77],
+        ],
+    ], ['X-Telegram-Bot-Api-Secret-Token' => 'shared-secret'])->assertNoContent();
+
+    $conversation = Conversation::query()->where('external_id', '601')->sole();
+
+    expect($conversation->contact_phone)->toBeNull()
+        ->and($conversation->identified_at)->toBeNull()
+        ->and(Message::query()->where('conversation_id', $conversation->getKey())->where('direction', 'in')->sole()->body)
+        ->toBe('+79994445566');
+});
+
+/**
+ * Вопрос о телефоне приходит с кнопкой, которой контакт и отдают.
+ *
+ * Inline-кнопка так не умеет: карточку отдаёт только обычная клавиатура
+ * под полем ввода. Без неё «отправьте телефон» означает «наберите его
+ * руками», то есть ровно тот ответ, которому верить нельзя.
+ */
+it('просит телефон кнопкой «отправить мой номер»', function (): void {
+    $connection = ChannelConnection::factory()->create([
+        'credentials' => ['token' => 'bot-token', 'secret' => 'shared-secret'],
+    ]);
+
+    Http::fake(['*' => Http::response(['ok' => true, 'result' => ['message_id' => 1]])]);
+
+    $conversation = Conversation::factory()->create([
+        'bot_id' => $connection->bot_id,
+        'channel' => 'telegram',
+        'external_id' => '700',
+    ]);
+
+    $message = Message::create([
+        'conversation_id' => $conversation->getKey(),
+        'direction' => 'out',
+        'author' => 'bot',
+        'body' => 'Оставьте, пожалуйста, номер телефона — менеджер перезвонит.',
+        'meta' => ['request_contact' => true],
+    ]);
+
+    app(TelegramDriver::class)->send($conversation, $message);
+
+    Http::assertSent(function ($request): bool {
+        $markup = $request->data()['reply_markup'] ?? [];
+
+        return str_contains($request->url(), '/sendMessage')
+            && ($markup['keyboard'][0][0]['request_contact'] ?? false) === true
+            && ($markup['one_time_keyboard'] ?? false) === true;
+    });
+});
