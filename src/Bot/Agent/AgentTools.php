@@ -48,7 +48,18 @@ final class AgentTools
     public const HUMAN = 'call_human';
 
     /**
+     * The prefix a declared data resource is offered to the model under.
+     *
+     * Prefixed rather than named after the resource alone, so that a resource
+     * and a capability can share a name without one shadowing the other — and
+     * so the model reads the catalogue as "reading" against "doing", which is
+     * the distinction it should be most careful about.
+     */
+    public const READ = 'read_';
+
+    /**
      * @param  array<string, CapabilityAction>  $actions  keyed by the tool name each is offered under
+     * @param  array<string, array{key: string, label: string, description: string}>  $resources  keyed the same way
      * @param  list<string>  $slots  the names `remember` may write to; empty allows any
      */
     public function __construct(
@@ -57,21 +68,35 @@ final class AgentTools
         private readonly bool $canRemember = true,
         private readonly bool $canCallHuman = true,
         private readonly array $slots = [],
+        private readonly array $resources = [],
     ) {}
 
     /**
      * @param  list<CapabilityAction>  $actions
      * @param  list<string>  $slots
+     * @param  list<array{key: string, label: string, description: string}>  $resources
      */
-    public static function of(array $actions, bool $canSearch, bool $canRemember, bool $canCallHuman, array $slots = []): self
-    {
+    public static function of(
+        array $actions,
+        bool $canSearch,
+        bool $canRemember,
+        bool $canCallHuman,
+        array $slots = [],
+        array $resources = [],
+    ): self {
         $keyed = [];
 
         foreach ($actions as $action) {
             $keyed[AiTool::nameFor($action->key)] = $action;
         }
 
-        return new self($keyed, $canSearch, $canRemember, $canCallHuman, $slots);
+        $reads = [];
+
+        foreach ($resources as $resource) {
+            $reads[self::READ.AiTool::nameFor((string) $resource['key'])] = $resource;
+        }
+
+        return new self($keyed, $canSearch, $canRemember, $canCallHuman, $slots, $reads);
     }
 
     /**
@@ -132,6 +157,19 @@ final class AgentTools
             );
         }
 
+        foreach ($this->resources as $name => $resource) {
+            $tools[] = new AiTool(
+                $name,
+                trim($resource['label'].'. '.$resource['description']),
+                [
+                    'type' => 'object',
+                    'properties' => [
+                        'limit' => ['type' => 'number', 'description' => __('chatbot::nodes.steps.ai_agent.tools.read_limit')],
+                    ],
+                ],
+            );
+        }
+
         foreach ($this->actions as $action) {
             $tools[] = AiTool::fromCapability($action);
         }
@@ -142,6 +180,24 @@ final class AgentTools
     public function action(string $name): ?CapabilityAction
     {
         return $this->actions[$name] ?? null;
+    }
+
+    /**
+     * The declared resource behind a `read_…` tool, or null.
+     *
+     * **No filters are offered with it, and that is a decision rather than a
+     * gap.** A resource narrows itself to this conversation's own person
+     * through scopes the host declared, resolved from server state — a model is
+     * never shown and never asked for the value that does the narrowing. What a
+     * filter would add is the model naming fields and operators, which it does
+     * by guessing: every guess outside the declaration is a refusal, a round
+     * spent, and a sentence to the visitor about a field they never mentioned.
+     * The resource's own default sort and limit answer the question that is
+     * actually asked — "what are my trips" — without any of that.
+     */
+    public function resource(string $name): ?string
+    {
+        return isset($this->resources[$name]) ? (string) $this->resources[$name]['key'] : null;
     }
 
     /**

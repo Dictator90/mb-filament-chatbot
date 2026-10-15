@@ -1061,6 +1061,7 @@ offers, and answers in its own words.
 | `provider` | Must be a driver that can hold a conversation — `anthropic` today |
 | `instruction` | Required. Who the model is, how it speaks, what it may not promise |
 | `tools` | The capabilities it may call. An allow-list, per node |
+| `resources` | The declared data resources it may read. Also an allow-list |
 | `slots` | The names `remember` may write to. None chosen, no remembering |
 | `search` | Offer the knowledge search. On by default |
 | `call_human` | Offer "this needs a person". On by default |
@@ -1088,6 +1089,17 @@ about the application: `search_knowledge` looks something up in the company's
 own material, `remember` writes a value where the rest of the bot can read it,
 and `call_human` says this needs a person. A model with no way to ask for help
 improvises instead, which is how a bot promises a refund.
+
+**Reading goes through the data resources, as `read_<resource>`.** The rows are
+narrowed to the person being talked to by the scopes the resource declared,
+resolved from server state; the sensitive fields are dropped by the reader; the
+limit is the resource's own. Nothing about the query comes from the model except
+how many rows, and no filters are offered — a model composing filters invents
+field names, and each invented one costs a refused round and a sentence to the
+visitor about a field they never mentioned. A refusal is not repeated to the
+model in the reader's words either: those name the resource and the field, and
+handed to a model they get quoted at a customer as the reason their trip could
+not be found.
 
 **Rounds are capped and the cap is low.** A model that cannot finish asks for
 the same thing again, and every round is a billed request carrying the whole

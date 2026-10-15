@@ -13,6 +13,10 @@ use MB\FilamentChatbot\Ai\KnowledgeSource;
 use MB\FilamentChatbot\Bot\Steps\StepContext;
 use MB\FilamentChatbot\Capabilities\CapabilityGateway;
 use MB\FilamentChatbot\Chat\ConversationFacts;
+use MB\FilamentChatbot\Data\DataQuery;
+use MB\FilamentChatbot\Data\DataReader;
+use MB\FilamentChatbot\Data\RuntimeContext;
+use MB\FilamentChatbot\Enums\DataQueryMode;
 
 /**
  * Lets the model lead one turn of the conversation: ask for things, read what
@@ -51,6 +55,7 @@ final class AgentLoop
     public function __construct(
         private readonly CapabilityGateway $capabilities,
         private readonly ConversationFacts $facts,
+        private readonly DataReader $data,
         private readonly ?KnowledgeSource $knowledge = null,
     ) {}
 
@@ -112,7 +117,7 @@ final class AgentLoop
                 $did[] = array_filter([
                     'tool' => $call->name,
                     'ok' => $done['ok'],
-                    'reason' => $done['ok'] ? null : $done['text'],
+                    'reason' => $done['ok'] ? null : ($done['reason'] ?? $done['text']),
                 ], static fn (mixed $value): bool => $value !== null);
 
                 $turn = $turn->with(AiMessage::result($call->id, $done['text'], $done['ok']));
@@ -135,7 +140,7 @@ final class AgentLoop
      * side of it is a sentence, and a shape invented here would be a second
      * description of the host's own data that nothing keeps in step.
      *
-     * @return array{text: string, ok: bool}
+     * @return array{text: string, ok: bool, reason?: string}
      */
     private function perform(AiToolCall $call, AgentTools $tools, StepContext $context, int $candidates): array
     {
@@ -145,6 +150,12 @@ final class AgentLoop
 
         if ($call->name === AgentTools::REMEMBER) {
             return $this->remember($call, $tools, $context);
+        }
+
+        $resource = $tools->resource($call->name);
+
+        if ($resource !== null) {
+            return $this->read($resource, $call, $context);
         }
 
         $action = $tools->action($call->name);
@@ -170,6 +181,69 @@ final class AgentLoop
                 ? 'Done.'
                 : 'Done. '.(string) json_encode($data, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
         ];
+    }
+
+    /**
+     * Reads a declared resource — through the reader, like everything else.
+     *
+     * Nothing about the query comes from the model except how many rows: the
+     * resource is one the author allow-listed, the fields are the ones it
+     * declared returnable, the sensitive ones are dropped by the reader, and
+     * the scope that narrows the rows to this person is resolved from server
+     * state where neither the model nor the visitor can reach it. A second road
+     * to the same columns — a host action that selects them itself — would have
+     * none of those rules, which is why the reader is the only road.
+     *
+     * **A refusal is not repeated to the model in the reader's words.** Those
+     * name the resource, the field and the limit that was too high; handed to a
+     * model they end up quoted at a customer as an explanation of why their
+     * trip could not be found. The model is told it cannot see the data; the
+     * real sentence goes to the journal.
+     *
+     * @return array{text: string, ok: bool, reason?: string}
+     */
+    private function read(string $resource, AiToolCall $call, StepContext $context): array
+    {
+        $limit = (int) ($call->input['limit'] ?? 0);
+
+        $result = $this->data->read(
+            new DataQuery(
+                resource: $resource,
+                mode: DataQueryMode::List,
+                limit: $limit > 0 ? min($limit, 20) : null,
+            ),
+            RuntimeContext::forConversation($context->conversation),
+        );
+
+        if (! $result->ok()) {
+            return [
+                'ok' => false,
+                'text' => __('chatbot::nodes.steps.ai_agent.tools.read_refused'),
+                'reason' => (string) $result->error(),
+            ];
+        }
+
+        if ($result->isEmpty()) {
+            return ['ok' => true, 'text' => __('chatbot::nodes.steps.ai_agent.tools.read_empty')];
+        }
+
+        $lines = [];
+
+        foreach ($result->rows() as $index => $row) {
+            $fields = [];
+
+            foreach ($row as $name => $value) {
+                if ($value === null || $value === '') {
+                    continue;
+                }
+
+                $fields[] = $name.': '.$value;
+            }
+
+            $lines[] = ($index + 1).') '.implode(', ', $fields);
+        }
+
+        return ['ok' => true, 'text' => implode("\n", $lines)];
     }
 
     /**

@@ -10,16 +10,19 @@ use MB\FilamentChatbot\Bot\Steps\StepFlow;
 use MB\FilamentChatbot\Bot\Steps\Types\AiAgentStep;
 use MB\FilamentChatbot\Capabilities\CapabilityAction;
 use MB\FilamentChatbot\Chat\ConversationMemory;
+use MB\FilamentChatbot\Enums\DataQueryMode;
 use MB\FilamentChatbot\Enums\MessageAuthor;
 use MB\FilamentChatbot\Enums\MessageDirection;
 use MB\FilamentChatbot\Enums\SideEffect;
 use MB\FilamentChatbot\Models\Bot;
 use MB\FilamentChatbot\Models\Conversation;
+use MB\FilamentChatbot\Models\DataResource;
 use MB\FilamentChatbot\Models\Message;
 use MB\FilamentChatbot\Models\Scenario;
 use MB\FilamentChatbot\Models\Step;
 use MB\FilamentChatbot\Registry\ChatbotRegistry;
 use MB\FilamentChatbot\Tests\Support\RecordingRuntime;
+use Workbench\App\Models\DemoRecord;
 
 /**
  * A conversation the model leads, and the six ways that goes wrong quietly.
@@ -410,6 +413,117 @@ it('начинает окно заново после завершённого �
     expect($window)->toHaveCount(1)
         ->and($window[0]->text)->toBe('а документы когда?')
         ->and($memory->summary($this->conversation))->toBe('Заявка на июль оформлена.');
+});
+
+/**
+ * Читать данные модель может только объявленным источником.
+ *
+ * Это и есть ответ на «пусть ИИ смотрит мои брони»: строки сужает правило
+ * источника, разрешённые поля — его объявление, а чувствительные он не отдаёт
+ * вовсе. Второе действие, выбирающее те же колонки самостоятельно, было бы
+ * второй дорогой к ним — и ни одного из этих правил на ней.
+ */
+it('читает данные через объявленный источник, без чувствительных полей', function (): void {
+    DataResource::factory()->create([
+        'key' => 'demo-records',
+        'label' => 'Записи',
+        'description' => 'Демонстрационные записи.',
+        'model' => DemoRecord::class,
+        'modes' => [DataQueryMode::List->value],
+        'fields' => [
+            ['name' => 'name', 'returned_by_default' => true],
+            ['name' => 'secret_code', 'sensitive' => true],
+        ],
+        'default_limit' => 10,
+        'max_limit' => 20,
+        'scopes' => null,
+        'is_active' => true,
+    ]);
+
+    DemoRecord::create(['name' => 'Тур в Турцию', 'status' => 'open', 'secret_code' => 'не-для-клиента']);
+
+    anthropicReplies([
+        anthropicAsks('read_demo-records', ['limit' => 3]),
+        anthropicSays('У Вас одна поездка: Тур в Турцию.'),
+    ]);
+
+    $result = app(AiAgentStep::class)->run(agentContext(
+        $this->conversation,
+        agentNode(['tools' => [], 'search' => false, 'resources' => ['demo-records']]),
+        $this->runtime,
+        'что у меня забронировано?',
+    ));
+
+    expect($result->flow)->toBe(StepFlow::Next)
+        ->and($result->trace['did'][0]['ok'])->toBeTrue();
+
+    Http::assertSent(function ($request): bool {
+        $messages = $request->data()['messages'] ?? [];
+        $results = [];
+
+        foreach ($messages as $message) {
+            foreach ((array) ($message['content'] ?? []) as $block) {
+                if (is_array($block) && ($block['type'] ?? '') === 'tool_result') {
+                    $results[] = (string) $block['content'];
+                }
+            }
+        }
+
+        return $results !== []
+            && str_contains($results[0], 'Тур в Турцию')
+            && ! str_contains($results[0], 'не-для-клиента');
+    });
+});
+
+/**
+ * Отказ источника модели пересказывают своими словами, а не словами разборщика.
+ *
+ * Тот называет источник, поле и предел — и, попав к модели, такая строка
+ * оказывается процитированной клиенту как объяснение, почему не нашлась его
+ * поездка. Настоящая причина уходит в журнал прогона.
+ */
+it('не отдаёт модели слова отказа источника, но пишет их в журнал', function (): void {
+    anthropicReplies([
+        anthropicAsks('read_demo-records', ['limit' => 3]),
+        anthropicSays('Посмотреть не получилось, передам менеджеру.'),
+    ]);
+
+    DataResource::factory()->create([
+        'key' => 'demo-records',
+        'label' => 'Записи',
+        'description' => 'Демонстрационные записи.',
+        'model' => DemoRecord::class,
+        'modes' => [DataQueryMode::Count->value],
+        'fields' => [['name' => 'name', 'returned_by_default' => true]],
+        'default_limit' => 10,
+        'max_limit' => 20,
+        'scopes' => null,
+        'is_active' => true,
+    ]);
+
+    $result = app(AiAgentStep::class)->run(agentContext(
+        $this->conversation,
+        agentNode(['tools' => [], 'search' => false, 'resources' => ['demo-records']]),
+        $this->runtime,
+        'что у меня забронировано?',
+    ));
+
+    expect($result->trace['did'][0]['ok'])->toBeFalse()
+        ->and($result->trace['did'][0]['reason'])->toContain('demo-records');
+
+    Http::assertSent(function ($request): bool {
+        $messages = $request->data()['messages'] ?? [];
+
+        foreach ($messages as $message) {
+            foreach ((array) ($message['content'] ?? []) as $block) {
+                if (is_array($block) && ($block['type'] ?? '') === 'tool_result') {
+                    return ! str_contains((string) $block['content'], 'demo-records');
+                }
+            }
+        }
+
+        return false;
+    });
 });
 
 /**

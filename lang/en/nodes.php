@@ -257,6 +257,10 @@ return [
                     'label' => 'Actions it may use',
                     'hint' => 'Only the ones chosen here. Nothing else exists as far as the model is concerned, and the list is visible to whoever reviews the scenario.',
                 ],
+                'resources' => [
+                    'label' => 'What it may read',
+                    'hint' => 'Declared data resources. Rows are narrowed to the person being talked to by the resource\'s own rules, not by the model: the value that does the narrowing is never shown to it and never asked of it.',
+                ],
                 'slots' => [
                     'label' => 'What it may remember',
                     'hint' => 'The names it writes what it learns under: conditions, templates and later nodes read them. Choose none and it cannot remember anything.',
@@ -286,6 +290,9 @@ return [
                 'remember_value' => 'The value, in the person\'s own words',
                 'human' => 'Hand the conversation to a human operator. For anything outside the material, and for money, complaints and promises.',
                 'human_reason' => 'Why a person is needed — one line, for the operator',
+                'read_limit' => 'How many records to show, at most twenty',
+                'read_refused' => 'That data cannot be read right now. Do not invent it: say so to the person, or fetch a human.',
+                'read_empty' => 'There are no such records. Say exactly that, without filling in the gaps.',
             ],
             'issues' => [
                 'no_instruction' => 'This node does not tell the model who it is or what it may do. Without that it answers in the provider\'s voice and decides for itself what to do.',

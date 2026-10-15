@@ -6,6 +6,22 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 this package intends to follow [Semantic Versioning](https://semver.org/) once
 it reaches 1.0.
 
+## [0.10.1] — 2026-10-15
+
+- **The agent can read, through the data resources.** A tool per allow-listed
+  resource, `read_<resource>`, which is how it answers "what have I got booked"
+  without a second road to the same columns: the scopes the resource declared
+  narrow the rows to this conversation's own person — resolved from server state
+  the model is never shown and never asked for — the sensitive fields are
+  dropped by the reader, and the limit is the resource's own. No filters are
+  offered: a model composing them invents field names, and each invention costs
+  a refused round and a sentence to the visitor about a field they never
+  mentioned.
+- **A reader's refusal is not repeated to the model in its own words.** Those
+  name the resource, the field and the limit; handed to a model they end up
+  quoted at a customer as the reason their trip could not be found. The model is
+  told it cannot see the data, and the real sentence goes to the run journal.
+
 ## [0.10.0] — 2026-10-15
 
 ### A conversation the model can lead

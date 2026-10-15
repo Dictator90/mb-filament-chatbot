@@ -20,6 +20,7 @@ use MB\FilamentChatbot\Capabilities\CapabilityAction;
 use MB\FilamentChatbot\Chat\ConversationMemory;
 use MB\FilamentChatbot\Enums\SideEffect;
 use MB\FilamentChatbot\Enums\StepOutputs;
+use MB\FilamentChatbot\Models\DataResource;
 use MB\FilamentChatbot\Models\RunStep;
 use MB\FilamentChatbot\Models\Scenario;
 use MB\FilamentChatbot\Models\Step;
@@ -138,6 +139,12 @@ final class AiAgentStep extends StepType
                 ->multiple()
                 ->options(fn (): array => $this->toolOptions())
                 ->hint(__('chatbot::nodes.steps.ai_agent.fields.tools.hint')),
+
+            Field::select('resources')
+                ->label(__('chatbot::nodes.steps.ai_agent.fields.resources.label'))
+                ->multiple()
+                ->options(fn (): array => $this->resourceOptions())
+                ->hint(__('chatbot::nodes.steps.ai_agent.fields.resources.hint')),
 
             Field::select('slots')
                 ->label(__('chatbot::nodes.steps.ai_agent.fields.slots.label'))
@@ -361,7 +368,37 @@ final class AiAgentStep extends StepType
             canRemember: $slots !== [],
             canCallHuman: (bool) $context->setting('call_human', true),
             slots: $slots,
+            resources: $this->resources($context),
         );
+    }
+
+    /**
+     * The declared resources this node lets the model read.
+     *
+     * Only the active ones, and only by the keys the author chose: a resource
+     * switched off in the panel is switched off for the model too, without the
+     * author having to remember to un-choose it here.
+     *
+     * @return list<array{key: string, label: string, description: string}>
+     */
+    private function resources(StepContext $context): array
+    {
+        $keys = $this->chosen($context, 'resources');
+
+        if ($keys === []) {
+            return [];
+        }
+
+        return DataResource::query()
+            ->whereIn('key', $keys)
+            ->where('is_active', true)
+            ->get(['key', 'label', 'description'])
+            ->map(static fn (DataResource $resource): array => [
+                'key' => (string) $resource->key,
+                'label' => (string) $resource->label,
+                'description' => (string) $resource->description,
+            ])
+            ->all();
     }
 
     /**
@@ -395,6 +432,18 @@ final class AiAgentStep extends StepType
         }
 
         return $options;
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    private function resourceOptions(): array
+    {
+        return DataResource::query()
+            ->where('is_active', true)
+            ->orderBy('label')
+            ->pluck('label', 'key')
+            ->all();
     }
 
     /**

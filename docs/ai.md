@@ -296,6 +296,13 @@ conversation rather than the application:
 | `remember` | Write a value where the scenario, the templates and the desk can read it — into the slots the author named |
 | `call_human` | Say this needs a person. A model with no way to ask improvises instead, which is how a bot promises a refund |
 
+And reading is a tool per allow-listed data resource, `read_<resource>`. That is
+how an agent answers "what have I got booked" without a second road to the same
+columns: the scopes the resource declared narrow the rows to this conversation's
+own person, resolved from server state the model is never shown; the sensitive
+fields are dropped by the reader; and no filters are offered, because a model
+composing them invents field names and each invention costs a refused round.
+
 **Memory is a window, a summary and a line that can be drawn under both.** A
 thread with a regular customer runs to hundreds of messages: sending them costs
 money every turn, pushes the company's own instruction further from the model's
