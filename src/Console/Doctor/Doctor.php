@@ -29,6 +29,7 @@ final class Doctor
         StepTypeCheck::class,
         ScenarioCheck::class,
         BotScenarioCheck::class,
+        DataResourceCheck::class,
         QueueCheck::class,
         OperatorBellCheck::class,
         RateLimitStoreCheck::class,

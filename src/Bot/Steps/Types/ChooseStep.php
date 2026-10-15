@@ -274,6 +274,10 @@ final class ChooseStep extends StepType
             $issues[] = ['severity' => 'blocking', 'message' => __('chatbot::nodes.steps.choose.issues.no_resource')];
         }
 
+        if (($missing = $this->resourceIssue($step)) !== null) {
+            $issues[] = $missing;
+        }
+
         if (trim((string) $step->setting('into', '')) === '') {
             $issues[] = [
                 'severity' => 'blocking',

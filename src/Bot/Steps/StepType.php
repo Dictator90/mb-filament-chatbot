@@ -6,6 +6,7 @@ namespace MB\FilamentChatbot\Bot\Steps;
 
 use MB\FilamentChatbot\Bot\Fields\Field;
 use MB\FilamentChatbot\Enums\StepOutputs;
+use MB\FilamentChatbot\Models\DataResource;
 use MB\FilamentChatbot\Models\Scenario;
 use MB\FilamentChatbot\Models\Step;
 
@@ -210,6 +211,40 @@ abstract class StepType
     public function issues(Step $step, Scenario $scenario): array
     {
         return [];
+    }
+
+    /**
+     * The flaw "the chosen data resource is not registered, or is switched
+     * off" — or nothing.
+     *
+     * For the nodes that read the host's records. They used to check only that
+     * a resource had been *picked*, and that turned out not to be enough:
+     * resources are declared in config and reach the database through
+     * `chatbot:sync-resources`, which a deployment can easily not call. The
+     * node then takes its second exit on every conversation, and the visitor
+     * hears "the list only holds the trips I can see by your number" — which is
+     * what one production installation did from the day it opened: three
+     * resources declared, none in the database, and the "question about my
+     * booking" branch never worked once.
+     *
+     * No error and no failure: the canvas shows a correct scenario, the journal
+     * says "empty result", and to the visitor it looks like having no records.
+     * Hence a flaw rather than a note — it is drawn on the node in the editor
+     * and counted by the readiness page.
+     *
+     * @return array{severity: string, message: string}|null
+     */
+    protected function resourceIssue(Step $step): ?array
+    {
+        $key = trim((string) $step->setting('resource', ''));
+
+        if ($key === '') {
+            return null;
+        }
+
+        return DataResource::query()->active()->where('key', $key)->exists()
+            ? null
+            : ['severity' => 'blocking', 'message' => __('chatbot::nodes.resource_missing', ['resource' => $key])];
     }
 
     /**

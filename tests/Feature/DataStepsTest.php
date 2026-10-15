@@ -379,3 +379,41 @@ it('does not let a value the visitor supplied reach past the access scope', func
 
     expect($theirs->stored['booking_name'])->toBe('Somebody else');
 });
+
+/**
+ * Узел, ссылающийся на источник, которого нет в базе, — изъян схемы.
+ *
+ * Источники объявляются в конфиге, а в базу попадают командой
+ * `chatbot:sync-resources`, и на выкате её легко не позвать. Тогда узел
+ * «Выбрать запись» уходит вторым выходом на каждом разговоре, а человек
+ * слышит «в списке только то, что я вижу по вашему номеру» — ровно это
+ * и случилось на боевой установке: три источника объявлены, в базе ни
+ * одного, и ветка «вопрос по брони» не работала ни разу. Ни ошибки,
+ * ни падения: на полотне сценарий правильный, в журнале «пустой
+ * результат», а для клиента это выглядит как отсутствие его записей.
+ */
+it('считает изъяном ссылку на незаведённый источник данных', function (): void {
+    $scenario = Scenario::factory()->create();
+
+    $step = dataStep('choose', ['resource' => 'records', 'label' => '{{name}}', 'into' => 'booking']);
+
+    $missing = app(ChooseStep::class)->issues($step, $scenario);
+
+    expect($missing)->toHaveCount(1)
+        ->and($missing[0]['severity'])->toBe('blocking')
+        ->and($missing[0]['message'])->toContain('records');
+
+    stepResource();
+
+    expect(app(ChooseStep::class)->issues($step, $scenario))->toBe([]);
+});
+
+/** Выключенный источник — то же самое: узел работать не будет. */
+it('считает изъяном ссылку на выключенный источник данных', function (): void {
+    $scenario = Scenario::factory()->create();
+    stepResource(['is_active' => false]);
+
+    $step = dataStep('query', ['resource' => 'records', 'into' => 'поездка']);
+
+    expect(app(QueryStep::class)->issues($step, $scenario))->toHaveCount(1);
+});

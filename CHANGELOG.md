@@ -6,6 +6,22 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 this package intends to follow [Semantic Versioning](https://semver.org/) once
 it reaches 1.0.
 
+## [0.9.5] — 2026-10-15
+
+- **A node pointing at a data resource that is not registered is now a flaw.**
+  Resources are declared in config and reach the database through
+  `chatbot:sync-resources`, which a deployment can easily not call. The node
+  then took its second exit on every conversation, the journal said "empty
+  result", and the canvas showed a correct scenario — one production
+  installation ran that way from the day it opened, its "question about my
+  booking" branch never working once. `choose`, `query`, `link` and `mutate`
+  all report it, so the editor draws it on the node and the readiness page
+  counts it.
+- **`chatbot:doctor` gained a `data-resources` check** for the same fault, so a
+  deployment catches it without anyone opening a screen: a scenario naming a
+  resource with no active row fails the run, and a declared-but-unsynced
+  resource nobody uses yet warns.
+
 ## [0.9.4] — 2026-10-14
 
 - **A declined question stays declined for the whole conversation.** The skip

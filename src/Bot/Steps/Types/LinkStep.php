@@ -257,6 +257,10 @@ final class LinkStep extends StepType
             $issues[] = ['severity' => 'blocking', 'message' => __('chatbot::nodes.steps.link.issues.no_resource')];
         }
 
+        if (($missing = $this->resourceIssue($step)) !== null) {
+            $issues[] = $missing;
+        }
+
         if (trim((string) $step->setting('key', '')) === '') {
             $issues[] = ['severity' => 'blocking', 'message' => __('chatbot::nodes.steps.link.issues.no_key')];
         }

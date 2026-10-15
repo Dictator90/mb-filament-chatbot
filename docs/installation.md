@@ -277,8 +277,8 @@ php artisan chatbot:doctor --strict
 | `--check=` | Run only these checks, by key. Repeatable |
 | `--strict` | Treat warnings as failures too |
 
-Nine checks ship, in this order: `schema`, `step-types`, `scenarios`, `bots`,
-`queue`, `assets`, `widget`, `http`, `ai`. The schema
+Ten checks ship, in this order: `schema`, `step-types`, `scenarios`, `bots`,
+`data-resources`, `queue`, `assets`, `widget`, `http`, `ai`. The schema
 check runs first because everything after it reads from those tables, and a
 report that opens with six exceptions about missing SQL tables buries the one
 line that explains all of them.

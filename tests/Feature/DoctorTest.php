@@ -5,8 +5,10 @@ declare(strict_types=1);
 use Illuminate\Support\Facades\Http;
 use MB\FilamentChatbot\Models\Bot;
 use MB\FilamentChatbot\Models\Conversation;
+use MB\FilamentChatbot\Models\DataResource;
 use MB\FilamentChatbot\Models\Scenario;
 use MB\FilamentChatbot\Models\Step;
+use Workbench\App\Models\DemoRecord;
 
 /**
  * The doctor's job is to be run by a machine as well as by a person, and a
@@ -194,4 +196,50 @@ it('names an unassigned conversation that would ring nobody', function (): void 
     $this->artisan('chatbot:doctor --check=bell')
         ->expectsOutputToContain('Nobody would hear an unassigned conversation')
         ->assertExitCode(0);
+});
+
+/**
+ * Источники данных объявляются в конфиге, а читает их таблица — и выкат,
+ * который прогнал `migrate` и `optimize`, но не `chatbot:sync-resources`,
+ * даёт установку, где всё выглядит правильно: объявление в файле, сценарий
+ * на полотне, ни строчки в журнале ошибок. Узел при этом уходит вторым
+ * выходом на каждом разговоре, и человеку сообщают, что записей нет.
+ *
+ * Так и проработала боевая установка несколько недель, ни разу не ответив
+ * по брони. Поэтому отказ, а не предупреждение: сценарий, ссылающийся
+ * в пустоту, — это ветка, которая не может сработать.
+ */
+it('валит прогон, когда сценарий ссылается на незаведённый источник данных', function (): void {
+    $scenario = Scenario::factory()->create();
+
+    Step::factory()->create([
+        'scenario_id' => $scenario->getKey(),
+        'type' => 'choose',
+        'config' => ['resource' => 'bookings', 'into' => 'поездка', 'label' => '{{hotel}}'],
+    ]);
+
+    $this->artisan('chatbot:doctor --check=data-resources')
+        ->expectsOutputToContain('bookings')
+        ->assertExitCode(1);
+
+    DataResource::factory()->create(['key' => 'bookings']);
+
+    $this->artisan('chatbot:doctor --check=data-resources')->assertExitCode(0);
+});
+
+/**
+ * Объявленный, но не синхронизированный источник, которым пока никто
+ * не пользуется, — предупреждение: ничего ещё не сломано, но синхронизация
+ * не прогонялась, и первый сценарий, который его возьмёт, сломается молча.
+ */
+it('предупреждает об объявленном источнике, которого нет в базе', function (): void {
+    config(['chatbot.data_resources.resources' => [
+        ['key' => 'orders', 'model' => DemoRecord::class],
+    ]]);
+
+    $this->artisan('chatbot:doctor --check=data-resources')
+        ->expectsOutputToContain('orders')
+        ->assertExitCode(0);
+
+    $this->artisan('chatbot:doctor --check=data-resources --strict')->assertExitCode(1);
 });

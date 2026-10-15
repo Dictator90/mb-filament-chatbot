@@ -14,6 +14,8 @@ return [
         'email' => 'Почта',
     ],
 
+    'resource_missing' => 'Источник данных «:resource» не заведён или выключен. Выполните `php artisan chatbot:sync-resources`.',
+
     'steps' => [
 
         'start' => [

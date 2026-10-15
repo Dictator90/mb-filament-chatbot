@@ -26,6 +26,13 @@ return [
         'email' => 'Their email address',
     ],
 
+    /**
+     * Shared by every node that reads the host's records, because the fault is
+     * the same one wherever it happens: the resource is declared in config but
+     * never written to the database by `chatbot:sync-resources`.
+     */
+    'resource_missing' => 'Data resource «:resource» is not registered or is switched off. Run `php artisan chatbot:sync-resources`.',
+
     'steps' => [
 
         'start' => [

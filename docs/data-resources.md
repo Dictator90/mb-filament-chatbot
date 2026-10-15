@@ -68,13 +68,31 @@ for exploring, and for resources a support team genuinely owns.
 ],
 ```
 
-Then, from a service provider or a deployment command:
+Then, on every deployment:
+
+```bash
+php artisan chatbot:sync-resources
+```
+
+or, from a service provider or a command of your own:
 
 ```php
 use MB\FilamentChatbot\Data\DataResourceSync;
 
 app(DataResourceSync::class)->sync();
 ```
+
+**The config alone does nothing — the sync is what the reader consults.** Put
+the command in the deployment next to `migrate` and `optimize`, because what a
+forgotten sync produces is a bot that looks correct everywhere you would check
+it: the resource is declared in the file, the scenario is drawn correctly on the
+canvas, no error is logged anywhere. The node simply takes its second exit on
+every conversation, the journal says "empty result", and the visitor is told
+there is nothing to show them. One installation ran that way from the day it
+opened and nobody noticed for weeks. Since 0.9.5 a node pointing at a resource
+with no row reports a blocking flaw, so the editor and the readiness page say
+so — but the flaw only appears once somebody opens one of those screens, and
+the deployment is where this belongs.
 
 **The point of the detour through configuration is review.** A data resource is
 the sentence that says which of the host's columns a chat may reach, and a

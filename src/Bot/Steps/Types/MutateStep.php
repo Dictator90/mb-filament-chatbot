@@ -176,6 +176,10 @@ final class MutateStep extends StepType implements HasSideEffect
             $issues[] = ['severity' => 'blocking', 'message' => __('chatbot::nodes.steps.mutate.issues.no_resource')];
         }
 
+        if (($missing = $this->resourceIssue($step)) !== null) {
+            $issues[] = $missing;
+        }
+
         if ((array) $step->setting('values', []) === []) {
             $issues[] = ['severity' => 'blocking', 'message' => __('chatbot::nodes.steps.mutate.issues.no_values')];
         }
