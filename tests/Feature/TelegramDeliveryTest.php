@@ -314,6 +314,79 @@ it('не верит пересланной чужой карточке', functio
 });
 
 /**
+ * Подтверждённый номер лежит отдельно от названного словами.
+ *
+ * Порядок, которого никто не планирует: человек набрал номер руками (ответ
+ * анкеты попал в `contact_phone`), и только потом нажал кнопку. Колонка
+ * занята, занятую колонка не перезаписывает, и отметка о подтверждении
+ * оказалась бы рядом с цифрами, которых никто не проверял. Хозяин читает
+ * `proven('phone')`, и там всегда карточка аккаунта.
+ */
+it('держит подтверждённый номер отдельно от набранного руками', function (): void {
+    $connection = ChannelConnection::factory()->create([
+        'credentials' => ['token' => 'bot-token', 'secret' => 'shared-secret'],
+    ]);
+
+    Http::fake(['*' => Http::response(['ok' => true, 'result' => true])]);
+
+    $conversation = Conversation::factory()->create([
+        'bot_id' => $connection->bot_id,
+        'channel' => 'telegram',
+        'external_id' => '650',
+        'contact_phone' => '+79995554433',
+    ]);
+
+    $this->postJson('/chatbot/webhook/telegram/'.$connection->public_id, [
+        'update_id' => 12,
+        'message' => [
+            'message_id' => 502,
+            'chat' => ['id' => 650],
+            'from' => ['id' => 42, 'first_name' => 'Нина'],
+            'contact' => ['phone_number' => '+79990001122', 'first_name' => 'Нина', 'user_id' => 42],
+        ],
+    ], ['X-Telegram-Bot-Api-Secret-Token' => 'shared-secret'])->assertNoContent();
+
+    $conversation->refresh();
+
+    expect($conversation->contact_phone)->toBe('+79995554433')
+        ->and($conversation->identified_at)->not->toBeNull()
+        ->and($conversation->proven('phone'))->toBe('+79990001122')
+        ->and($conversation->proven('email'))->toBeNull();
+});
+
+/**
+ * Слова не попадают в подтверждённые приметы никогда — ни первым сообщением,
+ * ни после того, как разговор уже признан подтверждённым.
+ */
+it('не записывает названный словами номер в подтверждённые', function (): void {
+    $connection = ChannelConnection::factory()->create([
+        'credentials' => ['token' => 'bot-token', 'secret' => 'shared-secret'],
+    ]);
+
+    Http::fake(['*' => Http::response(['ok' => true, 'result' => true])]);
+
+    $conversation = Conversation::factory()->create([
+        'bot_id' => $connection->bot_id,
+        'channel' => 'telegram',
+        'external_id' => '651',
+        'identified_at' => now(),
+        'contact_phone' => '+79995554433',
+    ]);
+
+    $this->postJson('/chatbot/webhook/telegram/'.$connection->public_id, [
+        'update_id' => 13,
+        'message' => [
+            'message_id' => 503,
+            'chat' => ['id' => 651],
+            'from' => ['id' => 42, 'first_name' => 'Нина'],
+            'text' => 'мой телефон +79995554433',
+        ],
+    ], ['X-Telegram-Bot-Api-Secret-Token' => 'shared-secret'])->assertNoContent();
+
+    expect($conversation->refresh()->proven('phone'))->toBeNull();
+});
+
+/**
  * Вопрос о телефоне приходит с кнопкой, которой контакт и отдают.
  *
  * Inline-кнопка так не умеет: карточку отдаёт только обычная клавиатура

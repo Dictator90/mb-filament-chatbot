@@ -419,11 +419,60 @@ class MessageRouter
             $changes['identified_at'] = now();
         }
 
+        $proven = $this->proven($conversation, $inbound);
+
+        if ($proven !== []) {
+            $changes['meta'] = [...(array) $conversation->meta, Conversation::IDENTITY_META_KEY => $proven];
+        }
+
         if ($changes === []) {
             return;
         }
 
         $conversation->forceFill($changes)->save();
+    }
+
+    /**
+     * The contact details the channel vouched for, kept apart from the ones it
+     * was merely told.
+     *
+     * The columns above cannot carry this answer, and the reason is an ordering
+     * nobody plans for: somebody types a phone number into the bot's question
+     * (a claim, written to `contact_phone` by the scenario) and only afterwards
+     * taps the messenger's "share my contact" key. The claim is in the column
+     * by then, a filled column is never overwritten, and a host reading
+     * `identified_at` beside `contact_phone` would read the stamp of the
+     * verified card against the digits of the claim — and hand the chat
+     * whatever record those digits belong to.
+     *
+     * Kept per detail and never replaced once written, for the same reason the
+     * stamp above is written once: the account that proved itself is the one
+     * this thread belongs to, and a later message is not a chance to re-decide
+     * that.
+     *
+     * @return array<string, string>
+     */
+    private function proven(Conversation $conversation, InboundMessage $inbound): array
+    {
+        if (! $inbound->identified) {
+            return [];
+        }
+
+        $meta = (array) $conversation->meta;
+        $known = (array) ($meta[Conversation::IDENTITY_META_KEY] ?? []);
+        $proven = $known;
+
+        foreach (['phone' => $inbound->phone, 'email' => $inbound->email] as $detail => $value) {
+            $value = trim((string) $value);
+
+            if ($value === '' || filled($known[$detail] ?? null)) {
+                continue;
+            }
+
+            $proven[$detail] = $value;
+        }
+
+        return $proven === $known ? [] : $proven;
     }
 
     private function externalId(InboundMessage $inbound): ?string

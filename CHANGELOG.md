@@ -6,6 +6,20 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 this package intends to follow [Semantic Versioning](https://semver.org/) once
 it reaches 1.0.
 
+## [0.9.10] — 2026-10-15
+
+- **What the channel vouched for is kept apart from what it was told.**
+  `$conversation->proven('phone')` answers with the contact card Telegram
+  filled in, or the detail a signed identity carried — never with an answer
+  typed into the bot's question. `contact_phone` could not carry that answer,
+  because of an ordering nobody plans for: somebody types a number (a claim,
+  written to the column by the scenario) and taps "share my contact"
+  afterwards. The column is taken by then, a filled column is never
+  overwritten, and a host reading `identified_at` beside `contact_phone` would
+  read the stamp of the verified card against the digits of the claim — and
+  hand the chat whatever record those digits belong to. Hosts that look a
+  customer up in order to show their orders must read `proven()`.
+
 ## [0.9.9] — 2026-10-15
 
 - **A phone number the messenger vouches for.** Asked for a number, the bot

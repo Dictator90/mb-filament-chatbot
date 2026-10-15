@@ -53,6 +53,13 @@ class Conversation extends Model
     public const string SANDBOX_META_KEY = 'sandbox';
 
     /**
+     * The key under `meta` where the channel's own answer about this person is
+     * kept: the phone number or address it vouched for, as against the ones it
+     * was merely told. Written by the router, read through `proven()`.
+     */
+    public const string IDENTITY_META_KEY = 'identity';
+
+    /**
      * The name of the global scope, so that lifting it reads as a decision.
      */
     public const string REAL_SCOPE = 'real';
@@ -308,6 +315,28 @@ class Conversation extends Model
     public function isIdentified(): bool
     {
         return $this->identified_at !== null;
+    }
+
+    /**
+     * One contact detail the channel vouched for, or null.
+     *
+     * `$detail` is `phone` or `email`. This is the answer a host must look up a
+     * customer by when the lookup opens their records: `contact_phone` can hold
+     * a number somebody typed into the bot's question, and typing somebody
+     * else's number is all it would take to be handed their file. Telegram's
+     * contact card, a signed identity from the host's own site — those arrive
+     * here.
+     *
+     * Deliberately not a fallback to `contact_phone`. A method that answered
+     * "the proved one, or else the claimed one" would be used exactly where
+     * proof is required, and would quietly stop requiring it.
+     */
+    public function proven(string $detail): ?string
+    {
+        $identity = (array) (((array) $this->meta)[self::IDENTITY_META_KEY] ?? []);
+        $value = trim((string) ($identity[$detail] ?? ''));
+
+        return $value === '' ? null : $value;
     }
 
     /**
