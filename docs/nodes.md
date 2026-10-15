@@ -215,6 +215,13 @@ instead of spending an attempt — re-asking someone who has just said they woul
 rather not name a budget is an argument, not a question. Only complete answers
 match: "don't know where, somewhere warm" is an answer.
 
+In a messenger a pressed button arrives as its position rather than its text —
+callback data is capped at 64 bytes, which a label routinely exceeds — so the
+form remembers the buttons it drew and translates the position back before
+reading the answer. That is what makes "Skip" work outside the widget, and what
+keeps `<slot>_said` holding «Всё включено» rather than "3". A number outside
+the list stays a number.
+
 A skip outlives the form: it is stored as `<slot>_skipped`, and no later form
 in the conversation asks that slot again. A scenario that loops the visitor
 back through its forms to correct one answer would otherwise re-ask everything

@@ -373,3 +373,97 @@ it('не спрашивает пропущенное во второй анке�
 
     expect($this->conversation->refresh()->bot_slot)->toBe('name');
 });
+
+/**
+ * Нажатая кнопка приходит номером, а не словом, — и анкета обязана прочесть
+ * его как слово, которое человек видел.
+ *
+ * Telegram не умеет нести подпись в данных кнопки: длиннее 64 байт, и драйвер
+ * шлёт позицию. Для вопроса-выбора разбор это понимал, а для кнопки
+ * «Пропустить» — нет: приходила «1», отказом она не считалась, и «1»
+ * записывалась как ответ. На бою это видно в резюме: «Для детей: 1» —
+ * и турист подтверждал бы это менеджеру.
+ */
+it('читает нажатие кнопки «Пропустить» в мессенджере', function (): void {
+    app()->setLocale('ru');
+
+    scenarioOf([
+        ['key' => 'start', 'type' => 'start', 'next_key' => 'who', 'config' => ['trigger' => 'fallback']],
+        ['key' => 'who', 'type' => 'form', 'next_key' => 'thanks', 'config' => [
+            'slots' => [
+                ['slot' => 'company', 'required' => false],
+                ['slot' => 'name', 'required' => true],
+            ],
+        ]],
+        ['key' => 'thanks', 'type' => 'say', 'body' => 'Компания: {{company|не названа}}.'],
+    ]);
+
+    visitorSays($this->conversation, 'здравствуйте');
+
+    expect($this->conversation->refresh()->bot_slot)->toBe('company');
+
+    visitorSays($this->conversation, '1');
+
+    expect($this->conversation->refresh()->bot_slot)->toBe('name');
+
+    visitorSays($this->conversation, 'Нина');
+
+    expect(botSaid($this->conversation))->toContain('Компания: не названа.');
+});
+
+/**
+ * Сказанное дословно у вопроса-выбора — это подпись кнопки, а не её номер.
+ *
+ * Резюме на подтверждение цитирует `<slot>_said`, и с номером оно читалось
+ * как «Формат: 1», «Питание: 2» — бот, который будто читает из сломанной
+ * формы. Подтвердить такое — значит подтвердить непонятно что.
+ */
+it('запоминает подпись нажатой кнопки, а не её номер', function (): void {
+    app()->setLocale('ru');
+
+    Chatbot::registerSlot(
+        Slot::choice('trip_type', ['beach' => 'Пляжный', 'tour' => 'Экскурсионный'])->question('Какой отдых планируете?'),
+    );
+
+    scenarioOf([
+        ['key' => 'start', 'type' => 'start', 'next_key' => 'who', 'config' => ['trigger' => 'fallback']],
+        ['key' => 'who', 'type' => 'form', 'next_key' => 'thanks', 'config' => ['slots' => ['trip_type']]],
+        ['key' => 'thanks', 'type' => 'say', 'body' => '{{trip_type}} / {{trip_type_said}}'],
+    ]);
+
+    visitorSays($this->conversation, 'хочу отдохнуть');
+    visitorSays($this->conversation, '2');
+
+    expect(botSaid($this->conversation))->toContain('tour / Экскурсионный');
+});
+
+/**
+ * Число вне списка кнопок — это число, а не нажатие.
+ *
+ * Иначе ответ «10» на вопрос с тремя кнопками превратился бы в третью из них,
+ * и подменённый ответ никто бы не заметил.
+ */
+it('не принимает за нажатие число, которого нет среди кнопок', function (): void {
+    app()->setLocale('ru');
+
+    Chatbot::registerSlot(
+        Slot::choice('trip_type', ['beach' => 'Пляжный', 'tour' => 'Экскурсионный'])->question('Какой отдых планируете?'),
+    );
+    Chatbot::registerSlot(Slot::number('nights')->question('Сколько ночей?'));
+
+    scenarioOf([
+        ['key' => 'start', 'type' => 'start', 'next_key' => 'who', 'config' => ['trigger' => 'fallback']],
+        ['key' => 'who', 'type' => 'form', 'next_key' => 'thanks', 'config' => ['slots' => ['trip_type', 'nights']]],
+        ['key' => 'thanks', 'type' => 'say', 'body' => 'Ночей: {{nights}}.'],
+    ]);
+
+    visitorSays($this->conversation, 'хочу отдохнуть');
+    visitorSays($this->conversation, '9');
+
+    expect($this->conversation->refresh()->bot_slot)->toBe('trip_type');
+
+    visitorSays($this->conversation, 'Пляжный');
+    visitorSays($this->conversation, '10');
+
+    expect(botSaid($this->conversation))->toContain('Ночей: 10.');
+});

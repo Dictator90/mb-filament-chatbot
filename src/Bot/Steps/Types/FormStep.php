@@ -8,6 +8,7 @@ use MB\FilamentChatbot\Bot\Fields\Field;
 use MB\FilamentChatbot\Bot\Slots\Slot;
 use MB\FilamentChatbot\Bot\Slots\SlotKind;
 use MB\FilamentChatbot\Bot\Slots\SlotParser;
+use MB\FilamentChatbot\Bot\Steps\Concerns\OffersButtons;
 use MB\FilamentChatbot\Bot\Steps\StepContext;
 use MB\FilamentChatbot\Bot\Steps\StepResult;
 use MB\FilamentChatbot\Bot\Steps\StepType;
@@ -38,6 +39,8 @@ use MB\FilamentChatbot\Models\Step;
  */
 final class FormStep extends StepType
 {
+    use OffersButtons;
+
     /**
      * The attempts map's value for a slot the form has stopped asking about.
      *
@@ -190,6 +193,15 @@ final class FormStep extends StepType
             return $this->askNextOrFinish($context, []);
         }
 
+        /*
+         * A pressed button arrives as its position, not as its text, because
+         * callback data is too small to carry a label. Translated back here, at
+         * the top, so that everything below reads the words the visitor saw:
+         * otherwise "Skip" arrives as "1", fails to be recognised as a refusal,
+         * and is stored as the answer itself.
+         */
+        $answer = $this->pressedLabel($context, $answer);
+
         if (! $this->isRequired($context, $slot->key()) && $this->declines($slot, $answer)) {
             $this->abandon($context, $slot->key());
 
@@ -216,7 +228,7 @@ final class FormStep extends StepType
 
         if ($used < $allowed) {
             $this->rememberAttempts($context, $slot->key(), $used);
-            $context->runtime->say($context->runtime->fill($slot->defaultQuestion()), $this->choicesOf($context, $slot));
+            $this->ask($context, $slot);
 
             return StepResult::wait()->traced(RunStep::WAITING, [
                 'slot' => $slot->key(),
@@ -288,7 +300,7 @@ final class FormStep extends StepType
             }
 
             $context->conversation->forceFill(['bot_slot' => $slot->key()])->save();
-            $context->runtime->say($context->runtime->fill($slot->defaultQuestion()), $this->choicesOf($context, $slot));
+            $this->ask($context, $slot);
 
             return StepResult::wait()->traced(RunStep::WAITING, ['slot' => $slot->key()]);
         }
@@ -296,6 +308,20 @@ final class FormStep extends StepType
         $this->stopAsking($context);
 
         return StepResult::next()->traced(RunStep::ANSWERED, ['collected' => true]);
+    }
+
+    /**
+     * Asks for one slot, and remembers the buttons it drew.
+     *
+     * The two belong together: a question whose buttons are not remembered
+     * comes back as a position nobody can translate.
+     */
+    private function ask(StepContext $context, Slot $slot): void
+    {
+        $choices = $this->choicesOf($context, $slot);
+
+        $this->rememberButtons($context, $choices);
+        $context->runtime->say($context->runtime->fill($slot->defaultQuestion()), $choices);
     }
 
     /**
@@ -430,6 +456,8 @@ final class FormStep extends StepType
      */
     private function stopAsking(StepContext $context): void
     {
+        $this->forgetButtons($context);
+
         $prefix = $context->step->key.':';
 
         $attempts = array_filter(

@@ -6,6 +6,18 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 this package intends to follow [Semantic Versioning](https://semver.org/) once
 it reaches 1.0.
 
+## [0.9.6] — 2026-10-15
+
+- **A button pressed in a messenger is read as the word it carried.** Callback
+  data cannot hold a label — it is capped at 64 bytes — so a driver sends the
+  button's position and the engine received "1". A choice slot coped; nothing
+  else did. The "Skip" button on an optional question arrived as "1", was not
+  recognised as a refusal, and "1" was stored as the answer; `<slot>_said`
+  held "1" as well, so a confirmation summary read "Board basis: 2" back to
+  the visitor. The form now remembers the buttons it drew and translates the
+  position back before anything else reads the answer. A number outside the
+  list stays a number, and the map is cleared when the form ends.
+
 ## [0.9.5] — 2026-10-15
 
 - **A node pointing at a data resource that is not registered is now a flaw.**
