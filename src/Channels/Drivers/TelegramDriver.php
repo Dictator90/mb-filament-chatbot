@@ -47,6 +47,12 @@ final class TelegramDriver implements ChannelDriver, ChannelPolling, ChannelSetu
 {
     public const KEY = 'telegram';
 
+    /**
+     * Telegram refuses a message longer than this, and a refused edit would
+     * leave the question standing with its buttons and no answer under it.
+     */
+    private const TEXT_LIMIT = 4096;
+
     public function __construct(
         private readonly ChannelConnections $connections,
     ) {}
@@ -220,7 +226,20 @@ final class TelegramDriver implements ChannelDriver, ChannelPolling, ChannelSetu
 
             $sender = $this->from($callback['from'] ?? null);
 
-            $this->closeKeyboard($connection, $callback, $chatId);
+            /*
+             * The label the person pressed, not the number underneath it.
+             *
+             * Callback data cannot carry a label — 64 bytes — so the buttons
+             * carry positions, and the position was what reached the engine
+             * and what the desk recorded. Two people then looked at the same
+             * conversation and saw "2": the operator in the transcript, and
+             * the visitor in a chat where a pressed inline button leaves no
+             * message of its own at all. Telegram sends the keyboard back with
+             * the callback, so the word is right here to be read.
+             */
+            $pressed = $this->pressedLabel($callback);
+
+            $this->closeKeyboard($connection, $callback, $chatId, $pressed);
 
             return new InboundMessage(
                 channel: self::KEY,
@@ -232,7 +251,7 @@ final class TelegramDriver implements ChannelDriver, ChannelPolling, ChannelSetu
                  * unrelated message the visitor sent earlier.
                  */
                 externalMessageId: 'callback:'.(string) ($callback['id'] ?? ''),
-                body: trim((string) ($callback['data'] ?? '')),
+                body: $pressed ?? trim((string) ($callback['data'] ?? '')),
                 displayName: $sender['displayName'],
                 username: $sender['username'],
                 botId: $connection->bot_id,
@@ -612,7 +631,7 @@ final class TelegramDriver implements ChannelDriver, ChannelPolling, ChannelSetu
      *
      * @param  array<array-key, mixed>  $callback
      */
-    private function closeKeyboard(ChannelConnection $connection, array $callback, string $chatId): void
+    private function closeKeyboard(ChannelConnection $connection, array $callback, string $chatId, ?string $pressed = null): void
     {
         $token = $connection->credential('token');
 
@@ -622,6 +641,7 @@ final class TelegramDriver implements ChannelDriver, ChannelPolling, ChannelSetu
 
         $callbackId = trim((string) ($callback['id'] ?? ''));
         $messageId = trim((string) ($callback['message']['message_id'] ?? ''));
+        $asked = trim((string) ($callback['message']['text'] ?? ''));
 
         try {
             if ($callbackId !== '') {
@@ -631,7 +651,27 @@ final class TelegramDriver implements ChannelDriver, ChannelPolling, ChannelSetu
                     ->post($this->endpoint($token, 'answerCallbackQuery'), ['callback_query_id' => $callbackId]);
             }
 
-            if ($messageId !== '') {
+            if ($messageId === '') {
+                return;
+            }
+
+            /*
+             * The answer is written into the question, not just taken away
+             * with the buttons.
+             *
+             * A pressed inline button leaves nothing behind in the chat: the
+             * keyboard disappears and the person is looking at a question with
+             * no answer under it, two messages above the next one. Asked what
+             * they chose, they cannot tell — and on a form of a dozen
+             * questions that is most of the conversation gone. Telegram will
+             * not let a bot post a message as the visitor, so the only place
+             * the choice can be shown is the question itself.
+             */
+            $body = $pressed === null || $asked === ''
+                ? null
+                : $asked."\n\n— ".$pressed;
+
+            if ($body === null) {
                 ChannelHttp::for(self::KEY, $connection)
                     ->timeout(5)
                     ->asJson()
@@ -640,10 +680,58 @@ final class TelegramDriver implements ChannelDriver, ChannelPolling, ChannelSetu
                         'message_id' => (int) $messageId,
                         'reply_markup' => ['inline_keyboard' => []],
                     ]);
+
+                return;
             }
+
+            ChannelHttp::for(self::KEY, $connection)
+                ->timeout(5)
+                ->asJson()
+                ->post($this->endpoint($token, 'editMessageText'), [
+                    'chat_id' => $chatId,
+                    'message_id' => (int) $messageId,
+                    'text' => mb_substr($body, 0, self::TEXT_LIMIT),
+                    'reply_markup' => ['inline_keyboard' => []],
+                ]);
         } catch (ConnectionException) {
             // Cosmetic; the answer itself is already in hand.
         }
+    }
+
+    /**
+     * The text of the button whose data came back, or null.
+     *
+     * Read from the keyboard Telegram returns with the callback rather than
+     * from anything stored: the message that carried the buttons may have been
+     * sent by a different process, on a different day, from a queue — and the
+     * one thing certain to be in hand is the update itself.
+     *
+     * @param  array<array-key, mixed>  $callback
+     */
+    private function pressedLabel(array $callback): ?string
+    {
+        $data = trim((string) ($callback['data'] ?? ''));
+        $rows = $callback['message']['reply_markup']['inline_keyboard'] ?? null;
+
+        if ($data === '' || ! is_array($rows)) {
+            return null;
+        }
+
+        foreach ($rows as $row) {
+            foreach ((array) $row as $button) {
+                if (! is_array($button)) {
+                    continue;
+                }
+
+                if (trim((string) ($button['callback_data'] ?? '')) === $data) {
+                    $label = trim((string) ($button['text'] ?? ''));
+
+                    return $label === '' ? null : $label;
+                }
+            }
+        }
+
+        return null;
     }
 
     /**

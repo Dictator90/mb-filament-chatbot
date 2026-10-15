@@ -6,6 +6,19 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 this package intends to follow [Semantic Versioning](https://semver.org/) once
 it reaches 1.0.
 
+## [0.9.8] — 2026-10-15
+
+- **A pressed button stays visible in Telegram.** Tapping an inline button
+  leaves nothing in the chat: the keyboard vanishes and the visitor is looking
+  at a question with no answer under it. On a form of a dozen questions that is
+  most of the conversation gone — ask them what they chose and they cannot say.
+  Telegram will not let a bot post as the visitor, so the choice is written
+  into the question itself: `— Экскурсионный` under the text it answered.
+- **The desk records the word, not the position.** Callback data cannot hold a
+  label, so the buttons carry positions — and the position was what the
+  operator read in the transcript: "2". Telegram returns the keyboard with the
+  callback, and the label is taken from there.
+
 ## [0.9.7] — 2026-10-15
 
 - **The desk fits a phone.** Its header took a quarter of a 375-point screen:

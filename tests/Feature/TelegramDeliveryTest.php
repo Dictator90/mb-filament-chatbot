@@ -152,3 +152,103 @@ it('takes the keyboard away once a button has been pressed', function (): void {
         && ($request->data()['message_id'] ?? null) === 404
         && ($request->data()['reply_markup']['inline_keyboard'] ?? null) === []);
 });
+
+/**
+ * Нажатая кнопка остаётся видимой: ответ вписывается в сам вопрос.
+ *
+ * Нажатие inline-кнопки не оставляет в чате ничего — клавиатура исчезает,
+ * и человек смотрит на вопрос без ответа под ним. На анкете из дюжины
+ * вопросов так пропадает почти весь разговор: спроси его, что он выбрал, —
+ * не скажет. Писать сообщение от имени посетителя Telegram боту не даёт,
+ * поэтому единственное место, где можно показать выбор, — сам вопрос.
+ */
+it('вписывает выбранный вариант в вопрос, с которого его нажали', function (): void {
+    $connection = ChannelConnection::factory()->create([
+        'credentials' => ['token' => 'bot-token', 'secret' => 'shared-secret'],
+    ]);
+
+    Http::fake(['*' => Http::response(['ok' => true, 'result' => true])]);
+
+    $this->postJson('/chatbot/webhook/telegram/'.$connection->public_id, [
+        'update_id' => 1,
+        'callback_query' => [
+            'id' => 'cb-10',
+            'from' => ['first_name' => 'Нина'],
+            'message' => [
+                'message_id' => 405,
+                'chat' => ['id' => 500],
+                'text' => 'Что Вам ближе: море и отдых, экскурсии или сочетание?',
+                'reply_markup' => ['inline_keyboard' => [
+                    [['text' => 'Пляжный', 'callback_data' => '1']],
+                    [['text' => 'Экскурсионный', 'callback_data' => '2']],
+                ]],
+            ],
+            'data' => '2',
+        ],
+    ], ['X-Telegram-Bot-Api-Secret-Token' => 'shared-secret'])->assertNoContent();
+
+    Http::assertSent(fn ($request): bool => str_contains($request->url(), '/editMessageText')
+        && ($request->data()['message_id'] ?? null) === 405
+        && str_contains((string) ($request->data()['text'] ?? ''), 'Что Вам ближе')
+        && str_contains((string) ($request->data()['text'] ?? ''), '— Экскурсионный')
+        && ($request->data()['reply_markup']['inline_keyboard'] ?? null) === []);
+});
+
+/**
+ * И в переписке оператора лежит слово, а не номер кнопки.
+ *
+ * Данные кнопки не вмещают подписи, поэтому они несут позицию — и позиция
+ * же попадала в стол: открыв разговор, оператор читал «2». Подпись Telegram
+ * присылает обратно вместе с нажатием, в той самой клавиатуре.
+ */
+it('записывает в переписку подпись кнопки, а не её номер', function (): void {
+    $connection = ChannelConnection::factory()->create([
+        'credentials' => ['token' => 'bot-token', 'secret' => 'shared-secret'],
+    ]);
+
+    Http::fake(['*' => Http::response(['ok' => true, 'result' => true])]);
+
+    $this->postJson('/chatbot/webhook/telegram/'.$connection->public_id, [
+        'update_id' => 2,
+        'callback_query' => [
+            'id' => 'cb-11',
+            'from' => ['first_name' => 'Нина'],
+            'message' => [
+                'message_id' => 406,
+                'chat' => ['id' => 501],
+                'text' => 'Какой уровень отеля рассматриваете?',
+                'reply_markup' => ['inline_keyboard' => [
+                    [['text' => '3★', 'callback_data' => '1']],
+                    [['text' => '4★', 'callback_data' => '2']],
+                ]],
+            ],
+            'data' => '2',
+        ],
+    ], ['X-Telegram-Bot-Api-Secret-Token' => 'shared-secret'])->assertNoContent();
+
+    expect(Message::query()->where('external_id', 'callback:cb-11')->sole()->body)->toBe('4★');
+});
+
+/** Без клавиатуры в обновлении остаётся прежнее поведение: номер и снятие кнопок. */
+it('не выдумывает подпись, когда клавиатуры в нажатии нет', function (): void {
+    $connection = ChannelConnection::factory()->create([
+        'credentials' => ['token' => 'bot-token', 'secret' => 'shared-secret'],
+    ]);
+
+    Http::fake(['*' => Http::response(['ok' => true, 'result' => true])]);
+
+    $this->postJson('/chatbot/webhook/telegram/'.$connection->public_id, [
+        'update_id' => 3,
+        'callback_query' => [
+            'id' => 'cb-12',
+            'from' => ['first_name' => 'Нина'],
+            'message' => ['message_id' => 407, 'chat' => ['id' => 502]],
+            'data' => '2',
+        ],
+    ], ['X-Telegram-Bot-Api-Secret-Token' => 'shared-secret'])->assertNoContent();
+
+    expect(Message::query()->where('external_id', 'callback:cb-12')->sole()->body)->toBe('2');
+
+    Http::assertSent(fn ($request): bool => str_contains($request->url(), '/editMessageReplyMarkup')
+        && ($request->data()['message_id'] ?? null) === 407);
+});

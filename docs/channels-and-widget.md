@@ -272,6 +272,15 @@ knowledge base, because by then position two meant something else. The driver
 answers the callback — which also stops the spinner on the button — and takes
 the keyboard away.
 
+**And the answer is written into the question.** A tapped inline button leaves
+nothing behind in the chat, so with the keyboard gone the visitor sees a
+question and no answer under it; after a dozen of them most of the conversation
+is unreadable to the person who had it. Telegram does not let a bot post a
+message as the visitor, so the driver edits the question to carry the choice
+— `— Экскурсионный` under the text it answered — and the transcript on the desk
+records the label rather than the position, read back out of the keyboard
+Telegram returns with the callback.
+
 ### The quirks that are not optional
 
 **VK wants a bare `ok`.** Not `{"result":"ok"}`, not an empty 200: the Callback
