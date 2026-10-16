@@ -6,6 +6,13 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 this package intends to follow [Semantic Versioning](https://semver.org/) once
 it reaches 1.0.
 
+## [0.14.1] — 2026-10-16
+
+- **The bot's model applies when its driver is left on "default".** Seen live:
+  the bot said `claude-haiku-5-5`, the driver field was empty, the default was
+  Anthropic, and every request went to Sonnet — the model name was dropped
+  because the bot "had no driver" to attach it to.
+
 ## [0.14.0] — 2026-10-16
 
 - **The agent may be offered actions that need approval — and still cannot run

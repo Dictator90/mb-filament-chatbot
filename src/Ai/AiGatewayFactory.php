@@ -127,13 +127,23 @@ class AiGatewayFactory
      * `claude-haiku-5-5` handed to an OpenAI endpoint would be refused, and the
      * node would take its second exit over a setting nobody connected to it.
      *
+     * **An empty driver on the bot means the installation default, and the
+     * model typed beside it applies to that default.** Seen live: the bot said
+     * `claude-haiku-5-5` with the driver left on "default", the default was
+     * Anthropic, and every request went to Sonnet — the model name was dropped
+     * because the bot "had no driver" to attach it to.
+     *
      * @return array{0: string, 1: ?string}
      */
     private function choiceFor(?Bot $bot, ?string $name): array
     {
         $node = trim((string) ($name ?? ''));
-        $botDriver = trim((string) ($bot?->ai_driver ?? ''));
         $botModel = trim((string) ($bot?->ai_model ?? ''));
+        $botDriver = trim((string) ($bot?->ai_driver ?? ''));
+
+        if ($botDriver === '' && $bot !== null) {
+            $botDriver = trim((string) config('chatbot.ai.default', ''));
+        }
 
         if ($node !== '' && $node !== $botDriver) {
             return [$node, null];

@@ -352,6 +352,28 @@ it('берёт драйвер и модель из карточки бота', f
 });
 
 /**
+ * Пустой драйвер у бота — это драйвер по умолчанию, и модель из карточки
+ * относится к нему. На бою в карточке стоял `claude-haiku-5-5` при драйвере
+ * «по умолчанию», а все запросы уходили в Sonnet: модель отбрасывалась,
+ * потому что «у бота нет своего драйвера».
+ */
+it('берёт модель из карточки бота и при драйвере по умолчанию', function (string $nodeProvider): void {
+    $this->conversation->bot->forceFill(['ai_driver' => null, 'ai_model' => 'claude-haiku-test'])->save();
+    config()->set('chatbot.ai.drivers.anthropic.model', 'claude-from-env');
+
+    anthropicReplies([anthropicSays('Здравствуйте.')]);
+
+    app(AiAgentStep::class)->run(agentContext(
+        $this->conversation->refresh(),
+        agentNode(['tools' => [], 'search' => false, 'provider' => $nodeProvider]),
+        $this->runtime,
+        'привет',
+    ));
+
+    Http::assertSent(fn ($request): bool => ($request->data()['model'] ?? null) === 'claude-haiku-test');
+})->with(['узел без своего провайдера' => [''], 'узел с тем же провайдером' => ['anthropic']]);
+
+/**
  * Передавать некуда — инструмента нет вовсе.
  *
  * Узел без первого выхода — это разговор, который ведёт только модель:
