@@ -6,6 +6,15 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 this package intends to follow [Semantic Versioning](https://semver.org/) once
 it reaches 1.0.
 
+## [0.12.2] — 2026-10-16
+
+- **What the model remembers is parsed the way a form parses it.** Seen live:
+  the model wrote a date as "в августе, следующего месяца", and the order failed
+  after the customer had already pressed "Да, всё верно" — the host expected a
+  date and got a phrase. `remember` now runs a value through the slot's own
+  parser when the field is a slot, storing the parsed value, `<slot>_said` and
+  the extras exactly as `form` does.
+
 ## [0.12.1] — 2026-10-16
 
 - **The driver and model chosen on the bot are the ones that answer.** Both

@@ -10,6 +10,7 @@ use MB\FilamentChatbot\Ai\AiToolCall;
 use MB\FilamentChatbot\Ai\AiTurn;
 use MB\FilamentChatbot\Ai\AiUsage;
 use MB\FilamentChatbot\Ai\KnowledgeSource;
+use MB\FilamentChatbot\Bot\Slots\SlotParser;
 use MB\FilamentChatbot\Bot\Steps\StepContext;
 use MB\FilamentChatbot\Capabilities\CapabilityGateway;
 use MB\FilamentChatbot\Chat\ConversationFacts;
@@ -17,6 +18,7 @@ use MB\FilamentChatbot\Data\DataQuery;
 use MB\FilamentChatbot\Data\DataReader;
 use MB\FilamentChatbot\Data\RuntimeContext;
 use MB\FilamentChatbot\Enums\DataQueryMode;
+use MB\FilamentChatbot\Registry\ChatbotRegistry;
 
 /**
  * Lets the model lead one turn of the conversation: ask for things, read what
@@ -56,6 +58,8 @@ final class AgentLoop
         private readonly CapabilityGateway $capabilities,
         private readonly ConversationFacts $facts,
         private readonly DataReader $data,
+        private readonly ChatbotRegistry $registry,
+        private readonly SlotParser $parser,
         private readonly ?KnowledgeSource $knowledge = null,
     ) {}
 
@@ -350,7 +354,29 @@ final class AgentLoop
             ];
         }
 
-        $context->runtime->store($field, $value);
+        /*
+         * Через тот же разборщик, что и анкета, — когда у поля есть слот.
+         *
+         * Живой разговор: модель записала дату как «в августе, следующего
+         * месяца», и заявка упала на последнем шаге, уже после «Да, всё
+         * верно»: сборка ждала дату, а получила фразу. Анкета кладёт
+         * разобранное значение и рядом сказанное (`_said`); модель теперь
+         * делает то же самое, и для заявки неважно, кто спрашивал.
+         */
+        $slot = $this->registry->slot($field);
+        $parsed = $slot === null ? null : $this->parser->parse($slot, $value);
+
+        if ($parsed !== null && $parsed->ok()) {
+            $context->runtime->store($field, (string) $parsed->value());
+            $context->runtime->store($field.'_said', $value);
+
+            foreach ($parsed->extra() as $key => $extra) {
+                $context->runtime->store($field.'_'.$key, (string) $extra);
+            }
+        } else {
+            $context->runtime->store($field, $value);
+        }
+
         $this->facts->remember($context->conversation, $field, $value);
 
         return ['ok' => true, 'text' => "Remembered {$field}."];
