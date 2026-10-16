@@ -3,6 +3,10 @@
 declare(strict_types=1);
 
 use Illuminate\Support\Facades\Http;
+use MB\FilamentChatbot\Ai\AiGateway;
+use MB\FilamentChatbot\Ai\AiGatewayFactory;
+use MB\FilamentChatbot\Ai\AiPrompt;
+use MB\FilamentChatbot\Ai\AiReply;
 use MB\FilamentChatbot\Ai\KnowledgeSource;
 use MB\FilamentChatbot\Bot\Fields\Field;
 use MB\FilamentChatbot\Bot\Steps\StepContext;
@@ -471,9 +475,25 @@ it('прекращает ход на потолке раундов и уходи
  * чьего-то хода.
  */
 it('уходит во второй выход, когда драйвер не умеет вести разговор', function (): void {
-    config()->set('chatbot.ai.default', 'openai');
-    config()->set('chatbot.ai.drivers.openai.api_key', 'test-key');
-    config()->set('chatbot.ai.drivers.openai.base_url', 'https://models.example.test/v1');
+    app(AiGatewayFactory::class)->extend('plain', fn (): AiGateway => new class implements AiGateway
+    {
+        public function name(): string
+        {
+            return 'plain';
+        }
+
+        public function isAvailable(): bool
+        {
+            return true;
+        }
+
+        public function ask(AiPrompt $prompt): AiReply
+        {
+            return AiReply::answered('один ответ');
+        }
+    });
+
+    config()->set('chatbot.ai.default', 'plain');
 
     $result = app(AiAgentStep::class)->run(agentContext(
         $this->conversation,
@@ -484,8 +504,66 @@ it('уходит во второй выход, когда драйвер не у
 
     expect($result->flow)->toBe(StepFlow::Second)
         ->and($result->trace['reason'])->toContain('cannot hold a conversation')
-        ->and($result->trace['reason'])->toContain('openai')
+        ->and($result->trace['reason'])->toContain('plain')
         ->and($this->runtime->said)->toBe([]);
+});
+
+/**
+ * Агент — не только для Claude.
+ *
+ * Через драйвер `openai` ходят OpenAI, OpenRouter, DeepSeek, Azure и локальные
+ * Ollama и vLLM, и все они понимают инструменты в одной форме. Отличается она
+ * от Anthropic только написанием: аргументы вызова — строкой JSON, результат —
+ * отдельным сообщением с ролью `tool`. Перепутай одно — и модель не увидит,
+ * что ей ответил инструмент, и попросит то же самое снова.
+ */
+it('ведёт разговор с инструментами и через OpenAI-совместимых провайдеров', function (): void {
+    config()->set('chatbot.ai.default', 'openai');
+    config()->set('chatbot.ai.drivers.openai.api_key', 'test-key');
+    config()->set('chatbot.ai.drivers.openai.base_url', 'https://models.example.test/v1');
+
+    $this->conversation->forceFill(['display_name' => null])->save();
+
+    Http::fake([
+        'models.example.test/*' => Http::sequence([
+            Http::response([
+                'choices' => [['message' => [
+                    'content' => null,
+                    'tool_calls' => [[
+                        'id' => 'call-9',
+                        'type' => 'function',
+                        'function' => ['name' => 'remember', 'arguments' => '{"field":"name","value":"Ирина"}'],
+                    ]],
+                ]]],
+                'usage' => ['prompt_tokens' => 30, 'completion_tokens' => 6],
+            ]),
+            Http::response([
+                'choices' => [['message' => ['content' => 'Приятно познакомиться, Ирина.']]],
+                'usage' => ['prompt_tokens' => 40, 'completion_tokens' => 8],
+            ]),
+        ]),
+    ]);
+
+    $result = app(AiAgentStep::class)->run(agentContext(
+        $this->conversation,
+        agentNode(['tools' => [], 'search' => false, 'slots' => ['name']]),
+        $this->runtime,
+        'меня зовут Ирина',
+    ));
+
+    expect($result->flow)->toBe(StepFlow::Wait)
+        ->and($this->runtime->said)->toBe(['Приятно познакомиться, Ирина.'])
+        ->and($this->runtime->stored['name'] ?? null)->toBe('Ирина')
+        ->and($result->trace['usage']['input_tokens'])->toBe(70);
+
+    Http::assertSent(function ($request): bool {
+        $messages = $request->data()['messages'] ?? [];
+        $last = end($messages);
+
+        return is_array($last)
+            && ($last['role'] ?? '') === 'tool'
+            && ($last['tool_call_id'] ?? '') === 'call-9';
+    });
 });
 
 /**

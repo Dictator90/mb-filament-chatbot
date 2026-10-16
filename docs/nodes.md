@@ -1058,7 +1058,7 @@ offers, and answers in its own words.
 
 | Setting | |
 | --- | --- |
-| `provider` | Must be a driver that can hold a conversation — `anthropic` today |
+| `provider` | A driver that can hold a conversation — `anthropic`, or `openai` and everything that speaks its shape (OpenRouter, DeepSeek, Azure, Ollama, vLLM) |
 | `instruction` | Required. Who the model is, how it speaks, what it may not promise |
 | `tools` | The capabilities it may call. An allow-list, per node |
 | `resources` | The declared data resources it may read. Also an allow-list |

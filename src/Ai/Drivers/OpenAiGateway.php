@@ -6,12 +6,17 @@ namespace MB\FilamentChatbot\Ai\Drivers;
 
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\Response;
+use MB\FilamentChatbot\Ai\AiConversationGateway;
 use MB\FilamentChatbot\Ai\AiFailure;
-use MB\FilamentChatbot\Ai\AiGateway;
 use MB\FilamentChatbot\Ai\AiPrompt;
 use MB\FilamentChatbot\Ai\AiReply;
+use MB\FilamentChatbot\Ai\AiTool;
+use MB\FilamentChatbot\Ai\AiToolCall;
+use MB\FilamentChatbot\Ai\AiTurn;
 use MB\FilamentChatbot\Ai\AiUsage;
 use MB\FilamentChatbot\Ai\Drivers\Concerns\TalksToModels;
+use stdClass;
+use Throwable;
 
 /**
  * Any endpoint that speaks the OpenAI chat-completions shape.
@@ -33,7 +38,7 @@ use MB\FilamentChatbot\Ai\Drivers\Concerns\TalksToModels;
  * its keep in the run journal: the first is somebody else's outage and will
  * pass, the second is this installation's request being wrong and will not.
  */
-final class OpenAiGateway implements AiGateway
+final class OpenAiGateway implements AiConversationGateway
 {
     use TalksToModels;
 
@@ -160,14 +165,152 @@ final class OpenAiGateway implements AiGateway
     }
 
     /**
-     * Reads the JSON object out of the message.
+     * Carries on an exchange with tools, in the chat-completions shape.
      *
-     * Fenced code blocks are stripped first because models wrap JSON in them
-     * whatever the instruction said, and treating that as unreadable would push
-     * perfectly good answers down the "could not" exit for a decoration.
+     * The same endpoint that answers single questions, and the reason the agent
+     * is not a Claude-only feature: OpenAI, OpenRouter, DeepSeek, Azure, a local
+     * vLLM or Ollama all accept `tools` and answer with `tool_calls` in this
+     * one shape. What differs from Anthropic is only the spelling — the
+     * instruction is a `system` message, a requested call carries its
+     * arguments as a JSON *string*, and each result is a message of its own
+     * with the role `tool` rather than a block inside a user turn.
      *
-     * @return array<string, mixed>|null
+     * A model behind this endpoint that has no tool support at all usually
+     * answers with plain text and never asks for anything; the node then
+     * behaves as a conversation without tools, which is the honest outcome.
      */
+    public function converse(AiTurn $turn): AiReply
+    {
+        if (! $this->isAvailable()) {
+            return AiReply::declined(AiFailure::NotConfigured);
+        }
+
+        try {
+            $response = $this->request()
+                ->withToken($this->apiKey())
+                ->post($this->baseUrl().'/chat/completions', $this->exchange($turn));
+        } catch (ConnectionException $exception) {
+            return AiReply::declined($this->connectionFailure($exception), $exception->getMessage());
+        } catch (Throwable $exception) {
+            return AiReply::declined(AiFailure::Unavailable, $exception::class.': '.$exception->getMessage());
+        }
+
+        if (! $response->successful()) {
+            return AiReply::declined(
+                $response->status() >= 500 ? AiFailure::Unavailable : AiFailure::Refused,
+                $this->complaint($response),
+            );
+        }
+
+        return $this->readExchange($response);
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function exchange(AiTurn $turn): array
+    {
+        $messages = [['role' => 'system', 'content' => $turn->instruction]];
+
+        foreach ($turn->messages as $message) {
+            if ($message->isToolResult()) {
+                $messages[] = [
+                    'role' => 'tool',
+                    'tool_call_id' => (string) $message->callId,
+                    'content' => $message->ok ? $message->text : 'ERROR: '.$message->text,
+                ];
+
+                continue;
+            }
+
+            if ($message->hasCalls()) {
+                $messages[] = [
+                    'role' => 'assistant',
+                    'content' => $message->text === '' ? null : $message->text,
+                    'tool_calls' => array_map(static fn (AiToolCall $call): array => [
+                        'id' => $call->id,
+                        'type' => 'function',
+                        'function' => [
+                            'name' => $call->name,
+                            'arguments' => (string) json_encode($call->input === [] ? new stdClass : $call->input, JSON_UNESCAPED_UNICODE),
+                        ],
+                    ], $message->calls),
+                ];
+
+                continue;
+            }
+
+            if ($message->text !== '') {
+                $messages[] = ['role' => $message->role, 'content' => $message->text];
+            }
+        }
+
+        $payload = [
+            'model' => $this->model(),
+            'max_tokens' => $turn->maxTokens > 0 ? $turn->maxTokens : $this->maxTokens(),
+            'messages' => $messages,
+        ];
+
+        if ($turn->hasTools()) {
+            $payload['tools'] = array_map(static fn (AiTool $tool): array => [
+                'type' => 'function',
+                'function' => [
+                    'name' => $tool->name,
+                    'description' => $tool->description,
+                    'parameters' => $tool->schema === [] ? ['type' => 'object', 'properties' => new stdClass] : $tool->schema,
+                ],
+            ], $turn->tools);
+        }
+
+        if ($turn->temperature !== null) {
+            $payload['temperature'] = $turn->temperature;
+        }
+
+        return $payload;
+    }
+
+    /**
+     * Tool requests first, text second — for the same reason as in the
+     * Anthropic driver: reading the sentence that came alongside a request as
+     * the answer ends the round before the tool runs.
+     *
+     * Arguments arrive as a JSON string and are decoded here; a string that is
+     * not JSON becomes an empty input, which the capability gateway then
+     * refuses by name rather than this driver guessing at it.
+     */
+    private function readExchange(Response $response): AiReply
+    {
+        $body = $response->json();
+        $body = is_array($body) ? $body : [];
+        $usage = $this->usageOf($body);
+        $message = (array) data_get($body, 'choices.0.message', []);
+        $calls = [];
+
+        foreach ((array) ($message['tool_calls'] ?? []) as $call) {
+            if (! is_array($call)) {
+                continue;
+            }
+
+            $arguments = json_decode((string) data_get($call, 'function.arguments', ''), true);
+
+            $calls[] = new AiToolCall(
+                id: (string) ($call['id'] ?? ''),
+                name: (string) data_get($call, 'function.name', ''),
+                input: is_array($arguments) ? $arguments : [],
+            );
+        }
+
+        $text = trim((string) ($message['content'] ?? ''));
+
+        if ($calls !== []) {
+            return AiReply::calling($calls, $text, $usage);
+        }
+
+        return $text === ''
+            ? AiReply::declined(AiFailure::Unparseable, 'The provider answered with an empty message.', $usage)
+            : AiReply::answered($text, [], $usage);
+    }
+
     /**
      * @param  array<string, mixed>  $body
      */

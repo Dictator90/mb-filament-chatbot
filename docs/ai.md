@@ -268,7 +268,7 @@ shaped that way.
 satisfy with an HTTP endpoint or nothing at all. What changed is that some
 drivers *can* express them, so there is a second contract —
 `AiConversationGateway`, one method, `converse(AiTurn): AiReply` — and the
-built-in `anthropic` driver implements it. A driver that does not is not broken:
+built-in `anthropic` and `openai` drivers implement it — the second covering OpenRouter, DeepSeek, Azure, Ollama and vLLM, since they all answer tools in its one shape. `laravel-ai` does not yet: it reaches a library whose methods it discovers at runtime, and tool calling there would be guesswork. A driver that does not is not broken:
 the node takes its second exit and the journal names the driver.
 
 **The agent cannot reach a provider around the budget.** It is the most

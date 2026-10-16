@@ -6,6 +6,17 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 this package intends to follow [Semantic Versioning](https://semver.org/) once
 it reaches 1.0.
 
+## [0.12.0] — 2026-10-16
+
+- **The agent is not a Claude-only feature any more.** The `openai` driver
+  implements `AiConversationGateway`, and with it every endpoint that speaks the
+  chat-completions shape: OpenAI, OpenRouter, DeepSeek, Azure, Ollama, vLLM.
+  They all answer tools in one form; what differs from Anthropic is only the
+  spelling — the arguments of a call are a JSON string, and each result is a
+  message of its own with the role `tool`. `laravel-ai` does not converse yet:
+  it reaches a library whose methods it discovers at runtime, and tool calling
+  there would be guesswork.
+
 ## [0.11.2] — 2026-10-16
 
 - **The model is told every turn what is still not written down.** Seen live: a
