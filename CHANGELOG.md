@@ -6,6 +6,17 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 this package intends to follow [Semantic Versioning](https://semver.org/) once
 it reaches 1.0.
 
+## [0.12.1] — 2026-10-16
+
+- **The driver and model chosen on the bot are the ones that answer.** Both
+  fields were shown on the bot screen and read by nothing at runtime: the
+  driver came from the node or the installation default, the model from the
+  environment file. Found on a live installation where the bot said
+  `claude-sonnet-5-5` while its conversations ran on another model. The order
+  is now node, then bot, then installation; the bot's model name applies only
+  to the bot's own driver, since a Claude model name handed to an OpenAI
+  endpoint would only be refused.
+
 ## [0.12.0] — 2026-10-16
 
 - **The agent is not a Claude-only feature any more.** The `openai` driver

@@ -328,6 +328,30 @@ it('передаёт дальше, когда обязательное собр�
 });
 
 /**
+ * Модель, выбранная в карточке бота, — та, что и отвечает.
+ *
+ * Найдено на живой установке: в карточке бота стояло `claude-sonnet-5-5`,
+ * а разговоры шли на другой модели из файла окружения. Поля «драйвер»
+ * и «модель» на экране бота выглядели принятыми и не читались ничем.
+ */
+it('берёт драйвер и модель из карточки бота', function (): void {
+    $this->conversation->bot->forceFill(['ai_driver' => 'anthropic', 'ai_model' => 'claude-haiku-test'])->save();
+    config()->set('chatbot.ai.default', 'null');
+    config()->set('chatbot.ai.drivers.anthropic.model', 'claude-from-env');
+
+    anthropicReplies([anthropicSays('Здравствуйте.')]);
+
+    app(AiAgentStep::class)->run(agentContext(
+        $this->conversation->refresh(),
+        agentNode(['tools' => [], 'search' => false]),
+        $this->runtime,
+        'привет',
+    ));
+
+    Http::assertSent(fn ($request): bool => ($request->data()['model'] ?? null) === 'claude-haiku-test');
+});
+
+/**
  * Передавать некуда — инструмента нет вовсе.
  *
  * Узел без первого выхода — это разговор, который ведёт только модель:

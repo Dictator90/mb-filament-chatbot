@@ -63,7 +63,7 @@ class AiGatewayFactory
      * editor's warnings, the panel's driver list — none of which sends a
      * request.
      */
-    public function make(?string $name = null): AiGateway
+    public function make(?string $name = null, ?string $model = null): AiGateway
     {
         if ($this->suppressed()) {
             return new NullGateway;
@@ -76,6 +76,10 @@ class AiGatewayFactory
         }
 
         $config = (array) config('chatbot.ai.drivers.'.$name, []);
+
+        if (trim((string) $model) !== '') {
+            $config['model'] = trim((string) $model);
+        }
 
         if (isset($this->drivers[$name])) {
             return ($this->drivers[$name])($config);
@@ -101,7 +105,43 @@ class AiGatewayFactory
      */
     public function guarded(?Bot $bot = null, ?string $name = null): AiGateway
     {
-        return new BudgetedGateway($this->make($name), $this->budgets, $bot);
+        [$driver, $model] = $this->choiceFor($bot, $name);
+
+        return new BudgetedGateway($this->make($driver, $model), $this->budgets, $bot);
+    }
+
+    /**
+     * Which driver and model a conversation of this bot uses.
+     *
+     * **The bot's own settings were shown and ignored, and this is the fix.**
+     * The panel let an owner pick a driver and type a model name on the bot,
+     * and nothing at runtime read either: the driver came from the node or the
+     * installation default, the model from the environment file. Found on a
+     * live installation where the bot screen said `claude-sonnet-5-5` while the
+     * conversations ran on another model entirely — the one screen meant to
+     * answer "what thinks for this bot" answered wrongly.
+     *
+     * The order is node, then bot, then installation: a node that names a
+     * provider is a deliberate exception drawn on the canvas. The bot's model
+     * name applies only to the bot's own driver — a model called
+     * `claude-haiku-5-5` handed to an OpenAI endpoint would be refused, and the
+     * node would take its second exit over a setting nobody connected to it.
+     *
+     * @return array{0: string, 1: ?string}
+     */
+    private function choiceFor(?Bot $bot, ?string $name): array
+    {
+        $node = trim((string) ($name ?? ''));
+        $botDriver = trim((string) ($bot?->ai_driver ?? ''));
+        $botModel = trim((string) ($bot?->ai_model ?? ''));
+
+        if ($node !== '' && $node !== $botDriver) {
+            return [$node, null];
+        }
+
+        $driver = $node !== '' ? $node : $botDriver;
+
+        return [$driver, $botDriver !== '' && $botModel !== '' ? $botModel : null];
     }
 
     /**
