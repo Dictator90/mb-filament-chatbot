@@ -299,6 +299,7 @@ return [
                 'remember_incomplete' => 'Both a field and a value are needed.',
                 'remember_not_allowed' => '[:field] is not one of the things this conversation keeps. Allowed: :allowed.',
                 'remembered' => 'Remembered :field.',
+                'remember_values' => 'Several values at once: {"field": "value", …}. Write everything you learnt in one call.',
                 'remember_field' => 'Which value this is',
                 'remember_value' => 'The value, in the person\'s own words',
                 'pass' => 'Say that your part of the conversation is finished and pass it on to the next step. Call it only when everything the instruction asks for has been collected and you have not just asked a question.',

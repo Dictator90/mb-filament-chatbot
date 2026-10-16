@@ -156,10 +156,14 @@ final class AgentTools
                 [
                     'type' => 'object',
                     'properties' => [
+                        'values' => [
+                            'type' => 'object',
+                            'description' => __('chatbot::nodes.steps.ai_agent.tools.remember_values'),
+                            'additionalProperties' => ['type' => 'string'],
+                        ],
                         'field' => $field,
                         'value' => ['type' => 'string', 'description' => __('chatbot::nodes.steps.ai_agent.tools.remember_value')],
                     ],
-                    'required' => ['field', 'value'],
                 ],
             );
         }

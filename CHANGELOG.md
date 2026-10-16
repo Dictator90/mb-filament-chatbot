@@ -6,6 +6,16 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 this package intends to follow [Semantic Versioning](https://semver.org/) once
 it reaches 1.0.
 
+## [0.13.3] — 2026-10-16
+
+- **Out of rounds, the model answers in words instead of handing over.** Seen
+  live: on «в любые числа» the model spent all four rounds writing down what
+  it had learnt — eleven calls, one value each — and never replied, so a
+  conversation going well went to a person. One last request now goes out with
+  no tools offered; a person is fetched only if even that is empty.
+- **`remember` takes several values at once** (`values: {field: value, …}`), so
+  writing down what was learnt costs one round however much there is.
+
 ## [0.13.2] — 2026-10-16
 
 The rest of the audit.

@@ -543,16 +543,47 @@ it('уходит во второй выход, когда модель прос�
 });
 
 /**
- * Модель, которая просит и просит, останавливается на потолке раундов.
+ * Модель, которая просит и просит, останавливается на потолке раундов —
+ * и отвечает словами одним последним запросом без инструментов.
  *
  * Каждый раунд — отдельный платный запрос с полной историей и каталогом
- * инструментов. Без потолка один сбившийся ход тратит месячный бюджет, пока
- * человек смотрит в молчащий чат.
+ * инструментов, поэтому потолок есть. Но живой разговор показал и обратную
+ * сторону: модель все четыре раунда записывала узнанное и так и не ответила,
+ * а узел передал менеджеру разговор, который шёл хорошо.
+ */
+it('на потолке раундов заставляет модель ответить без инструментов', function (): void {
+    anthropicReplies([
+        anthropicAsks('search_knowledge', ['query' => 'визы'], id: 'c1'),
+        anthropicAsks('search_knowledge', ['query' => 'визы ещё раз'], id: 'c2'),
+        anthropicSays('Виза в Турцию не нужна.'),
+    ]);
+
+    app()->instance(KnowledgeSource::class, new AgentKnowledge([
+        ['key' => 'visa', 'title' => 'Визы', 'text' => 'Виза в Турцию не нужна.'],
+    ]));
+
+    $result = app(AiAgentStep::class)->run(agentContext(
+        $this->conversation,
+        agentNode(['tools' => [], 'rounds' => 2]),
+        $this->runtime,
+        'нужна ли виза?',
+    ));
+
+    expect($result->flow)->toBe(StepFlow::Wait)
+        ->and($this->runtime->said)->toBe(['Виза в Турцию не нужна.']);
+
+    Http::assertSent(fn ($request): bool => count($request->data()['messages'] ?? []) > 1
+        && ! isset($request->data()['tools']));
+});
+
+/**
+ * А если и без инструментов модель промолчала — потолок есть потолок.
  */
 it('прекращает ход на потолке раундов и уходит к человеку', function (): void {
     anthropicReplies([
         anthropicAsks('search_knowledge', ['query' => 'визы'], id: 'c1'),
         anthropicAsks('search_knowledge', ['query' => 'визы ещё раз'], id: 'c2'),
+        ['content' => [], 'stop_reason' => 'end_turn', 'usage' => ['input_tokens' => 0, 'output_tokens' => 0]],
     ]);
 
     app()->instance(KnowledgeSource::class, new AgentKnowledge([
@@ -568,8 +599,27 @@ it('прекращает ход на потолке раундов и уходи
 
     expect($result->flow)->toBe(StepFlow::Second)
         ->and($this->runtime->said)->toBe([])
-        ->and($result->trace['rounds'])->toBe(2)
-        ->and($result->trace['usage']['input_tokens'])->toBe(40);
+        ->and($result->trace['rounds'])->toBe(3);
+});
+
+/**
+ * Всё узнанное — одним вызовом, а не вызовом на каждое значение.
+ */
+it('записывает несколько значений одним вызовом', function (): void {
+    anthropicReplies([
+        anthropicAsks('remember', ['values' => ['name' => 'Максим', 'phone' => '8 949 415-74-04']]),
+        anthropicSays('Спасибо, Максим.'),
+    ]);
+
+    app(AiAgentStep::class)->run(agentContext(
+        $this->conversation,
+        agentNode(['tools' => [], 'search' => false, 'slots' => ['name', 'phone']]),
+        $this->runtime,
+        'Максим, 8 949 415-74-04',
+    ));
+
+    expect($this->runtime->stored['name'] ?? null)->toBe('Максим')
+        ->and($this->runtime->stored['phone_said'] ?? null)->toBe('8 949 415-74-04');
 });
 
 /**

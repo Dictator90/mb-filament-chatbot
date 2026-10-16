@@ -184,12 +184,27 @@ final class AgentLoop
             }
         }
 
-        return AgentOutcome::failed(
-            'The model kept asking for tools and never answered.',
-            $usage,
-            $did,
-            $rounds,
-        );
+        /*
+         * Out of rounds: one last request with no tools, so the model has to
+         * answer in words.
+         *
+         * Seen live: the model spent all four rounds writing down what it had
+         * learnt and never replied, and the node handed a conversation that
+         * was going well to a person. The work it did is in the exchange, so
+         * the forced answer is an informed one; and with no tools offered it
+         * cannot spend this round the same way.
+         */
+        $final = $gateway->converse(new AiTurn($turn->instruction, $turn->messages, [], $turn->maxTokens, $turn->temperature));
+        $usage = $this->add($usage, $final->usage());
+        $text = $final->ok() && ! $final->wantsTools() ? trim($final->text()) : '';
+
+        if ($text !== '') {
+            return AgentOutcome::spoke($text, $usage, $did, $rounds + 1);
+        }
+
+        return $interim !== ''
+            ? AgentOutcome::spoke($interim, $usage, $did, $rounds + 1)
+            : AgentOutcome::failed('The model kept asking for tools and never answered.', $usage, $did, $rounds + 1);
     }
 
     /**
@@ -372,23 +387,71 @@ final class AgentLoop
      */
     private function remember(AiToolCall $call, AgentTools $tools, StepContext $context): array
     {
-        $field = trim((string) ($call->input['field'] ?? ''));
-        $value = trim((string) ($call->input['value'] ?? ''));
+        /*
+         * Several values in one call, not one call per value.
+         *
+         * Seen live: on «в любые числа» the model wrote eleven values one call
+         * at a time, ran out of rounds without answering, and the node handed
+         * a conversation that was going well to a person. A map in one call
+         * costs one round however much there is to write.
+         */
+        $pairs = [];
 
-        if ($field === '' || $value === '') {
+        foreach ((array) ($call->input['values'] ?? []) as $name => $said) {
+            $pairs[trim((string) $name)] = trim(is_scalar($said) ? (string) $said : '');
+        }
+
+        $single = trim((string) ($call->input['field'] ?? ''));
+
+        if ($single !== '') {
+            $pairs[$single] = trim((string) ($call->input['value'] ?? ''));
+        }
+
+        $pairs = array_filter($pairs, static fn (string $value, string $name): bool => $name !== '' && $value !== '', ARRAY_FILTER_USE_BOTH);
+
+        if ($pairs === []) {
             return ['ok' => false, 'text' => __('chatbot::nodes.steps.ai_agent.tools.remember_incomplete')];
         }
 
-        if (! $tools->mayRemember($field)) {
+        $written = [];
+        $refused = [];
+
+        foreach ($pairs as $field => $value) {
+            if (! $tools->mayRemember($field)) {
+                $refused[] = $field;
+
+                continue;
+            }
+
+            $this->rememberOne($field, $value, $context);
+            $written[] = $field;
+        }
+
+        if ($written === []) {
             return [
                 'ok' => false,
                 'text' => __('chatbot::nodes.steps.ai_agent.tools.remember_not_allowed', [
-                    'field' => $field,
+                    'field' => implode(', ', $refused),
                     'allowed' => implode(', ', $tools->slots()),
                 ]),
-                'reason' => "[{$field}] is not a slot this node may write.",
+                'reason' => 'Not slots this node may write: '.implode(', ', $refused).'.',
             ];
         }
+
+        $text = __('chatbot::nodes.steps.ai_agent.tools.remembered', ['field' => implode(', ', $written)]);
+
+        if ($refused !== []) {
+            $text .= ' '.__('chatbot::nodes.steps.ai_agent.tools.remember_not_allowed', [
+                'field' => implode(', ', $refused),
+                'allowed' => implode(', ', $tools->slots()),
+            ]);
+        }
+
+        return ['ok' => true, 'text' => $text];
+    }
+
+    private function rememberOne(string $field, string $value, StepContext $context): void
+    {
 
         /*
          * Через тот же разборщик, что и анкета, — когда у поля есть слот.
@@ -414,8 +477,6 @@ final class AgentLoop
         }
 
         $this->facts->remember($context->conversation, $field, $value);
-
-        return ['ok' => true, 'text' => __('chatbot::nodes.steps.ai_agent.tools.remembered', ['field' => $field])];
     }
 
     private function add(AiUsage $total, AiUsage $one): AiUsage
