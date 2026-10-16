@@ -9,9 +9,33 @@ use MB\FilamentChatbot\Bot\Slots\SlotParser;
 use MB\FilamentChatbot\ChatbotServiceProvider;
 use MB\FilamentChatbot\Registry\ChatbotRegistry;
 
+/*
+ * Эти проверки написаны на русских ответах, и «8 → +7» — российское правило.
+ * Пакет больше не зашивает ни того, ни другого: русские слова лежат в файле
+ * языка, а префикс — в конфиге, по умолчанию пустом. Здесь включено то и другое,
+ * как на русской установке; что без настройки восьмёрка не трогается, проверено
+ * отдельно.
+ */
+beforeEach(function (): void {
+    app()->setLocale('ru');
+    config()->set('chatbot.slots.phone_trunk_prefixes', ['8' => '7']);
+});
+
 afterEach(function (): void {
     Carbon::setTestNow();
     CarbonImmutable::setTestNow();
+});
+
+/**
+ * Чужой номер с ведущей восьмёркой не превращается в российский.
+ *
+ * Правило «8 → +7» национальное и было зашито в разборщик: одиннадцать цифр,
+ * начинающихся с 8, на любой установке становились номером России.
+ */
+it('не переписывает ведущую восьмёрку без настройки', function (): void {
+    config()->set('chatbot.slots.phone_trunk_prefixes', []);
+
+    expect((new SlotParser)->parse(Slot::phone('phone'), '8 999 123 45 67')->value())->toBe('+89991234567');
 });
 
 /**
@@ -181,6 +205,8 @@ it('keeps the answer exactly as typed when it cannot be read', function (): void
  * an empty picker is how an author concludes the package is broken.
  */
 it('registers its own slots on boot', function (): void {
+    app()->setLocale('en');
+
     $slots = app(ChatbotRegistry::class)->slots();
 
     expect(array_keys($slots))->toContain('name', 'phone', 'email', 'contact_preference', 'company', 'request', 'urgency', 'order_number')

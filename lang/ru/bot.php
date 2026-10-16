@@ -9,6 +9,22 @@ declare(strict_types=1);
 return [
 
     /**
+     * Words that hand the conversation to a person before any scenario runs.
+     * Whole forms rather than stems, for the reason greetings are: «менеджер»
+     * as a stem would also catch «менеджер мне уже всё объяснил, спасибо».
+     */
+    /** What people put before their name, longest forms are tried first. */
+    'name_lead_ins' => ['меня зовут', 'моё имя', 'мое имя', 'зовут меня', 'зовут', 'это', 'я'],
+
+    /** Words that join the two ends of a range: «10 до 20», «с 1 по 5». */
+    'range_words' => ['до', 'по'],
+
+    'handoff_words' => [
+        'оператор', 'оператора', 'менеджер', 'менеджера', 'менеджеру',
+        'живой человек', 'живого человека', 'позовите человека', 'позови человека',
+    ],
+
+    /**
      * Russian greets in more forms than English does, and the list stays a list
      * of whole openings rather than of stems: a stem like «привет» would also
      * match «приветствую вас, у меня сломался заказ», and that message is a

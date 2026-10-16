@@ -282,6 +282,27 @@ it('hands over immediately when the visitor asks for a human', function (): void
 });
 
 /**
+ * На русской установке «менеджер» тоже зовёт человека.
+ *
+ * Слова передачи жили в конфиге одним английским набором, и «позовите
+ * менеджера» уходило в сценарий: человек получал ещё один ответ бота
+ * вместо менеджера. Нашёл это аудит — жалобы не было, потому что заметить
+ * такое изнутри разговора нельзя.
+ */
+it('зовёт человека по русскому «менеджер»', function (): void {
+    app()->setLocale('ru');
+
+    scenarioOf([
+        ['key' => 'start', 'type' => 'start', 'next_key' => 'greet', 'config' => ['trigger' => 'fallback']],
+        ['key' => 'greet', 'type' => 'say', 'body' => 'Здравствуйте.'],
+    ]);
+
+    visitorSays($this->conversation, 'позовите менеджера, пожалуйста');
+
+    expect($this->conversation->refresh()->bot_state)->toBe(BotState::HandedOff);
+});
+
+/**
  * Scenarios are edited while people are mid-conversation, and the node somebody
  * is waiting on can simply stop existing. Losing their message is the one
  * outcome that must not happen.

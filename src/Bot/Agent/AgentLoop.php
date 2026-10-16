@@ -138,7 +138,7 @@ final class AgentLoop
                     $missing = $this->missing($tools, $context);
 
                     if ($missing !== []) {
-                        $did[] = ['tool' => $call->name, 'ok' => false, 'reason' => 'не хватает: '.implode(', ', $missing)];
+                        $did[] = ['tool' => $call->name, 'ok' => false, 'reason' => 'missing: '.implode(', ', $missing)];
 
                         $turn = $turn->with(AiMessage::result(
                             $call->id,
@@ -246,7 +246,8 @@ final class AgentLoop
         if ($action === null) {
             return [
                 'ok' => false,
-                'text' => "There is no tool called [{$call->name}] in this conversation. Carry on without it.",
+                'text' => __('chatbot::nodes.steps.ai_agent.tools.no_such_tool', ['name' => $call->name]),
+                'reason' => "There is no tool called [{$call->name}] in this conversation.",
             ];
         }
 
@@ -261,8 +262,10 @@ final class AgentLoop
         return [
             'ok' => true,
             'text' => $data === []
-                ? 'Done.'
-                : 'Done. '.(string) json_encode($data, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
+                ? __('chatbot::nodes.steps.ai_agent.tools.done')
+                : __('chatbot::nodes.steps.ai_agent.tools.done_with', [
+                    'data' => (string) json_encode($data, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
+                ]),
         ];
     }
 
@@ -337,13 +340,13 @@ final class AgentLoop
         $query = trim((string) ($call->input['query'] ?? ''));
 
         if ($query === '' || $this->knowledge === null) {
-            return ['ok' => false, 'text' => 'Nothing to search: no query, or this installation has no knowledge base.'];
+            return ['ok' => false, 'text' => __('chatbot::nodes.steps.ai_agent.tools.search_unavailable')];
         }
 
         $found = $this->knowledge->candidates($context->conversation->bot_id, $query, max(1, min($candidates, 20)));
 
         if ($found === []) {
-            return ['ok' => true, 'text' => 'The agency material has nothing on that. Say so rather than answering from elsewhere.'];
+            return ['ok' => true, 'text' => __('chatbot::nodes.steps.ai_agent.tools.search_empty')];
         }
 
         $blocks = [];
@@ -373,14 +376,17 @@ final class AgentLoop
         $value = trim((string) ($call->input['value'] ?? ''));
 
         if ($field === '' || $value === '') {
-            return ['ok' => false, 'text' => 'Both a field and a value are needed.'];
+            return ['ok' => false, 'text' => __('chatbot::nodes.steps.ai_agent.tools.remember_incomplete')];
         }
 
         if (! $tools->mayRemember($field)) {
             return [
                 'ok' => false,
-                'text' => "[{$field}] is not one of the things this conversation keeps. Allowed: "
-                    .implode(', ', $tools->slots()).'.',
+                'text' => __('chatbot::nodes.steps.ai_agent.tools.remember_not_allowed', [
+                    'field' => $field,
+                    'allowed' => implode(', ', $tools->slots()),
+                ]),
+                'reason' => "[{$field}] is not a slot this node may write.",
             ];
         }
 
@@ -409,7 +415,7 @@ final class AgentLoop
 
         $this->facts->remember($context->conversation, $field, $value);
 
-        return ['ok' => true, 'text' => "Remembered {$field}."];
+        return ['ok' => true, 'text' => __('chatbot::nodes.steps.ai_agent.tools.remembered', ['field' => $field])];
     }
 
     private function add(AiUsage $total, AiUsage $one): AiUsage

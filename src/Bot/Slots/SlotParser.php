@@ -128,10 +128,9 @@ class SlotParser
     {
         $answer = trim(preg_replace('/\s+/u', ' ', $raw) ?? $raw);
 
-        $leadIns = [
-            'меня зовут', 'моё имя', 'мое имя', 'зовут меня', 'зовут', 'это',
-            'my name is', "i'm", 'i am', "it's", 'this is', 'call me', 'я',
-        ];
+        $leadIns = $this->wordsOf('name_lead_ins');
+
+        usort($leadIns, static fn (string $a, string $b): int => mb_strlen($b) <=> mb_strlen($a));
 
         $lowered = mb_strtolower($answer);
 
@@ -184,8 +183,14 @@ class SlotParser
             return SlotValue::missed($raw);
         }
 
-        if ($length === 11 && str_starts_with($digits, '8')) {
-            $digits = '7'.substr($digits, 1);
+        if ($length === 11) {
+            foreach ((array) config('chatbot.slots.phone_trunk_prefixes', []) as $trunk => $country) {
+                if (str_starts_with($digits, (string) $trunk)) {
+                    $digits = $country.substr($digits, strlen((string) $trunk));
+
+                    break;
+                }
+            }
         }
 
         return SlotValue::parsed('+'.$digits, ['digits' => $digits]);
@@ -388,7 +393,9 @@ class SlotParser
         $between = substr($raw, $left['end'], $right['start'] - $left['end']);
         $between = preg_replace('/^[\s\x{00A0}]*(?:'.implode('|', array_keys($this->moneyMultipliers())).')(?!\p{L})\.?/iu', '', $between) ?? $between;
 
-        return preg_match('/^[\s\x{00A0}]*(?:-|–|—|\.\.\.?|…|до|по|to|until)[\s\x{00A0}]*$/iu', $between) === 1;
+        $words = implode('|', array_map(static fn (string $word): string => preg_quote($word, '/'), $this->wordsOf('range_words')));
+
+        return preg_match('/^[\s\x{00A0}]*(?:-|–|—|\.\.\.?|…'.($words === '' ? '' : '|'.$words).')[\s\x{00A0}]*$/iu', $between) === 1;
     }
 
     /**
@@ -506,6 +513,32 @@ class SlotParser
      *
      * @return list<string>
      */
+    /**
+     * A word list from the current language merged with English, the way the
+     * months are: a Russian visitor writes "my name is" as often as anybody,
+     * and an English one never needs the Russian list.
+     *
+     * @return list<string>
+     */
+    private function wordsOf(string $key): array
+    {
+        $words = [];
+
+        foreach ([null, 'en'] as $locale) {
+            $list = __('chatbot::bot.'.$key, [], $locale);
+
+            foreach (is_array($list) ? $list : [] as $word) {
+                $word = mb_strtolower(trim((string) $word));
+
+                if ($word !== '') {
+                    $words[] = $word;
+                }
+            }
+        }
+
+        return array_values(array_unique($words));
+    }
+
     private function monthPatterns(): array
     {
         $patterns = array_fill(0, 12, []);

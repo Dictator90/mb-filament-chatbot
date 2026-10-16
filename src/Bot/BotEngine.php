@@ -475,7 +475,19 @@ class BotEngine
             return false;
         }
 
-        foreach ((array) config('chatbot.bot.handoff_words', []) as $word) {
+        /*
+         * The language file's words plus the config's, not the config alone.
+         * The list used to live in config as one English set, and on a Russian
+         * installation «менеджер» and «оператор» never reached a person: the
+         * visitor simply got another bot answer. Greetings, yes/no and "skip"
+         * have long lived in the language files; this is a word of the same kind.
+         */
+        $words = [
+            ...(array) __('chatbot::bot.handoff_words'),
+            ...(array) config('chatbot.bot.handoff_words', []),
+        ];
+
+        foreach ($words as $word) {
             $word = mb_strtolower(trim((string) $word));
 
             if ($word !== '' && preg_match('/(?<!\w)'.preg_quote($word, '/').'(?!\w)/u', $said) === 1) {

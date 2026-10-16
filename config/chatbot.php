@@ -190,7 +190,7 @@ return [
         'enabled' => true,
         'max_steps_per_turn' => 40,
         'max_jumps' => 5,
-        'handoff_words' => ['operator', 'human', 'manager', 'agent'],
+        'handoff_words' => [],
     ],
 
     /*
@@ -208,6 +208,16 @@ return [
     */
 
     'slots' => [
+        /*
+         * National trunk prefixes rewritten to a country code, keyed by the
+         * prefix, for numbers of eleven digits. Empty by default, because the
+         * rule is national: Russia writes "8 999…" for "+7 999…", and applied
+         * everywhere it would quietly turn somebody else's eleven-digit number
+         * starting with 8 into a Russian one. A Russian installation sets
+         * `['8' => '7']`.
+         */
+        'phone_trunk_prefixes' => [],
+
         'number_words' => [
             'zero' => 0,
             'one' => 1,
@@ -570,6 +580,8 @@ return [
             'secret_token' => env('CHATBOT_TELEGRAM_SECRET'),
             'api_url' => 'https://api.telegram.org',
             'timeout' => 10,
+            // Sending a file takes longer than a message; seconds.
+            'upload_timeout' => 60,
 
             /*
              * For networks that cannot reach the provider at all. A Russian

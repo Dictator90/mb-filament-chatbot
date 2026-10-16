@@ -14,6 +14,19 @@ declare(strict_types=1);
 return [
 
     /**
+     * Words that hand the conversation to a person before any scenario runs.
+     * `chatbot.bot.handoff_words` in config adds to these rather than
+     * replacing them.
+     */
+    'handoff_words' => ['operator', 'human', 'manager', 'agent', 'real person'],
+
+    /** What people put before their name; longest forms are tried first. */
+    'name_lead_ins' => ['my name is', "i'm", 'i am', "it's", 'this is', 'call me'],
+
+    /** Words that join the two ends of a range: "10 to 20". */
+    'range_words' => ['to', 'until'],
+
+    /**
      * The openings that count as a greeting and nothing more.
      *
      * A list rather than a sentence, because it is matched against, not shown.

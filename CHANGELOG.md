@@ -6,6 +6,31 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 this package intends to follow [Semantic Versioning](https://semver.org/) once
 it reaches 1.0.
 
+## [0.13.0] — 2026-10-16
+
+An audit for things that only made sense for the one host this package grew up
+in. The package is meant for any Filament application.
+
+- **Words that call a person now come from the language files.** The list lived
+  in config as one English set, so on a Russian installation «менеджер» and
+  «оператор» never reached a person. `chatbot.bot.handoff_words` now adds to
+  `chatbot::bot.handoff_words` instead of being the whole list, and its default
+  is empty.
+- **The "8 → +7" phone rule is a setting.** It is Russian, and it was applied
+  everywhere: an eleven-digit number starting with 8 became a Russian one on
+  any installation. `chatbot.slots.phone_trunk_prefixes` is empty by default;
+  a Russian host sets `['8' => '7']`. **Breaking for Russian hosts that relied
+  on it.**
+- **Name lead-ins and range words moved to the language files**
+  (`name_lead_ins`, `range_words`), merged with English the way months are.
+- **The agent's tool texts are neutral and translated.** Descriptions spoke as a
+  travel agency ("agency material", "money, complaints and promises"); what a
+  host forbids belongs in the node's instruction. Tool results the model reads
+  ("Done.", "Remembered …") come from the language files, so a Russian
+  instruction no longer gets English replies; journal reasons stay English.
+- `chatbot.channels.telegram.upload_timeout` is declared in config; it was read
+  but never defined.
+
 ## [0.12.3] — 2026-10-16
 
 - **An empty reply after tools is a stumble, not a failure.** Seen live: the
