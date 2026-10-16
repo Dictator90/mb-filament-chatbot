@@ -1184,6 +1184,42 @@ it('отдаёт модели системную подсказку бота п�
 });
 
 /**
+ * Телефон из сообщения записывает пакет, а модель его так и не видит.
+ *
+ * На бою человек трижды прислал номер, модель трижды видела «[телефон]»,
+ * дважды переспросила и позвала менеджера. Номер по-прежнему не уходит
+ * провайдеру — но и не теряется.
+ */
+it('записывает телефон из сообщения, не показывая его модели', function (): void {
+    anthropicReplies([anthropicSays('Спасибо, записал.')]);
+
+    $node = agentNode(['search' => false, 'slots' => ['name', 'phone']]);
+
+    app(AiAgentStep::class)->run(agentContext($this->conversation, $node, $this->runtime, '+7 (996) 168-85-75'));
+
+    expect($this->runtime->stored['phone'] ?? null)->toBe('+79961688575')
+        ->and($this->runtime->stored['phone_said'] ?? null)->toBe('+7 (996) 168-85-75');
+
+    Http::assertSent(function ($request): bool {
+        $body = json_encode($request->data(), JSON_UNESCAPED_UNICODE);
+
+        return ! str_contains($body, '168-85-75')
+            && str_contains(anthropicText($request->data()['system']), (string) __('chatbot::nodes.steps.ai_agent.contact_captured', ['fields' => 'phone']));
+    });
+});
+
+/**
+ * Не записывает телефон туда, куда узлу писать не разрешено.
+ */
+it('не записывает телефон, когда узлу не разрешено его помнить', function (): void {
+    anthropicReplies([anthropicSays('Спасибо.')]);
+
+    app(AiAgentStep::class)->run(agentContext($this->conversation, agentNode(['search' => false, 'slots' => ['name']]), $this->runtime, '+7 (996) 168-85-75'));
+
+    expect($this->runtime->stored)->not->toHaveKey('phone');
+});
+
+/**
  * Прочитанное из кэша стоит десятую часть, записанное — на четверть дороже.
  * Не учтённые вовсе, они сделали бы агента в бюджете почти бесплатным.
  */

@@ -33,6 +33,45 @@ namespace MB\FilamentChatbot\Ai;
  */
 final class Redactor
 {
+    private const EMAIL = '/[\w.+-]+@[\w-]+\.[\w.-]+/u';
+
+    /*
+     * A phone number is ten digits or more with spaces, brackets and dashes
+     * allowed between them. Ten rather than eleven: a landline, and a number
+     * written without its country code, are both phone numbers.
+     *
+     * The separators sit *between* digits and never after the last one.
+     * Written the obvious way — a digit followed by optional separators,
+     * repeated — the final repetition swallows the space that ends the number,
+     * and "call me on 8 949 415-74-04 after six" comes back as "[phone]after
+     * six": one word the model then has to make sense of, in every message
+     * that mentions a number mid-sentence.
+     */
+    private const PHONE = '/(?<!\d)\+?\d(?:[\s\-()]*\d){9,14}(?!\d)/u';
+
+    /**
+     * The contacts a message carries, before they are struck out of it.
+     *
+     * Seen live: a customer typed their phone number twice, the model saw
+     * "[phone]" both times and asked a third time — it can only write down
+     * what it is shown. The number still must not leave the machine, so it is
+     * taken here, on the server, and the model is told only that it was.
+     *
+     * @return array{phone: list<string>, email: list<string>}
+     */
+    public function contacts(?string $said): array
+    {
+        $text = trim((string) $said);
+
+        preg_match_all(self::EMAIL, $text, $emails);
+        preg_match_all(self::PHONE, (string) preg_replace(self::EMAIL, ' ', $text), $phones);
+
+        return [
+            'phone' => array_values(array_map('trim', $phones[0] ?? [])),
+            'email' => array_values($emails[0] ?? []),
+        ];
+    }
+
     /**
      * A message fit to leave the machine.
      */
@@ -93,29 +132,8 @@ final class Redactor
             $text = (string) preg_replace($pattern, $replacement, $text);
         }
 
-        $text = (string) preg_replace(
-            '/[\w.+-]+@[\w-]+\.[\w.-]+/u',
-            $this->label('email'),
-            $text,
-        );
-
-        /*
-         * A phone number is ten digits or more with spaces, brackets and dashes
-         * allowed between them. Ten rather than eleven: a landline, and a
-         * number written without its country code, are both phone numbers.
-         *
-         * The separators sit *between* digits and never after the last one.
-         * Written the obvious way — a digit followed by optional separators,
-         * repeated — the final repetition swallows the space that ends the
-         * number, and "call me on 8 949 415-74-04 after six" comes back as
-         * "[phone]after six": one word the model then has to make sense of, in
-         * every message that mentions a number mid-sentence.
-         */
-        $text = (string) preg_replace(
-            '/(?<!\d)\+?\d(?:[\s\-()]*\d){9,14}(?!\d)/u',
-            $this->label('phone'),
-            $text,
-        );
+        $text = (string) preg_replace(self::EMAIL, $this->label('email'), $text);
+        $text = (string) preg_replace(self::PHONE, $this->label('phone'), $text);
 
         /*
          * Everything else long enough to be an identifier — a passport, a card,

@@ -503,6 +503,15 @@ final class AgentLoop
         return ['ok' => true, 'text' => $text];
     }
 
+    /**
+     * Writes one value exactly as `remember` would — for a value the package
+     * itself took from the message, such as a contact the model is never shown.
+     */
+    public function write(string $field, string $value, StepContext $context): void
+    {
+        $this->rememberOne($field, $value, $context);
+    }
+
     private function rememberOne(string $field, string $value, StepContext $context): void
     {
 

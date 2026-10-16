@@ -6,6 +6,15 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 this package intends to follow [Semantic Versioning](https://semver.org/) once
 it reaches 1.0.
 
+## [0.14.2] — 2026-10-16
+
+- **A phone number or email the visitor types is written down by the package.**
+  Seen live: a customer sent their number three times, the model saw
+  "[телефон]" each time, asked again twice and fetched a manager. The value
+  still never reaches the provider; it is parsed on the server into the node's
+  allowed slots (`chatbot.ai.agent.contact_slots`, default `phone` and
+  `email`), and the model is told it was written and must not ask again.
+
 ## [0.14.1] — 2026-10-16
 
 - **The bot's model applies when its driver is left on "default".** Seen live:

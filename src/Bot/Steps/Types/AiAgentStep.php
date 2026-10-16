@@ -412,9 +412,14 @@ final class AiAgentStep extends StepType
             ]);
         }
 
+        $aside = implode("\n\n", array_filter(
+            [$settled['aside'] ?? '', $this->captureContacts($context)],
+            static fn (string $part): bool => $part !== '',
+        ));
+
         $outcome = $this->loop->run(
             gateway: $gateway,
-            instruction: $this->instruction($context, $settled['aside'] ?? null),
+            instruction: $this->instruction($context, $aside === '' ? null : $aside),
             history: $history,
             tools: $this->tools($context),
             context: $context,
@@ -610,6 +615,39 @@ final class AiAgentStep extends StepType
         }
 
         return implode("\n\n", array_filter($parts, static fn (string $part): bool => $part !== ''));
+    }
+
+    /**
+     * Writes down a phone number or an email the visitor just typed, and tells
+     * the model it was written — without the value.
+     *
+     * Seen live: a customer typed their number three times, the model saw
+     * "[телефон]" every time, asked again twice and then fetched a manager.
+     * The redactor is right to keep the number from the provider, and the model
+     * can only write down what it is shown — so the package writes it, into
+     * the slots this node may fill, under the names in
+     * `chatbot.ai.agent.contact_slots`.
+     */
+    private function captureContacts(StepContext $context): string
+    {
+        $found = $this->redactor->contacts($context->said);
+        $slots = $this->chosen($context, 'slots');
+        $written = [];
+
+        foreach ((array) config('chatbot.ai.agent.contact_slots', ['phone' => 'phone', 'email' => 'email']) as $kind => $slot) {
+            $value = $found[$kind][0] ?? null;
+
+            if ($value === null || ! is_string($slot) || ! in_array($slot, $slots, true)) {
+                continue;
+            }
+
+            $this->loop->write($slot, $value, $context);
+            $written[] = $slot;
+        }
+
+        return $written === []
+            ? ''
+            : __('chatbot::nodes.steps.ai_agent.contact_captured', ['fields' => implode(', ', $written)]);
     }
 
     /**
