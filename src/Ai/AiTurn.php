@@ -29,6 +29,7 @@ final class AiTurn
      * @param  list<AiTool>  $tools  what the model may ask for; an empty list is a plain chat
      * @param  int  $maxTokens  0 leaves it to the driver's configured ceiling
      * @param  float|null  $temperature  null leaves it to the driver's configured value
+     * @param  int  $stable  how many leading bytes of the instruction stay the same from turn to turn
      */
     public function __construct(
         public readonly string $instruction,
@@ -36,6 +37,7 @@ final class AiTurn
         public readonly array $tools = [],
         public readonly int $maxTokens = 0,
         public readonly ?float $temperature = null,
+        public readonly int $stable = 0,
     ) {}
 
     public function with(AiMessage ...$messages): self
@@ -46,7 +48,30 @@ final class AiTurn
             tools: $this->tools,
             maxTokens: $this->maxTokens,
             temperature: $this->temperature,
+            stable: $this->stable,
         );
+    }
+
+    /**
+     * The instruction cut where it stops being the same every turn.
+     *
+     * An agent's instruction is the author's text followed by what changes per
+     * turn — the fields still missing, the running summary. A provider that
+     * caches a prefix can only reuse the part that is identical, and caching
+     * the whole string would miss on every turn the list of missing fields got
+     * shorter. Drivers without a cache ignore this and send the instruction whole.
+     *
+     * @return array{0: string, 1: string}
+     */
+    public function instructionParts(): array
+    {
+        $stable = max(0, min($this->stable, strlen($this->instruction)));
+
+        if ($stable === 0) {
+            return [$this->instruction, ''];
+        }
+
+        return [substr($this->instruction, 0, $stable), substr($this->instruction, $stable)];
     }
 
     public function hasTools(): bool

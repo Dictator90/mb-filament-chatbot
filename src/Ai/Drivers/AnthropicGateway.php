@@ -51,6 +51,12 @@ final class AnthropicGateway implements AiConversationGateway
     private const API_VERSION = '2023-06-01';
 
     /**
+     * The five-minute cache: long enough to cover the rounds of one turn and
+     * a visitor typing their next message.
+     */
+    private const CACHE = ['type' => 'ephemeral'];
+
+    /**
      * @param  array<string, mixed>  $config
      */
     public function __construct(private readonly array $config) {}
@@ -139,8 +145,8 @@ final class AnthropicGateway implements AiConversationGateway
         $payload = [
             'model' => $this->model(),
             'max_tokens' => $turn->maxTokens > 0 ? $turn->maxTokens : $this->maxTokens(),
-            'system' => $turn->instruction,
-            'messages' => $this->messagesOf($turn),
+            'system' => $this->systemBlocks($turn),
+            'messages' => $this->cachedTail($this->messagesOf($turn)),
         ];
 
         if ($turn->hasTools()) {
@@ -149,6 +155,8 @@ final class AnthropicGateway implements AiConversationGateway
                 'description' => $tool->description,
                 'input_schema' => $tool->schema === [] ? ['type' => 'object'] : $tool->schema,
             ], $turn->tools);
+
+            $payload['tools'][count($payload['tools']) - 1]['cache_control'] = self::CACHE;
         }
 
         if ($turn->temperature !== null) {
@@ -156,6 +164,59 @@ final class AnthropicGateway implements AiConversationGateway
         }
 
         return $payload;
+    }
+
+    /**
+     * The instruction as system blocks, the unchanging part marked for caching.
+     *
+     * Seen in the provider's console: every agent turn paid full price for the
+     * same several thousand tokens of instruction and tool catalogue — and an
+     * agent turn is several requests, each one resending all of it. Read from
+     * the cache it costs a tenth. The part that changes per turn goes after the
+     * mark, so a shorter list of missing fields does not throw the cache away.
+     *
+     * @return list<array<string, mixed>>
+     */
+    private function systemBlocks(AiTurn $turn): array
+    {
+        [$stable, $varying] = $turn->instructionParts();
+        $blocks = [];
+
+        if (trim($stable) !== '') {
+            $blocks[] = ['type' => 'text', 'text' => $stable, 'cache_control' => self::CACHE];
+        }
+
+        if (trim($varying) !== '') {
+            $blocks[] = ['type' => 'text', 'text' => $varying];
+        }
+
+        return $blocks;
+    }
+
+    /**
+     * Marks the last message, so the next request — the next round of this
+     * turn, or the visitor's next message — reads the whole exchange so far
+     * from the cache instead of paying for it again.
+     *
+     * @param  list<array<string, mixed>>  $messages
+     * @return list<array<string, mixed>>
+     */
+    private function cachedTail(array $messages): array
+    {
+        $last = count($messages) - 1;
+
+        if ($last < 0) {
+            return $messages;
+        }
+
+        if (is_string($messages[$last]['content'])) {
+            $messages[$last]['content'] = [['type' => 'text', 'text' => $messages[$last]['content']]];
+        }
+
+        $blocks = count($messages[$last]['content']);
+        $messages[$last]['content'][$blocks - 1]['cache_control'] = self::CACHE;
+
+        return $messages;
     }
 
     /**
@@ -386,8 +447,19 @@ final class AnthropicGateway implements AiConversationGateway
     {
         $input = (int) data_get($body, 'usage.input_tokens', 0);
         $output = (int) data_get($body, 'usage.output_tokens', 0);
+        $written = (int) data_get($body, 'usage.cache_creation_input_tokens', 0);
+        $read = (int) data_get($body, 'usage.cache_read_input_tokens', 0);
 
-        return new AiUsage($input, $output, $this->costOf($input, $output));
+        /*
+         * Cached tokens are not in `input_tokens` and are billed differently:
+         * a quarter more to write, a tenth to read. Counted at the plain input
+         * price they would make the budget think caching tripled the bill —
+         * or, left out, that the agent had become almost free.
+         */
+        $cost = $this->costOf($input, $output)
+            + (int) round(($written * 1.25 + $read * 0.1) * $this->price('price_per_million_input'));
+
+        return new AiUsage($input + $written + $read, $output, max(0, $cost));
     }
 
     private function model(): string

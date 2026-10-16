@@ -75,14 +75,24 @@ final class AgentLoop
         StepContext $context,
         int $rounds = 4,
         int $candidates = 5,
+        int $stable = 0,
     ): AgentOutcome {
-        $turn = new AiTurn($instruction, $history, $tools->catalogue());
+        $turn = new AiTurn($instruction, $history, $tools->catalogue(), stable: $stable);
         $usage = new AiUsage;
         $did = [];
         $rounds = max(1, min($rounds, 8));
 
         $interim = '';
         $retriedEmpty = false;
+
+        /*
+         * Действие, которое ждёт «да» посетителя, модель не выполняет — она
+         * только просит его. Сказанное в разговоре «оформляю заявку» без
+         * кнопки под ним было бы обещанием, которое выполнила модель, а не
+         * человек: инструкция просит сперва показать итог, но инструкция —
+         * просьба, а не проверка.
+         */
+        $pending = null;
 
         for ($round = 1; $round <= $rounds; $round++) {
             $reply = $gateway->converse($turn);
@@ -109,8 +119,8 @@ final class AgentLoop
                     continue;
                 }
 
-                return $interim !== ''
-                    ? AgentOutcome::spoke($interim, $usage, $did, $round)
+                return $interim !== '' || $pending !== null
+                    ? $this->answered($pending, $interim, $usage, $did, $round)
                     : AgentOutcome::failed('The model answered with nothing.', $usage, $did, $round);
             }
 
@@ -124,7 +134,7 @@ final class AgentLoop
             }
 
             if (! $reply->wantsTools()) {
-                return AgentOutcome::spoke(trim($reply->text()), $usage, $did, $round);
+                return $this->answered($pending, trim($reply->text()), $usage, $did, $round);
             }
 
             if (trim($reply->text()) !== '') {
@@ -172,6 +182,35 @@ final class AgentLoop
                     );
                 }
 
+                $action = $tools->action($call->name);
+
+                if ($action !== null && $action->requiresApproval) {
+                    $missing = $this->missing($tools, $context);
+
+                    if ($missing !== []) {
+                        $did[] = ['tool' => $call->name, 'ok' => false, 'reason' => 'missing: '.implode(', ', $missing)];
+
+                        $turn = $turn->with(AiMessage::result(
+                            $call->id,
+                            __('chatbot::nodes.steps.ai_agent.tools.approval_missing', ['fields' => implode(', ', $missing)]),
+                            false,
+                        ));
+
+                        continue;
+                    }
+
+                    $pending ??= ['action' => $action->key, 'input' => $call->input];
+                    $did[] = ['tool' => $call->name, 'ok' => true, 'reason' => 'held for the visitor\'s yes'];
+
+                    $turn = $turn->with(AiMessage::result(
+                        $call->id,
+                        __('chatbot::nodes.steps.ai_agent.tools.approval_needed', ['action' => $action->label]),
+                        true,
+                    ));
+
+                    continue;
+                }
+
                 $done = $this->perform($call, $tools, $context, $candidates);
 
                 $did[] = array_filter([
@@ -194,17 +233,31 @@ final class AgentLoop
          * the forced answer is an informed one; and with no tools offered it
          * cannot spend this round the same way.
          */
-        $final = $gateway->converse(new AiTurn($turn->instruction, $turn->messages, [], $turn->maxTokens, $turn->temperature));
+        $final = $gateway->converse(new AiTurn($turn->instruction, $turn->messages, [], $turn->maxTokens, $turn->temperature, $turn->stable));
         $usage = $this->add($usage, $final->usage());
         $text = $final->ok() && ! $final->wantsTools() ? trim($final->text()) : '';
 
         if ($text !== '') {
-            return AgentOutcome::spoke($text, $usage, $did, $rounds + 1);
+            return $this->answered($pending, $text, $usage, $did, $rounds + 1);
         }
 
-        return $interim !== ''
-            ? AgentOutcome::spoke($interim, $usage, $did, $rounds + 1)
+        return $interim !== '' || $pending !== null
+            ? $this->answered($pending, $interim, $usage, $did, $rounds + 1)
             : AgentOutcome::failed('The model kept asking for tools and never answered.', $usage, $did, $rounds + 1);
+    }
+
+    /**
+     * The model's answer — or, when it asked for an action that needs a yes,
+     * its answer as the question put to the visitor.
+     *
+     * @param  array{action: string, input: array<string, mixed>}|null  $pending
+     * @param  list<array<string, mixed>>  $did
+     */
+    private function answered(?array $pending, string $text, AiUsage $usage, array $did, int $round): AgentOutcome
+    {
+        return $pending === null
+            ? AgentOutcome::spoke($text, $usage, $did, $round)
+            : AgentOutcome::awaitsApproval($pending, $text, $usage, $did, $round);
     }
 
     /**

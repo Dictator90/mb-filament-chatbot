@@ -24,6 +24,7 @@ final class AgentOutcome
 {
     /**
      * @param  list<array<string, mixed>>  $did
+     * @param  array{action: string, input: array<string, mixed>}|null  $pending
      */
     private function __construct(
         public readonly bool $ok,
@@ -34,7 +35,20 @@ final class AgentOutcome
         public readonly array $did,
         public readonly int $rounds,
         public readonly bool $passedOn = false,
+        public readonly ?array $pending = null,
     ) {}
+
+    /**
+     * The model asked for an action that needs the visitor's yes, and has
+     * worded the question; the action itself has not run.
+     *
+     * @param  array{action: string, input: array<string, mixed>}  $pending
+     * @param  list<array<string, mixed>>  $did
+     */
+    public static function awaitsApproval(array $pending, string $text, AiUsage $usage, array $did, int $rounds): self
+    {
+        return new self(true, trim($text), false, null, $usage, $did, $rounds, false, $pending);
+    }
 
     /**
      * @param  list<array<string, mixed>>  $did
@@ -85,6 +99,7 @@ final class AgentOutcome
             'reason' => $this->reason,
             'wants_human' => $this->wantsHuman ?: null,
             'passed_on' => $this->passedOn ?: null,
+            'awaits_approval' => $this->pending['action'] ?? null,
             'did' => $this->did === [] ? null : $this->did,
             'usage' => $this->usage->toArray(),
         ], static fn (mixed $value): bool => $value !== null);

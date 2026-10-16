@@ -298,7 +298,7 @@ it('называет модели незаписанное обязательн�
     app(AiAgentStep::class)->run(agentContext($this->conversation, $node, $runtime, 'здравствуйте'));
 
     Http::assertSent(function ($request): bool {
-        $system = (string) ($request->data()['system'] ?? '');
+        $system = anthropicText($request->data()['system'] ?? '');
 
         return str_contains($system, 'adults') && ! str_contains($system, 'name');
     });
@@ -746,7 +746,7 @@ it('отдаёт модели хвост переписки и нынешнюю 
 
     Http::assertSent(function ($request): bool {
         $messages = $request->data()['messages'] ?? [];
-        $texts = array_map(static fn (array $message): string => (string) $message['content'], $messages);
+        $texts = array_map(static fn (array $message): string => anthropicText($message['content']), $messages);
 
         return $texts === ['третье', 'четвёртое', 'пятое и последнее'];
     });
@@ -772,9 +772,9 @@ it('кладёт сводку прошлого в инструкцию, а не 
 
     Http::assertSent(function ($request): bool {
         $data = $request->data();
-        $messages = array_map(static fn (array $message): string => (string) $message['content'], $data['messages'] ?? []);
+        $messages = array_map(static fn (array $message): string => anthropicText($message['content']), $data['messages'] ?? []);
 
-        return str_contains((string) $data['system'], 'Летит из Донецка с двумя детьми.')
+        return str_contains(anthropicText($data['system']), 'Летит из Донецка с двумя детьми.')
             && $messages === ['а в июле дешевле?'];
     });
 });
@@ -992,4 +992,191 @@ it('чистит историю от персональных данных пе�
     expect($window)->toHaveCount(1)
         ->and($window[0]->text)->not->toContain('415-74-04')
         ->and($window[0]->text)->toBe('мой телефон '.__('chatbot::bot.redacted.phone'));
+});
+
+/**
+ * Действие «с подтверждением», которое модель может попросить.
+ *
+ * Счётчик запусков снаружи: проверяется не ответ модели, а то, выполнилось ли
+ * действие на самом деле.
+ */
+function orderAction(stdClass $seen): CapabilityAction
+{
+    return new CapabilityAction(
+        key: 'crm.create_order',
+        version: '1',
+        label: 'Завести заявку',
+        description: 'Заводит заявку.',
+        effect: SideEffect::Write,
+        input: [],
+        requiresApproval: true,
+        handler: function () use ($seen): array {
+            $seen->runs++;
+
+            return ['заявка' => '261016-0001'];
+        },
+    );
+}
+
+/**
+ * Действие «с подтверждением» модель не выполняет — она его только просит.
+ *
+ * Иначе заявка заводилась бы тем ходом, которым модель решила, что всё
+ * собрано, — без итога перед глазами человека и без его «да». Инструкция
+ * просит сперва показать итог, но инструкция — просьба, а не проверка.
+ * Приписка под вопросом — согласие на обработку данных — ставится кодом,
+ * а не моделью: она должна стоять каждый раз.
+ */
+it('выполняет действие с подтверждением только после «да» посетителя', function (): void {
+    $seen = new stdClass;
+    $seen->runs = 0;
+    app(ChatbotRegistry::class)->registerCapability(orderAction($seen));
+
+    anthropicReplies([
+        anthropicAsks('crm_create_order', text: 'Оформляю.'),
+        anthropicSays('Египет, 2 взрослых, август. Всё верно?'),
+        anthropicSays('Заявка 261016-0001 заведена, менеджер свяжется.'),
+    ]);
+
+    $node = agentNode(['tools' => ['crm.create_order'], 'search' => false, 'approval_note' => 'Нажимая «Да», Вы соглашаетесь на обработку данных.']);
+    $yes = (string) __('chatbot::nodes.steps.approval.yes');
+
+    $asked = app(AiAgentStep::class)->run(agentContext($this->conversation, $node, $this->runtime, 'всё, оформляйте'));
+
+    expect($seen->runs)->toBe(0)
+        ->and($asked->flow)->toBe(StepFlow::Wait)
+        ->and($this->runtime->said)->toBe(["Египет, 2 взрослых, август. Всё верно?\n\nНажимая «Да», Вы соглашаетесь на обработку данных."])
+        ->and($this->runtime->offered[0])->toBe([$yes, (string) __('chatbot::nodes.steps.approval.no')]);
+
+    $done = app(AiAgentStep::class)->resume(agentContext($this->conversation, $node, $this->runtime, $yes), $yes);
+
+    expect($seen->runs)->toBe(1)
+        ->and($done->trace['approval'])->toBe(['action' => 'crm.create_order', 'approved' => true, 'ok' => true])
+        ->and($this->runtime->said[1])->toBe('Заявка 261016-0001 заведена, менеджер свяжется.')
+        ->and($this->conversation->refresh()->meta['agent_approval:agent'] ?? null)->toBeNull();
+});
+
+/**
+ * Неясный ответ — не согласие. «А можно без детей?» на итог заявки — правка,
+ * и заявка, заведённая по нему, ушла бы менеджеру с детьми.
+ */
+it('не выполняет действие, когда ответ на подтверждение — не «да»', function (): void {
+    $seen = new stdClass;
+    $seen->runs = 0;
+    app(ChatbotRegistry::class)->registerCapability(orderAction($seen));
+
+    anthropicReplies([
+        anthropicAsks('crm_create_order'),
+        anthropicSays('Египет, 2 взрослых и 2 детей. Всё верно?'),
+        anthropicSays('Хорошо, уберу детей. Тогда 2 взрослых — верно?'),
+    ]);
+
+    $node = agentNode(['tools' => ['crm.create_order'], 'search' => false]);
+
+    app(AiAgentStep::class)->run(agentContext($this->conversation, $node, $this->runtime, 'оформляйте'));
+
+    $declined = app(AiAgentStep::class)->resume(
+        agentContext($this->conversation, $node, $this->runtime, 'а можно без детей?'),
+        'а можно без детей?',
+    );
+
+    expect($seen->runs)->toBe(0)
+        ->and($declined->flow)->toBe(StepFlow::Wait)
+        ->and($declined->trace['approval'])->toBe(['action' => 'crm.create_order', 'approved' => false]);
+
+    $declinedNote = (string) __('chatbot::nodes.steps.ai_agent.tools.approval_declined', ['action' => 'Завести заявку']);
+
+    Http::assertSent(fn ($request): bool => str_contains(anthropicText($request->data()['system'] ?? ''), $declinedNote));
+});
+
+/**
+ * Подтверждения не спрашивают, пока не собрано обязательное: «да» на итог
+ * без имени и дат — заявка, которую менеджеру придётся собирать заново.
+ */
+it('не просит подтверждения, пока не собрано обязательное', function (): void {
+    $seen = new stdClass;
+    $seen->runs = 0;
+    app(ChatbotRegistry::class)->registerCapability(orderAction($seen));
+
+    anthropicReplies([
+        anthropicAsks('crm_create_order'),
+        anthropicSays('Как к Вам обращаться?'),
+    ]);
+
+    $node = agentNode(['tools' => ['crm.create_order'], 'search' => false, 'requires' => ['name']]);
+
+    $result = app(AiAgentStep::class)->run(agentContext($this->conversation, $node, $this->runtime, 'оформляйте'));
+
+    expect($seen->runs)->toBe(0)
+        ->and($result->trace)->not->toHaveKey('awaits_approval')
+        ->and($this->runtime->offered[0])->toBe([])
+        ->and($this->conversation->refresh()->meta['agent_approval:agent'] ?? null)->toBeNull();
+});
+
+/**
+ * Неизменная часть запроса помечена для кэша провайдера, меняющаяся — нет.
+ *
+ * Без пометки каждый ход агента платил полную цену за одни и те же тысячи
+ * токенов инструкции и списка инструментов, и не один раз: ход — это
+ * несколько запросов. А пометка на всей инструкции промахивалась бы на каждом
+ * ходу, где список недостающего стал короче.
+ */
+it('помечает для кэша инструкцию, инструменты и переписку', function (): void {
+    anthropicReplies([anthropicSays('Здравствуйте!')]);
+
+    $node = agentNode(['tools' => [], 'search' => true, 'slots' => ['name'], 'requires' => ['name']]);
+
+    app(AiAgentStep::class)->run(agentContext($this->conversation, $node, $this->runtime, 'здравствуйте'));
+
+    Http::assertSent(function ($request): bool {
+        $data = $request->data();
+        $system = $data['system'];
+        $tools = $data['tools'];
+        $last = $data['messages'][count($data['messages']) - 1]['content'];
+
+        return $system[0]['text'] === 'Ты консультант агентства. Отвечай коротко.'
+            && $system[0]['cache_control'] === ['type' => 'ephemeral']
+            && str_contains($system[1]['text'], 'name')
+            && ! isset($system[1]['cache_control'])
+            && ($tools[count($tools) - 1]['cache_control'] ?? null) === ['type' => 'ephemeral']
+            && ($last[count($last) - 1]['cache_control'] ?? null) === ['type' => 'ephemeral'];
+    });
+});
+
+/**
+ * Системная подсказка из карточки бота доходит до модели — первой, перед
+ * инструкцией узла. Поле обещало «передаётся модели на каждом ходу», а не
+ * читал его ни один узел.
+ */
+it('отдаёт модели системную подсказку бота перед инструкцией узла', function (): void {
+    $this->conversation->bot->forceFill(['prompt' => 'Ты — Чемоданчик, помощник агентства.'])->save();
+
+    anthropicReplies([anthropicSays('Здравствуйте!')]);
+
+    app(AiAgentStep::class)->run(agentContext($this->conversation->refresh(), agentNode(['search' => false]), $this->runtime, 'привет'));
+
+    Http::assertSent(fn ($request): bool => str_starts_with(
+        anthropicText($request->data()['system']),
+        "Ты — Чемоданчик, помощник агентства.\n\nТы консультант агентства. Отвечай коротко.",
+    ));
+});
+
+/**
+ * Прочитанное из кэша стоит десятую часть, записанное — на четверть дороже.
+ * Не учтённые вовсе, они сделали бы агента в бюджете почти бесплатным.
+ */
+it('считает токены кэша в расходе', function (): void {
+    config()->set('chatbot.ai.drivers.anthropic.price_per_million_input', 1.0);
+    config()->set('chatbot.ai.drivers.anthropic.price_per_million_output', 0.0);
+
+    anthropicReplies([[
+        'content' => [['type' => 'text', 'text' => 'Здравствуйте!']],
+        'stop_reason' => 'end_turn',
+        'usage' => ['input_tokens' => 100, 'output_tokens' => 0, 'cache_creation_input_tokens' => 1000, 'cache_read_input_tokens' => 10000],
+    ]]);
+
+    $result = app(AiAgentStep::class)->run(agentContext($this->conversation, agentNode(['search' => false]), $this->runtime, 'здравствуйте'));
+
+    expect($result->trace['usage']['input_tokens'])->toBe(11100)
+        ->and($result->trace['usage']['cost_micro'])->toBe(100 + 1250 + 1000);
 });

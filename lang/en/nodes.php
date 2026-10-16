@@ -242,6 +242,7 @@ return [
             'writes' => 'changes data',
             'summary_header' => 'What is already known from this conversation:',
             'still_missing' => 'Not written down yet: :fields. Remember it with the remember tool — without asking again for what the person has already said.',
+            'approval_question' => 'Please confirm: «:action»?',
             'summary_instruction' => 'You keep a short memory of a conversation with a customer. From the previous summary and the new lines, write a single summary of three to five lines: who this person is, what they want, what they have already been told or promised, and any dates and names given. Facts from the conversation only — no guesses and no pleasantries. Answer in the language of the conversation.',
             'summary_known' => 'Previous summary:',
             'summary_new' => 'New lines:',
@@ -269,6 +270,17 @@ return [
                 'slots' => [
                     'label' => 'What it may remember',
                     'hint' => 'The names it writes what it learns under: conditions, templates and later nodes read them. Choose none and it cannot remember anything.',
+                ],
+                'approve_label' => [
+                    'label' => 'Agree button',
+                    'hint' => 'Actions that need approval are never run by the model itself: it writes a summary, the visitor sees it with two buttons, and the action runs only after a yes. An unclear answer counts as a no.',
+                ],
+                'decline_label' => [
+                    'label' => 'Decline button',
+                ],
+                'approval_note' => [
+                    'label' => 'Note under the confirmation',
+                    'hint' => 'Always added under the question, whatever the model wrote. The place for consent to the processing of personal data with a link to the policy.',
                 ],
                 'search' => [
                     'label' => 'Search the knowledge base',
@@ -310,6 +322,11 @@ return [
                 'read_limit' => 'How many records to show, at most twenty',
                 'read_refused' => 'That data cannot be read right now. Do not invent it: say so to the person, or fetch a human.',
                 'read_empty' => 'There are no such records. Say exactly that, without filling in the gaps.',
+                'approval_missing' => 'Not yet: :fields are missing. Ask the person for them — one question at a time.',
+                'approval_needed' => '«:action» has NOT been done: the visitor has to confirm it first. Write them a short summary — what exactly will be done and with what details — and ask whether it is right. Yes and no buttons are added for you. Do not say it is done.',
+                'approval_done' => 'The visitor confirmed «:action» and it is done. Result: :result. Tell them briefly what was done and what happens next. Do not call this action again.',
+                'approval_failed' => 'The visitor confirmed «:action», but it failed: :error. Say so honestly and offer to fetch a person.',
+                'approval_declined' => 'The visitor did NOT confirm «:action» — their answer is the last message. Nothing was done. Find out what to change; offer the action again only once they agree.',
             ],
             'issues' => [
                 'no_instruction' => 'This node does not tell the model who it is or what it may do. Without that it answers in the provider\'s voice and decides for itself what to do.',

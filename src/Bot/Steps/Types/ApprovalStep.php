@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace MB\FilamentChatbot\Bot\Steps\Types;
 
 use MB\FilamentChatbot\Bot\Fields\Field;
+use MB\FilamentChatbot\Bot\Steps\ApprovalAnswer;
 use MB\FilamentChatbot\Bot\Steps\StepContext;
 use MB\FilamentChatbot\Bot\Steps\StepResult;
 use MB\FilamentChatbot\Bot\Steps\StepType;
@@ -58,22 +59,6 @@ final class ApprovalStep extends StepType
     private function retry(): string
     {
         return __('chatbot::nodes.steps.approval.retry');
-    }
-
-    /**
-     * @return list<string>
-     */
-    private function yesWords(): array
-    {
-        return array_values((array) __('chatbot::bot.approval.yes'));
-    }
-
-    /**
-     * @return list<string>
-     */
-    private function noWords(): array
-    {
-        return array_values((array) __('chatbot::bot.approval.no'));
     }
 
     public function icon(): string
@@ -211,53 +196,12 @@ final class ApprovalStep extends StepType
     }
 
     /**
-     * True for a yes, false for a no, null when the answer says neither.
-     *
-     * Null is a third value rather than a default of false so that the caller
-     * has to decide what to do with it out loud. Folded into false here, the
-     * node would refuse on the first unclear word and never ask again, which is
-     * the correct outcome reached rudely; folded into true it would be the
-     * failure this whole class is written against.
-     *
-     * The labels are read before the built-in words, because an author who
-     * relabelled the answers meant those labels to be what the visitor types.
+     * True for a yes, false for a no, null when the answer says neither —
+     * read the same way the agent reads it ({@see ApprovalAnswer}).
      */
     private function verdict(StepContext $context, string $answer): ?bool
     {
-        $answer = $this->normalise($answer);
-
-        if ($answer === '') {
-            return null;
-        }
-
-        $yes = $this->normalise($this->yesLabel($context));
-        $no = $this->normalise($this->noLabel($context));
-
-        if ($answer === $yes || $answer === '1') {
-            return true;
-        }
-
-        if ($answer === $no || $answer === '2') {
-            return false;
-        }
-
-        if (in_array($answer, $this->yesWords(), true)) {
-            return true;
-        }
-
-        if (in_array($answer, $this->noWords(), true)) {
-            return false;
-        }
-
-        if ($no !== '' && str_starts_with($no, $answer)) {
-            return false;
-        }
-
-        if ($yes !== '' && str_starts_with($yes, $answer)) {
-            return true;
-        }
-
-        return null;
+        return ApprovalAnswer::verdict($answer, $this->yesLabel($context), $this->noLabel($context));
     }
 
     private function options(StepContext $context): string
@@ -315,10 +259,5 @@ final class ApprovalStep extends StepType
     private function attemptsUsed(StepContext $context): int
     {
         return (int) (((array) $context->conversation->meta)['approval:'.$context->step->key] ?? 0);
-    }
-
-    private function normalise(string $value): string
-    {
-        return mb_strtolower(trim($value));
     }
 }

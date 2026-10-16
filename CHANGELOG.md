@@ -6,6 +6,26 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 this package intends to follow [Semantic Versioning](https://semver.org/) once
 it reaches 1.0.
 
+## [0.14.0] — 2026-10-16
+
+- **The agent may be offered actions that need approval — and still cannot run
+  them on its own.** When the model calls one, the package does not run it: the
+  model words a summary, the visitor gets it with yes/no buttons, and the action
+  runs only after a yes. Anything that is not a yes counts as a no, and the
+  model is told so to find out what to change. The node's required fields gate
+  these actions the way they gate `pass_on`. New node settings: the two button
+  labels and a note always added under the question by code — the place for
+  consent to the processing of personal data.
+- **Prompt caching for Anthropic.** The instruction, the tool catalogue and the
+  exchange so far are marked for the provider's cache; the part of the
+  instruction that changes per turn (missing fields, summary) travels after the
+  mark so it does not invalidate it. Cached tokens are counted in the budget at
+  their real price. `AiTurn` gained `stable` (bytes of the instruction that do
+  not change), which other drivers ignore.
+- **The bot's system prompt reaches the model.** The field promised "sent on
+  every turn" and no node read it; the agent and the answer node now put it
+  before their own instruction. The field moved to the «ИИ» tab.
+
 ## [0.13.4] — 2026-10-16
 
 - **The bot's own lines reach the model as they were said.** Seen live: the bot

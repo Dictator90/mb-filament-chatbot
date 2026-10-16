@@ -257,13 +257,25 @@ final class AiStep extends StepType
         return $issues;
     }
 
+    /**
+     * The bot's own system prompt first, then the node's instruction.
+     *
+     * The prompt field on the bot promised "sent to the model on every turn"
+     * and no node read it: an agency wrote who the bot is and how it speaks,
+     * and the model never saw a word of it.
+     */
     private function instruction(StepContext $context): string
     {
         $instruction = trim($context->filled('instruction'));
 
-        return $instruction === ''
+        $instruction = $instruction === ''
             ? (string) config('chatbot.ai.answer.instruction', '')
             : $instruction;
+
+        return implode("\n\n", array_filter(
+            [trim((string) $context->conversation->bot?->prompt), trim($instruction)],
+            static fn (string $part): bool => $part !== '',
+        ));
     }
 
     private function limit(StepContext $context): int

@@ -108,3 +108,20 @@ function scenarioOf(array $steps, array $attributes = []): Scenario
 
     return $scenario->load('steps');
 }
+
+/**
+ * The text of an Anthropic `system` or message `content`, whichever shape it
+ * was sent in: a plain string, or blocks — which is how anything marked for the
+ * prompt cache has to travel.
+ */
+function anthropicText(mixed $content): string
+{
+    if (! is_array($content)) {
+        return (string) $content;
+    }
+
+    return implode('', array_map(
+        static fn (mixed $block): string => is_array($block) && ($block['type'] ?? '') === 'text' ? (string) $block['text'] : '',
+        $content,
+    ));
+}

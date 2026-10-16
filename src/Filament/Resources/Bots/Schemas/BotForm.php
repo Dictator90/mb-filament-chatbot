@@ -125,11 +125,6 @@ class BotForm
                     ->rows(3)
                     ->maxLength(2000)
                     ->helperText(__('chatbot::panel.bots.voice.greeting')),
-                Textarea::make('prompt')
-                    ->label(__('chatbot::panel.bots.voice.prompt'))
-                    ->rows(6)
-                    ->maxLength(8000)
-                    ->helperText(__('chatbot::panel.bots.voice.prompt_help')),
             ]),
 
             Section::make(__('chatbot::panel.bots.hours.heading'))
@@ -209,6 +204,16 @@ class BotForm
                         ->key('ai_disabled_notice')
                         ->color('warning')
                         ->visible(fn (Get $get): bool => self::effectiveDriver($get('ai_driver')) === 'null'),
+                    /*
+                     * Here rather than beside the greeting: it is read only by
+                     * a model, and on «Основное» it sat two tabs away from the
+                     * driver that decides whether anything reads it at all.
+                     */
+                    Textarea::make('prompt')
+                        ->label(__('chatbot::panel.bots.voice.prompt'))
+                        ->rows(6)
+                        ->maxLength(8000)
+                        ->helperText(__('chatbot::panel.bots.voice.prompt_help')),
                 ]),
 
             Section::make(__('chatbot::panel.bots.budget.heading'))

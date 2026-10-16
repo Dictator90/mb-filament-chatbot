@@ -13,10 +13,12 @@ use MB\FilamentChatbot\Ai\Redactor;
 use MB\FilamentChatbot\Bot\Agent\AgentLoop;
 use MB\FilamentChatbot\Bot\Agent\AgentTools;
 use MB\FilamentChatbot\Bot\Fields\Field;
+use MB\FilamentChatbot\Bot\Steps\ApprovalAnswer;
 use MB\FilamentChatbot\Bot\Steps\StepContext;
 use MB\FilamentChatbot\Bot\Steps\StepResult;
 use MB\FilamentChatbot\Bot\Steps\StepType;
 use MB\FilamentChatbot\Capabilities\CapabilityAction;
+use MB\FilamentChatbot\Capabilities\CapabilityGateway;
 use MB\FilamentChatbot\Chat\ConversationMemory;
 use MB\FilamentChatbot\Enums\SideEffect;
 use MB\FilamentChatbot\Enums\StepOutputs;
@@ -75,7 +77,84 @@ final class AiAgentStep extends StepType
         private readonly ConversationMemory $memory,
         private readonly ChatbotRegistry $registry,
         private readonly Redactor $redactor,
+        private readonly CapabilityGateway $capabilities,
     ) {}
+
+    /**
+     * Puts the model's question to the visitor with yes/no buttons, and keeps
+     * the action until the answer comes back.
+     *
+     * The note under the question is the author's and is added by code, not by
+     * the model: it is where an agency puts "pressing «Да» you agree to the
+     * processing of personal data", and a sentence that must be shown every
+     * time cannot depend on a model remembering to write it.
+     *
+     * @param  array{action: string, input: array<string, mixed>}  $pending
+     */
+    private function askApproval(StepContext $context, array $pending, string $text): StepResult
+    {
+        $action = $this->registry->capability($pending['action']);
+
+        $question = trim($text) !== ''
+            ? trim($text)
+            : __('chatbot::nodes.steps.ai_agent.approval_question', ['action' => $action?->label ?? $pending['action']]);
+
+        $note = trim($context->filled('approval_note'));
+
+        $context->runtime->say(
+            $note === '' ? $question : $question."\n\n".$note,
+            [$this->approvalLabel($context, 'yes'), $this->approvalLabel($context, 'no')],
+        );
+
+        $this->hold($context, $pending);
+
+        return StepResult::wait()->spoken();
+    }
+
+    /**
+     * @return array{action: string, input: array<string, mixed>}|null
+     */
+    private function pending(StepContext $context): ?array
+    {
+        $pending = ((array) $context->conversation->meta)[$this->pendingKey($context)] ?? null;
+
+        return is_array($pending) && is_string($pending['action'] ?? null)
+            ? ['action' => $pending['action'], 'input' => (array) ($pending['input'] ?? [])]
+            : null;
+    }
+
+    /**
+     * Kept with the conversation, not in the answers bag, for the reason the
+     * approval node keeps its counter there: it is bookkeeping about the
+     * exchange, and a value offered to templates is a value somebody branches on.
+     *
+     * @param  array{action: string, input: array<string, mixed>}|null  $pending
+     */
+    private function hold(StepContext $context, ?array $pending): void
+    {
+        $meta = (array) $context->conversation->meta;
+
+        if ($pending === null) {
+            unset($meta[$this->pendingKey($context)]);
+        } else {
+            $meta[$this->pendingKey($context)] = $pending;
+        }
+
+        $context->conversation->forceFill(['meta' => $meta === [] ? null : $meta])->save();
+    }
+
+    private function pendingKey(StepContext $context): string
+    {
+        return 'agent_approval:'.$context->step->key;
+    }
+
+    private function approvalLabel(StepContext $context, string $which): string
+    {
+        $fallback = (string) __('chatbot::nodes.steps.approval.'.$which);
+        $label = trim((string) $context->setting($which === 'yes' ? 'approve_label' : 'decline_label', $fallback));
+
+        return $label === '' ? $fallback : $label;
+    }
 
     public static function key(): string
     {
@@ -170,6 +249,20 @@ final class AiAgentStep extends StepType
                 ->options(fn (): array => $this->slotOptions())
                 ->hint(__('chatbot::nodes.steps.ai_agent.fields.requires.hint')),
 
+            Field::text('approve_label')
+                ->label(__('chatbot::nodes.steps.ai_agent.fields.approve_label.label'))
+                ->default(__('chatbot::nodes.steps.approval.yes'))
+                ->hint(__('chatbot::nodes.steps.ai_agent.fields.approve_label.hint')),
+
+            Field::text('decline_label')
+                ->label(__('chatbot::nodes.steps.ai_agent.fields.decline_label.label'))
+                ->default(__('chatbot::nodes.steps.approval.no')),
+
+            Field::textarea('approval_note')
+                ->label(__('chatbot::nodes.steps.ai_agent.fields.approval_note.label'))
+                ->rows(2)
+                ->hint(__('chatbot::nodes.steps.ai_agent.fields.approval_note.hint')),
+
             Field::toggle('search')
                 ->label(__('chatbot::nodes.steps.ai_agent.fields.search.label'))
                 ->default(true)
@@ -207,10 +300,81 @@ final class AiAgentStep extends StepType
      */
     public function resume(StepContext $context, string $answer): StepResult
     {
-        return $this->run($context);
+        $pending = $this->pending($context);
+
+        if ($pending === null) {
+            return $this->run($context);
+        }
+
+        $this->hold($context, null);
+
+        return $this->turn($context, $this->settle($context, $pending, $answer));
     }
 
     public function run(StepContext $context): StepResult
+    {
+        return $this->turn($context);
+    }
+
+    /**
+     * Ответ на «подтверждаете?» — и выполнение действия, если это «да».
+     *
+     * **Неясный ответ — это не «да».** То же правило, что у узла подтверждения
+     * (`ApprovalStep`), и по той же причине: «а можно без детей?» в ответ
+     * на итог заявки — это правка, а не согласие, и заявка, заведённая
+     * по нему, ушла бы менеджеру с детьми. Переспрашивать здесь не нужно:
+     * модель прочтёт ответ сама и уточнит, что поменять.
+     *
+     * Действие выполняется только если узел всё ещё его предлагает: автор
+     * мог снять галочку, пока человек думал над ответом.
+     *
+     * @param  array{action: string, input: array<string, mixed>}  $pending
+     * @return array{aside: string, trace: array<string, mixed>}
+     */
+    private function settle(StepContext $context, array $pending, string $answer): array
+    {
+        $action = in_array($pending['action'], $this->chosen($context, 'tools'), true)
+            ? $this->registry->capability($pending['action'])
+            : null;
+
+        $label = $action === null ? $pending['action'] : $action->label;
+
+        if (ApprovalAnswer::verdict($answer, $this->approvalLabel($context, 'yes'), $this->approvalLabel($context, 'no')) !== true) {
+            return [
+                'aside' => __('chatbot::nodes.steps.ai_agent.tools.approval_declined', ['action' => $label]),
+                'trace' => ['approval' => ['action' => $pending['action'], 'approved' => false]],
+            ];
+        }
+
+        if ($action === null) {
+            return [
+                'aside' => __('chatbot::nodes.steps.ai_agent.tools.approval_failed', ['action' => $label, 'error' => 'not offered here any more']),
+                'trace' => ['approval' => ['action' => $pending['action'], 'approved' => true, 'ok' => false]],
+            ];
+        }
+
+        $result = $this->capabilities->run($action, (array) $pending['input'], $context);
+
+        if (! $result->ok()) {
+            return [
+                'aside' => __('chatbot::nodes.steps.ai_agent.tools.approval_failed', ['action' => $label, 'error' => (string) $result->error()]),
+                'trace' => ['approval' => ['action' => $pending['action'], 'approved' => true, 'ok' => false, 'reason' => (string) $result->error()]],
+            ];
+        }
+
+        return [
+            'aside' => __('chatbot::nodes.steps.ai_agent.tools.approval_done', [
+                'action' => $label,
+                'result' => (string) json_encode($result->data(), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
+            ]),
+            'trace' => ['approval' => ['action' => $pending['action'], 'approved' => true, 'ok' => true]],
+        ];
+    }
+
+    /**
+     * @param  array{aside: string, trace: array<string, mixed>}|null  $settled
+     */
+    private function turn(StepContext $context, ?array $settled = null): StepResult
     {
         $gateway = $this->gateways->guarded(
             $context->conversation->bot,
@@ -250,16 +414,28 @@ final class AiAgentStep extends StepType
 
         $outcome = $this->loop->run(
             gateway: $gateway,
-            instruction: $this->instruction($context),
+            instruction: $this->instruction($context, $settled['aside'] ?? null),
             history: $history,
             tools: $this->tools($context),
             context: $context,
             rounds: (int) $context->setting('rounds', 4),
+            stable: strlen($this->standing($context)),
         );
+
+        $settledTrace = $settled['trace'] ?? [];
 
         if (! $outcome->ok) {
             return StepResult::second()->traced(RunStep::FAILED, [
                 'provider' => $gateway->name(),
+                ...$settledTrace,
+                ...$outcome->trace(),
+            ]);
+        }
+
+        if ($outcome->pending !== null) {
+            return $this->askApproval($context, $outcome->pending, $outcome->text)->traced(RunStep::WAITING, [
+                'provider' => $gateway->name(),
+                ...$settledTrace,
                 ...$outcome->trace(),
             ]);
         }
@@ -273,6 +449,7 @@ final class AiAgentStep extends StepType
         if ($outcome->wantsHuman) {
             return StepResult::second()->traced(RunStep::PASSED, [
                 'provider' => $gateway->name(),
+                ...$settledTrace,
                 ...$outcome->trace(),
             ])->spoken($outcome->text !== '');
         }
@@ -300,12 +477,14 @@ final class AiAgentStep extends StepType
         if (! $outcome->passedOn) {
             return StepResult::wait()->traced(RunStep::SAID, [
                 'provider' => $gateway->name(),
+                ...$settledTrace,
                 ...$outcome->trace(),
             ])->spoken();
         }
 
         return StepResult::next()->traced(RunStep::PASSED, [
             'provider' => $gateway->name(),
+            ...$settledTrace,
             ...$outcome->trace(),
         ])->spoken($outcome->text !== '');
     }
@@ -405,9 +584,14 @@ final class AiAgentStep extends StepType
      * line is never out of date and never a reminder of something already
      * written — which is what makes it worth the tokens.
      */
-    private function instruction(StepContext $context): string
+    private function instruction(StepContext $context, ?string $aside = null): string
     {
-        $parts = [trim($context->filled('instruction'))];
+        $parts = [$this->standing($context)];
+
+        if ($aside !== null) {
+            $parts[] = $aside;
+        }
+
         $summary = $this->memory->summary($context->conversation);
         $missing = [];
 
@@ -426,6 +610,22 @@ final class AiAgentStep extends StepType
         }
 
         return implode("\n\n", array_filter($parts, static fn (string $part): bool => $part !== ''));
+    }
+
+    /**
+     * The part of the instruction that is the same on every turn: the bot's own
+     * system prompt, then this node's text.
+     *
+     * The bot's prompt field promised "sent to the model on every turn" and no
+     * node read it — an agency wrote who the bot is and how it speaks, and the
+     * model never saw a word of it.
+     */
+    private function standing(StepContext $context): string
+    {
+        return implode("\n\n", array_filter(
+            [trim((string) $context->conversation->bot?->prompt), trim($context->filled('instruction'))],
+            static fn (string $part): bool => $part !== '',
+        ));
     }
 
     private function tools(StepContext $context): AgentTools
