@@ -88,7 +88,7 @@ final class ConversationMemory
         $window = [];
 
         foreach ($messages as $message) {
-            $text = $this->redactor->clean((string) $message->body);
+            $text = $this->textOf($message);
 
             if ($text === '') {
                 continue;
@@ -169,7 +169,7 @@ final class ConversationMemory
         $lines = [];
 
         foreach ($messages as $message) {
-            $text = $this->redactor->clean((string) $message->body);
+            $text = $this->textOf($message);
 
             if ($text === '') {
                 continue;
@@ -186,6 +186,27 @@ final class ConversationMemory
             'lines' => $lines,
             'until' => (int) ($messages->last()?->getKey() ?? 0),
         ];
+    }
+
+    /**
+     * A message as the model may read it: the visitor's words cleaned, the
+     * bot's own left as they were said.
+     *
+     * Redacting the bot's lines broke the conversation in a way that looked
+     * like the model's fault. It had told a customer "заявка № 261015-0064";
+     * on the next turn it read its own words back as "№ [number]-0064", saw
+     * the full number in the record, and announced to the customer that it
+     * had named the order wrongly and was correcting itself. What the bot said
+     * came from the host's own data, read through the rules that decide what
+     * the bot may show; hiding it from the model hides nothing from anybody.
+     */
+    private function textOf(Message $message): string
+    {
+        $body = (string) $message->body;
+
+        return $message->author === MessageAuthor::Visitor
+            ? $this->redactor->clean($body)
+            : trim($body);
     }
 
     public function summarisedUntil(Conversation $conversation): int

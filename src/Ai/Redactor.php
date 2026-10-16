@@ -44,6 +44,51 @@ final class Redactor
             return $text;
         }
 
+        /*
+         * Shapes the host says are safe to send — its own order and booking
+         * references — are set aside before any rule runs and put back after.
+         *
+         * Seen live: a customer asked about «O-261007-ZHAE», the six digits in
+         * the middle became "[number]", and the model, unable to find
+         * "O-[number]-ZHAE", told the customer it could not see such a booking.
+         * A reference number is not personal data; it is the one thing the
+         * customer needs the bot to read.
+         */
+        $kept = [];
+
+        foreach ($this->keptPatterns() as $pattern) {
+            $text = (string) preg_replace_callback($pattern, static function (array $match) use (&$kept): string {
+                $kept[] = $match[0];
+
+                return "\u{E000}".(count($kept) - 1)."\u{E001}";
+            }, $text);
+        }
+
+        $text = $this->redactAll($text);
+
+        return (string) preg_replace_callback(
+            "/\u{E000}(\\d+)\u{E001}/u",
+            static fn (array $match): string => $kept[(int) $match[1]] ?? '',
+            $text,
+        );
+    }
+
+    /**
+     * Patterns whose matches are never redacted, from
+     * `chatbot.ai.redact.keep`. Invalid ones are skipped, as host patterns are.
+     *
+     * @return list<string>
+     */
+    private function keptPatterns(): array
+    {
+        return array_values(array_filter(
+            (array) config('chatbot.ai.redact.keep', []),
+            static fn (mixed $pattern): bool => is_string($pattern) && @preg_match($pattern, '') !== false,
+        ));
+    }
+
+    private function redactAll(string $text): string
+    {
         foreach ($this->hostPatterns() as $pattern => $replacement) {
             $text = (string) preg_replace($pattern, $replacement, $text);
         }

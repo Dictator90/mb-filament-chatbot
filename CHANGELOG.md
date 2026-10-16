@@ -6,6 +6,18 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 this package intends to follow [Semantic Versioning](https://semver.org/) once
 it reaches 1.0.
 
+## [0.13.4] — 2026-10-16
+
+- **The bot's own lines reach the model as they were said.** Seen live: the bot
+  told a customer "заявка № 261015-0064", read its own words back next turn as
+  "№ [number]-0064", saw the full number in the record and announced it had
+  named the order wrongly. What the bot said came from the host's data through
+  the rules that govern what it may show; only the visitor's words are
+  redacted now.
+- **`chatbot.ai.redact.keep`: shapes that are never redacted** — a host's own
+  order and booking references. A customer asked about «O-261007-ZHAE», the six
+  digits became "[number]", and the model could not find "O-[number]-ZHAE".
+
 ## [0.13.3] — 2026-10-16
 
 - **Out of rounds, the model answers in words instead of handing over.** Seen

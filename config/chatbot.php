@@ -352,6 +352,9 @@ return [
         'redact' => [
             'enabled' => true,
             'patterns' => [],
+            // Regexes whose matches are sent as they are — the host's own
+            // order and booking references, which a customer needs read back.
+            'keep' => [],
         ],
 
         'drivers' => [
