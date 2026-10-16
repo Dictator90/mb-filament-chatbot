@@ -6,6 +6,18 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 this package intends to follow [Semantic Versioning](https://semver.org/) once
 it reaches 1.0.
 
+## [0.14.3] — 2026-10-16
+
+- **Anthropic thinking is off by default** (`chatbot.ai.drivers.anthropic.thinking`,
+  `CHATBOT_ANTHROPIC_THINKING`: `disabled`, `adaptive`, or empty to omit).
+  Seen live with Haiku: thinking is on by default on new models, it spent the
+  whole 600-token budget, the reply had no text, and the node fetched a
+  manager. A reply cut off that way now says so in the journal.
+- **The agent sees what is already written down on every turn** — values for
+  ordinary slots, contacts by name only. The phone number was in the record
+  while the exchange still showed "[телефон]", and the model asked a fourth
+  time.
+
 ## [0.14.2] — 2026-10-16
 
 - **A phone number or email the visitor types is written down by the package.**

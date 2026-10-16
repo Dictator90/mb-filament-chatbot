@@ -610,6 +610,12 @@ final class AiAgentStep extends StepType
             $parts[] = __('chatbot::nodes.steps.ai_agent.still_missing', ['fields' => implode(', ', $missing)]);
         }
 
+        $known = $this->known($context);
+
+        if ($known !== []) {
+            $parts[] = __('chatbot::nodes.steps.ai_agent.already_known')."\n".implode("\n", $known);
+        }
+
         if ($summary !== null) {
             $parts[] = __('chatbot::nodes.steps.ai_agent.summary_header')."\n".$summary;
         }
@@ -648,6 +654,38 @@ final class AiAgentStep extends StepType
         return $written === []
             ? ''
             : __('chatbot::nodes.steps.ai_agent.contact_captured', ['fields' => implode(', ', $written)]);
+    }
+
+    /**
+     * What is already written down, one line per slot — contacts by name only.
+     *
+     * Seen live: the phone number was in the record, but the exchange still
+     * showed "[телефон]" and the bot's own "номер не дошёл" three times over,
+     * and the model asked for it a fourth time and then fetched a manager. The
+     * exchange is what was said; this is what is known, and the model reads
+     * the two apart. It is also what the summary before an approval should be
+     * written from, rather than from the model's recollection.
+     *
+     * @return list<string>
+     */
+    private function known(StepContext $context): array
+    {
+        $contacts = array_values((array) config('chatbot.ai.agent.contact_slots', ['phone' => 'phone', 'email' => 'email']));
+        $lines = [];
+
+        foreach ($this->chosen($context, 'slots') as $slot) {
+            $value = trim((string) $context->runtime->value($slot));
+
+            if ($value === '') {
+                continue;
+            }
+
+            $lines[] = in_array($slot, $contacts, true)
+                ? '- '.$slot.': '.__('chatbot::nodes.steps.ai_agent.known_hidden')
+                : '- '.$slot.': '.mb_substr($this->redactor->clean($value), 0, 200);
+        }
+
+        return $lines;
     }
 
     /**

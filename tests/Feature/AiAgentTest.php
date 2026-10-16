@@ -297,11 +297,10 @@ it('называет модели незаписанное обязательн�
 
     app(AiAgentStep::class)->run(agentContext($this->conversation, $node, $runtime, 'здравствуйте'));
 
-    Http::assertSent(function ($request): bool {
-        $system = anthropicText($request->data()['system'] ?? '');
-
-        return str_contains($system, 'adults') && ! str_contains($system, 'name');
-    });
+    Http::assertSent(fn ($request): bool => str_contains(
+        anthropicText($request->data()['system'] ?? ''),
+        (string) __('chatbot::nodes.steps.ai_agent.still_missing', ['fields' => 'adults']),
+    ));
 });
 
 /**
@@ -1205,6 +1204,55 @@ it('записывает телефон из сообщения, не показ
 
         return ! str_contains($body, '168-85-75')
             && str_contains(anthropicText($request->data()['system']), (string) __('chatbot::nodes.steps.ai_agent.contact_captured', ['fields' => 'phone']));
+    });
+});
+
+/**
+ * Размышления выключены по умолчанию и названы причиной, если съели ответ.
+ *
+ * На бою Haiku тратил на размышление все 600 токенов, ответ приходил без
+ * единого слова, и узел отдавал разговор менеджеру с причиной «модель
+ * промолчала» — по которой не догадаться, что крутить.
+ */
+it('выключает размышления модели и называет их причиной пустого ответа', function (): void {
+    config()->set('chatbot.ai.drivers.anthropic.thinking', 'disabled');
+
+    $cut = [
+        'content' => [['type' => 'thinking', 'thinking' => '', 'signature' => 'x']],
+        'stop_reason' => 'max_tokens',
+        'usage' => ['input_tokens' => 10, 'output_tokens' => 600],
+    ];
+
+    anthropicReplies([$cut, $cut]);
+
+    $result = app(AiAgentStep::class)->run(agentContext($this->conversation, agentNode(['search' => false]), $this->runtime, 'привет'));
+
+    expect($result->trace['reason'])->toContain('max_tokens');
+
+    Http::assertSent(fn ($request): bool => ($request->data()['thinking'] ?? null) === ['type' => 'disabled']);
+});
+
+/**
+ * Записанное видно модели на каждом ходу, контакты — без значений.
+ *
+ * На бою телефон уже лежал в записи, а переписка трижды показывала «[телефон]»
+ * и «номер не дошёл» — модель попросила его в четвёртый раз и позвала
+ * менеджера.
+ */
+it('показывает модели уже записанное, скрывая контакты', function (): void {
+    anthropicReplies([anthropicSays('Здравствуйте!')]);
+
+    $this->runtime->stored = ['destination' => 'Египет', 'phone' => '+79961688575'];
+
+    app(AiAgentStep::class)->run(agentContext($this->conversation, agentNode(['search' => false, 'slots' => ['destination', 'phone', 'name']]), $this->runtime, 'привет'));
+
+    Http::assertSent(function ($request): bool {
+        $system = anthropicText($request->data()['system']);
+
+        return str_contains($system, '- destination: Египет')
+            && str_contains($system, '- phone: '.__('chatbot::nodes.steps.ai_agent.known_hidden'))
+            && ! str_contains($system, '1688575')
+            && ! str_contains($system, '- name:');
     });
 });
 

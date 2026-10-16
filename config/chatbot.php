@@ -413,6 +413,16 @@ return [
                  * не менял. Вписанное сюда число по-прежнему отправляется.
                  */
                 'max_tokens' => 600,
+                /*
+                 * «disabled», «adaptive» или пусто — не отправлять поле.
+                 *
+                 * У новых моделей размышления включены по умолчанию и тратят
+                 * тот же `max_tokens`, что и ответ. Поймано на бою с Haiku:
+                 * размышление съедало все 600 токенов, ответ приходил без
+                 * единого слова, и узел отдавал разговор менеджеру. Для чата
+                 * размышления не нужны — и стоят как исходящие токены.
+                 */
+                'thinking' => env('CHATBOT_ANTHROPIC_THINKING', 'disabled'),
                 'price_per_million_input' => env('CHATBOT_ANTHROPIC_PRICE_INPUT', 0),
                 'price_per_million_output' => env('CHATBOT_ANTHROPIC_PRICE_OUTPUT', 0),
                 'proxy' => env('CHATBOT_ANTHROPIC_PROXY'),

@@ -243,6 +243,8 @@ return [
             'summary_header' => 'What is already known from this conversation:',
             'still_missing' => 'Not written down yet: :fields. Remember it with the remember tool — without asking again for what the person has already said.',
             'approval_question' => 'Please confirm: «:action»?',
+            'already_known' => 'Already written down — this is fact, even where the exchange hides the value behind a label such as "[phone]". Do not ask for these again; write any summary for the customer from these values:',
+            'known_hidden' => 'written down (value hidden)',
             'contact_captured' => 'Already written down from the customer\'s last message: :fields. In the exchange the value is hidden behind a label such as "[phone]" — that is data protection, not an error. Do not ask again and do not tell the customer it did not come through.',
             'summary_instruction' => 'You keep a short memory of a conversation with a customer. From the previous summary and the new lines, write a single summary of three to five lines: who this person is, what they want, what they have already been told or promised, and any dates and names given. Facts from the conversation only — no guesses and no pleasantries. Answer in the language of the conversation.',
             'summary_known' => 'Previous summary:',

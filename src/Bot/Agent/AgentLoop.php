@@ -121,7 +121,7 @@ final class AgentLoop
 
                 return $interim !== '' || $pending !== null
                     ? $this->answered($pending, $interim, $usage, $did, $round)
-                    : AgentOutcome::failed('The model answered with nothing.', $usage, $did, $round);
+                    : AgentOutcome::failed($reply->ok() ? 'The model answered with nothing.' : ($reply->error() ?? 'The model answered with nothing.'), $usage, $did, $round);
             }
 
             if (! $reply->ok()) {

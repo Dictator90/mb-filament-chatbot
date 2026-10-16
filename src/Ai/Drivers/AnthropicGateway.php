@@ -163,7 +163,7 @@ final class AnthropicGateway implements AiConversationGateway
             $payload['temperature'] = $turn->temperature;
         }
 
-        return $payload;
+        return $this->withThinking($payload);
     }
 
     /**
@@ -313,6 +313,10 @@ final class AnthropicGateway implements AiConversationGateway
             return AiReply::calling($calls, $text, $usage);
         }
 
+        if ($text === '' && ($body['stop_reason'] ?? '') === 'max_tokens') {
+            return AiReply::declined(AiFailure::Unparseable, 'The answer ran out of max_tokens before any text — thinking used the budget. Raise max_tokens or set thinking to "disabled".', $usage);
+        }
+
         return $text === ''
             ? AiReply::declined(AiFailure::Unparseable, 'The provider answered with an empty message.', $usage)
             : AiReply::answered($text, [], $usage);
@@ -344,6 +348,29 @@ final class AnthropicGateway implements AiConversationGateway
 
         if ($temperature !== null) {
             $payload['temperature'] = $temperature;
+        }
+
+        return $this->withThinking($payload);
+    }
+
+    /**
+     * Размышления — только если их назвали в настройках.
+     *
+     * У новых моделей они включены по умолчанию и тратят тот же `max_tokens`,
+     * что и ответ. Поймано на бою с Haiku: размышление съедало все 600
+     * токенов, ответ приходил без единого слова, и узел отдавал разговор
+     * менеджеру. «disabled» выключает их, «adaptive» включает явно, пусто —
+     * поле не отправляется вовсе, как прежде.
+     *
+     * @param  array<string, mixed>  $payload
+     * @return array<string, mixed>
+     */
+    private function withThinking(array $payload): array
+    {
+        $thinking = trim((string) ($this->config['thinking'] ?? ''));
+
+        if ($thinking !== '') {
+            $payload['thinking'] = ['type' => $thinking];
         }
 
         return $payload;
