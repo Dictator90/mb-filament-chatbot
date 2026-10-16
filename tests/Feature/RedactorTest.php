@@ -32,15 +32,15 @@ it('replaces personal data rather than deleting it', function (string $said, str
 })->with([
     'a phone number written the way people write it' => [
         'Call me on 8 949 415-74-04 after six',
-        'Call me on [phone] after six',
+        'Call me on [phone received, hidden by the system] after six',
     ],
     'a landline without a country code' => [
         'Our number is 4956871234, do ring',
-        'Our number is [phone], do ring',
+        'Our number is [phone received, hidden by the system], do ring',
     ],
     'an e-mail address' => [
         'Send the contract to ivan.petrov+crm@example.co.uk please',
-        'Send the contract to [email] please',
+        'Send the contract to [email received, hidden by the system] please',
     ],
     /*
      * A ten-digit passport is phone-shaped, and the phone rule reaches it
@@ -51,11 +51,11 @@ it('replaces personal data rather than deleting it', function (string $said, str
      */
     'a passport, under whichever label' => [
         'Do you need passport 4510123456?',
-        'Do you need passport [phone]?',
+        'Do you need passport [phone received, hidden by the system]?',
     ],
     'a short reference nothing else claims' => [
         'The receipt says 4510123',
-        'The receipt says [number]',
+        'The receipt says [number hidden by the system]',
     ],
     'a year survives, because that is what people write about' => [
         'We want to travel in 2026',
@@ -76,7 +76,7 @@ it('speaks the placeholder in the language of the conversation', function (): vo
     app()->setLocale('ru');
 
     expect((new Redactor)->clean('Позвоните на 8 949 415-74-04'))
-        ->toBe('Позвоните на [телефон]');
+        ->toBe('Позвоните на [телефон получен, скрыт системой]');
 });
 
 /**
@@ -101,7 +101,7 @@ it('lets the host name its own shapes, and reads them first', function (): void 
 it('ignores a pattern that is not one instead of failing the answer', function (): void {
     config()->set('chatbot.ai.redact.patterns', ['not a regex at all' => '[x]']);
 
-    expect((new Redactor)->clean('The receipt says 4510123'))->toBe('The receipt says [number]');
+    expect((new Redactor)->clean('The receipt says 4510123'))->toBe('The receipt says [number hidden by the system]');
 });
 
 /**
@@ -161,7 +161,7 @@ it('sends the model the cleaned question and not the visitor\'s own words', func
     Http::assertSent(function (Request $request): bool {
         $sent = json_encode($request->data(), JSON_UNESCAPED_UNICODE);
 
-        expect($sent)->toContain('[phone]')
+        expect($sent)->toContain('[phone received, hidden by the system]')
             ->and($sent)->not->toContain('415-74-04');
 
         return true;
@@ -204,7 +204,7 @@ it('cleans the message the scenario router sends as well', function (): void {
     Http::assertSent(function (Request $request): bool {
         $sent = json_encode($request->data(), JSON_UNESCAPED_UNICODE);
 
-        expect($sent)->toContain('[phone]')
+        expect($sent)->toContain('[phone received, hidden by the system]')
             ->and($sent)->not->toContain('415-74-04');
 
         return true;

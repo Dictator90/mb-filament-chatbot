@@ -6,6 +6,13 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 this package intends to follow [Semantic Versioning](https://semver.org/) once
 it reaches 1.0.
 
+## [0.14.4] — 2026-10-16
+
+- **Redaction labels say what happened**: «[телефон получен, скрыт системой]»
+  instead of «[телефон]». Seen live: the bare label read to the model as a
+  broken placeholder, and it kept telling the customer the number "did not
+  come through" while the number sat in the record.
+
 ## [0.14.3] — 2026-10-16
 
 - **Anthropic thinking is off by default** (`chatbot.ai.drivers.anthropic.thinking`,

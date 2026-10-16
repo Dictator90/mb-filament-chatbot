@@ -117,9 +117,9 @@ return [
      * tell a redaction from something the visitor typed.
      */
     'redacted' => [
-        'email' => '[email]',
-        'phone' => '[phone]',
-        'number' => '[number]',
+        'email' => '[email received, hidden by the system]',
+        'phone' => '[phone received, hidden by the system]',
+        'number' => '[number hidden by the system]',
     ],
 
     /**
