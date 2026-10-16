@@ -191,6 +191,9 @@ return [
         'max_steps_per_turn' => 40,
         'max_jumps' => 5,
         'handoff_words' => [],
+        // What the bot says before handing over on such a word; null takes the
+        // language file's line, an empty string keeps the bot silent.
+        'handoff_message' => null,
     ],
 
     /*

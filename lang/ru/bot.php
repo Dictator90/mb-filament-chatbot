@@ -13,6 +13,9 @@ return [
      * Whole forms rather than stems, for the reason greetings are: «менеджер»
      * as a stem would also catch «менеджер мне уже всё объяснил, спасибо».
      */
+    /** Said when a visitor asks for a person by word. */
+    'handing_off' => 'Передаю разговор сотруднику — он ответит здесь же.',
+
     /** What people put before their name, longest forms are tried first. */
     'name_lead_ins' => ['меня зовут', 'моё имя', 'мое имя', 'зовут меня', 'зовут', 'это', 'я'],
 

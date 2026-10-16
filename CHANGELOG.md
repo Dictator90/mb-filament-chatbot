@@ -30,6 +30,11 @@ in. The package is meant for any Filament application.
   instruction no longer gets English replies; journal reasons stay English.
 - `chatbot.channels.telegram.upload_timeout` is declared in config; it was read
   but never defined.
+- **Asking for a person by word gets a reply.** The handover used to be silent;
+  once «менеджер» started to count, a scenario's own "Позвать менеджера" button
+  went straight to a person with no reply at all. The line comes from
+  `chatbot::bot.handing_off`, `chatbot.bot.handoff_message` overrides it, and an
+  empty string keeps the old silence.
 
 ## [0.12.3] — 2026-10-16
 

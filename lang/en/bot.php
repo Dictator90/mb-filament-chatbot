@@ -20,6 +20,9 @@ return [
      */
     'handoff_words' => ['operator', 'human', 'manager', 'agent', 'real person'],
 
+    /** Said when a visitor asks for a person by word. */
+    'handing_off' => 'Passing you to a person — they will reply right here.',
+
     /** What people put before their name; longest forms are tried first. */
     'name_lead_ins' => ['my name is', "i'm", 'i am', "it's", 'this is', 'call me'],
 

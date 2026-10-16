@@ -277,8 +277,13 @@ it('hands over immediately when the visitor asks for a human', function (): void
 
     visitorSays($this->conversation, 'let me talk to a human please');
 
+    /*
+     * One line, and not the scenario's: the greeting never runs. The line used
+     * to be missing altogether, and asking for a person was answered with
+     * silence.
+     */
     expect($this->conversation->refresh()->bot_state)->toBe(BotState::HandedOff)
-        ->and(botSaid($this->conversation))->toBe([]);
+        ->and(botSaid($this->conversation))->toBe([__('chatbot::bot.handing_off')]);
 });
 
 /**

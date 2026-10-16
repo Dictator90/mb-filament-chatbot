@@ -10,6 +10,8 @@ use MB\FilamentChatbot\Bot\Variables\Variables;
 use MB\FilamentChatbot\Chat\OperatorBell;
 use MB\FilamentChatbot\Enums\BotState;
 use MB\FilamentChatbot\Enums\ConversationStatus;
+use MB\FilamentChatbot\Enums\MessageAuthor;
+use MB\FilamentChatbot\Enums\MessageDirection;
 use MB\FilamentChatbot\Enums\RunOutcome;
 use MB\FilamentChatbot\Jobs\ContinueScenario;
 use MB\FilamentChatbot\Models\Conversation;
@@ -70,6 +72,7 @@ class BotEngine
         $said = (string) $incoming->body;
 
         if ($this->asksForHuman($said)) {
+            $this->sayHandingOff($conversation);
             $this->handOff($conversation);
 
             return true;
@@ -467,6 +470,36 @@ class BotEngine
      * already decided the bot is not helping, and walking them through three
      * more nodes first confirms it.
      */
+    /**
+     * One line before going quiet, so asking for a person is not answered with
+     * silence.
+     *
+     * The handover by word used to say nothing at all. On English installations
+     * nobody noticed; once «менеджер» started to count, pressing a scenario's
+     * own "Позвать менеджера" button went straight to a person with no reply,
+     * where the scenario's handoff node used to say "Передаю менеджеру". The
+     * wording is the host's to choose (`chatbot.bot.handoff_message`), and an
+     * empty one keeps the old silence for whoever wants it.
+     */
+    protected function sayHandingOff(Conversation $conversation): void
+    {
+        $configured = config('chatbot.bot.handoff_message');
+        $text = trim((string) ($configured ?? __('chatbot::bot.handing_off')));
+
+        if ($text === '') {
+            return;
+        }
+
+        Message::create([
+            'conversation_id' => $conversation->getKey(),
+            'direction' => MessageDirection::Outgoing,
+            'author' => MessageAuthor::Bot,
+            'body' => $text,
+        ]);
+
+        $conversation->forceFill(['last_message_at' => now()])->save();
+    }
+
     protected function asksForHuman(?string $said): bool
     {
         $said = mb_strtolower(trim((string) $said));
