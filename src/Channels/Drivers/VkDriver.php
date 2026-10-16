@@ -77,30 +77,30 @@ final class VkDriver implements ChannelDriver, ChannelSetup
     {
         return [
             'token' => [
-                'label' => 'Community access token',
+                'label' => __('chatbot::panel.channel_fields.vk.token.label'),
                 'secret' => true,
                 'required' => true,
-                'hint' => 'Community settings → API usage → Access tokens, with permission for community messages.',
+                'hint' => __('chatbot::panel.channel_fields.vk.token.hint'),
             ],
             'secret' => [
-                'label' => 'Secret key',
+                'label' => __('chatbot::panel.channel_fields.vk.secret.label'),
                 'secret' => true,
                 'required' => true,
-                'hint' => 'The Callback API secret key. VK sends it inside every event, and it is what proves the event came from VK.',
+                'hint' => __('chatbot::panel.channel_fields.vk.secret.hint'),
             ],
             'confirmation' => [
-                'label' => 'Confirmation string',
+                'label' => __('chatbot::panel.channel_fields.vk.confirmation.label'),
                 'required' => true,
-                'hint' => 'Copied from the community: the string the server must return while the address is being confirmed.',
+                'hint' => __('chatbot::panel.channel_fields.vk.confirmation.hint'),
             ],
             'group_id' => [
-                'label' => 'Community id',
-                'hint' => 'Optional. Digits only. When set, events claiming to come from another community are refused.',
+                'label' => __('chatbot::panel.channel_fields.vk.group_id.label'),
+                'hint' => __('chatbot::panel.channel_fields.vk.group_id.hint'),
             ],
             'proxy' => [
-                'label' => 'Proxy',
+                'label' => __('chatbot::panel.channel_fields.proxy.label'),
                 'secret' => true,
-                'hint' => 'Optional, e.g. socks5://127.0.0.1:1080. Applies only to calls this application makes; the event arrives the other way.',
+                'hint' => __('chatbot::panel.channel_fields.proxy.hint'),
             ],
         ];
     }

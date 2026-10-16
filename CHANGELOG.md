@@ -6,6 +6,23 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 this package intends to follow [Semantic Versioning](https://semver.org/) once
 it reaches 1.0.
 
+## [0.13.2] — 2026-10-16
+
+The rest of the audit.
+
+- **Messenger connection fields are translated.** Labels and hints of the
+  Telegram, VK and MAX credentials were English strings in the drivers, shown
+  as such in a Russian panel; they live in `chatbot::panel.channel_fields` now.
+- **«Сегодня», «завтра», «послезавтра» are dates.** Only "today" and
+  "tomorrow" were understood. The words are in `chatbot::bot.relative_days`,
+  merged with English.
+- **The order of a slashed date is a setting.** "01/08" is the first of August
+  almost everywhere and January the eighth in the United States;
+  `chatbot.slots.date_order` (`dmy` by default, or `mdy`) decides. Dotted dates
+  are day-first regardless.
+- **Placeholders and hints no longer speak of tours and bookings.** Examples
+  such as `trip_city`, `booking_status` and «число туристов» became neutral.
+
 ## [0.13.0] — 2026-10-16
 
 An audit for things that only made sense for the one host this package grew up

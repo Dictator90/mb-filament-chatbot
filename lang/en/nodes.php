@@ -337,7 +337,7 @@ return [
                 ],
                 'into' => [
                     'label' => 'Remember them as',
-                    'hint' => 'One variable per value, named trip_adults, trip_city and so on.',
+                    'hint' => 'One variable per value, named request_guests, request_city and so on.',
                 ],
                 'provider' => [
                     'label' => 'Model',
@@ -363,8 +363,8 @@ return [
                 'limit' => ['label' => 'How many records'],
                 'into' => [
                     'label' => 'Remember the result as',
-                    'placeholder' => 'booking',
-                    'hint' => 'One variable per field of the record, named booking_status, booking_total and so on.',
+                    'placeholder' => 'order',
+                    'hint' => 'One variable per field of the record, named order_status, order_total and so on.',
                 ],
             ],
             'issues' => [
@@ -391,8 +391,8 @@ return [
                 ],
                 'into' => [
                     'label' => 'Remember the pick as',
-                    'placeholder' => 'booking',
-                    'hint' => 'One variable per field of the chosen record, named booking_status and so on.',
+                    'placeholder' => 'order',
+                    'hint' => 'One variable per field of the chosen record, named order_status and so on.',
                 ],
                 'none_label' => ['label' => 'The last option'],
             ],
@@ -598,11 +598,11 @@ return [
                 ],
                 'item' => [
                     'label' => 'Remember each entry as',
-                    'placeholder' => 'booking_line',
+                    'placeholder' => 'order_line',
                 ],
                 'index' => [
                     'label' => 'Remember its number as',
-                    'placeholder' => 'booking_number',
+                    'placeholder' => 'order_number',
                 ],
                 'max_items' => [
                     'label' => 'Never more than',

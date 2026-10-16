@@ -19,6 +19,13 @@ return [
     /** What people put before their name, longest forms are tried first. */
     'name_lead_ins' => ['меня зовут', 'моё имя', 'мое имя', 'зовут меня', 'зовут', 'это', 'я'],
 
+    /** Days counted from today. */
+    'relative_days' => [
+        'today' => ['сегодня'],
+        'tomorrow' => ['завтра'],
+        'day_after_tomorrow' => ['послезавтра'],
+    ],
+
     /** Words that join the two ends of a range: «10 до 20», «с 1 по 5». */
     'range_words' => ['до', 'по'],
 

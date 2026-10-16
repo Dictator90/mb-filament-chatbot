@@ -72,21 +72,21 @@ final class MaxDriver implements ChannelDriver, ChannelSetup
     {
         return [
             'token' => [
-                'label' => 'Bot token',
+                'label' => __('chatbot::panel.channel_fields.max.token.label'),
                 'secret' => true,
                 'required' => true,
-                'hint' => 'From the MAX developer cabinet. Sent in the Authorization header; the API no longer accepts it in the query string.',
+                'hint' => __('chatbot::panel.channel_fields.max.token.hint'),
             ],
             'secret' => [
-                'label' => 'Webhook secret',
+                'label' => __('chatbot::panel.channel_fields.max.secret.label'),
                 'secret' => true,
                 'required' => true,
-                'hint' => 'Five to 256 letters, digits or hyphens. MAX returns it in the X-Max-Bot-Api-Secret header with every update.',
+                'hint' => __('chatbot::panel.channel_fields.max.secret.hint'),
             ],
             'proxy' => [
-                'label' => 'Proxy',
+                'label' => __('chatbot::panel.channel_fields.proxy.label'),
                 'secret' => true,
-                'hint' => 'Optional, e.g. socks5://127.0.0.1:1080. Applies only to calls this application makes; the webhook arrives the other way.',
+                'hint' => __('chatbot::panel.channel_fields.proxy.hint'),
             ],
         ];
     }

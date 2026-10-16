@@ -63,16 +63,6 @@ class SlotParser
         'ten' => 10,
     ];
 
-    /**
-     * Words that separate the two ends of a range.
-     *
-     * A bare hyphen is deliberately absent: it is also the separator inside an
-     * ISO date, and splitting "2026-05-10 to 2026-05-17" on it would yield six
-     * numbers instead of two dates. Ranges are found by looking for two date
-     * tokens instead of by cutting the sentence in half.
-     */
-    private const DATE_TOKEN_PATTERN = '/\d{4}-\d{1,2}-\d{1,2}|\d{1,2}[.\/]\d{1,2}(?:[.\/]\d{2,4})?|today|tomorrow/iu';
-
     public function parse(Slot $slot, ?string $answer): SlotValue
     {
         $raw = $answer ?? '';
@@ -539,6 +529,52 @@ class SlotParser
         return array_values(array_unique($words));
     }
 
+    /**
+     * "Today", "tomorrow" and their kin, mapped to days from now, in the
+     * current language merged with English. Only English was understood
+     * before, so «завтра» to a Russian bot was a re-ask.
+     *
+     * @return array<string, int>
+     */
+    private function relativeDays(): array
+    {
+        $offsets = ['today' => 0, 'tomorrow' => 1, 'day_after_tomorrow' => 2];
+        $days = [];
+
+        foreach (['en', null] as $locale) {
+            $groups = __('chatbot::bot.relative_days', [], $locale);
+
+            foreach (is_array($groups) ? $groups : [] as $name => $words) {
+                if (! isset($offsets[$name])) {
+                    continue;
+                }
+
+                foreach ((array) $words as $word) {
+                    $days[mb_strtolower(trim((string) $word))] = $offsets[$name];
+                }
+            }
+        }
+
+        unset($days['']);
+
+        return $days;
+    }
+
+    /**
+     * What counts as one date inside a sentence, relative days included.
+     *
+     * A bare hyphen is deliberately absent: it is also the separator inside an
+     * ISO date, and splitting "2026-05-10 to 2026-05-17" on it would yield six
+     * numbers instead of two dates. Ranges are found by looking for two date
+     * tokens instead of by cutting the sentence in half.
+     */
+    private function dateTokenPattern(): string
+    {
+        $words = array_map(static fn (string $word): string => preg_quote($word, '/'), array_keys($this->relativeDays()));
+
+        return '/\d{4}-\d{1,2}-\d{1,2}|\d{1,2}[.\/]\d{1,2}(?:[.\/]\d{2,4})?'.($words === [] ? '' : '|'.implode('|', $words)).'/iu';
+    }
+
     private function monthPatterns(): array
     {
         $patterns = array_fill(0, 12, []);
@@ -574,24 +610,30 @@ class SlotParser
         $text = mb_strtolower(trim($raw));
         $today = CarbonImmutable::today();
 
-        if ($text === 'today') {
-            return $today;
-        }
+        $relative = $this->relativeDays();
 
-        if ($text === 'tomorrow') {
-            return $today->addDay();
+        if (array_key_exists($text, $relative)) {
+            return $today->addDays($relative[$text]);
         }
 
         if (preg_match('/(\d{4})-(\d{1,2})-(\d{1,2})/', $text, $match) === 1) {
             return $this->makeDate((int) $match[3], (int) $match[2], (int) $match[1]);
         }
 
-        if (preg_match('/(\d{1,2})[.\/](\d{1,2})(?:[.\/](\d{2,4}))?/', $text, $match) === 1) {
-            $day = (int) $match[1];
-            $month = (int) $match[2];
+        if (preg_match('/(\d{1,2})([.\/])(\d{1,2})(?:[.\/](\d{2,4}))?/', $text, $match) === 1) {
+            /*
+             * A slash means month first only where the host says so: "01/08"
+             * is the first of August in most of the world and January the
+             * eighth in the United States, and guessing either is wrong for
+             * the other half. A dot is day first everywhere.
+             */
+            $monthFirst = $match[2] === '/' && config('chatbot.slots.date_order', 'dmy') === 'mdy';
+            $day = (int) ($monthFirst ? $match[3] : $match[1]);
+            $month = (int) ($monthFirst ? $match[1] : $match[3]);
+            $yearText = $match[4] ?? '';
 
-            if (($match[3] ?? '') !== '') {
-                $year = (int) $match[3];
+            if ($yearText !== '') {
+                $year = (int) $yearText;
 
                 return $this->makeDate($day, $month, $year < 100 ? 2000 + $year : $year);
             }
@@ -650,7 +692,7 @@ class SlotParser
      */
     private function parseDateRange(string $raw): SlotValue
     {
-        if (preg_match_all(self::DATE_TOKEN_PATTERN, $raw, $matches) === false) {
+        if (preg_match_all($this->dateTokenPattern(), $raw, $matches) === false) {
             return SlotValue::missed($raw);
         }
 

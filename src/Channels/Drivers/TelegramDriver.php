@@ -90,21 +90,21 @@ final class TelegramDriver implements ChannelDriver, ChannelPolling, ChannelSetu
     {
         return [
             'token' => [
-                'label' => 'Bot token',
+                'label' => __('chatbot::panel.channel_fields.telegram.token.label'),
                 'secret' => true,
                 'required' => true,
-                'hint' => 'From @BotFather, in the form 123456:ABC-DEF.',
+                'hint' => __('chatbot::panel.channel_fields.telegram.token.hint'),
             ],
             'secret' => [
-                'label' => 'Webhook secret',
+                'label' => __('chatbot::panel.channel_fields.telegram.secret.label'),
                 'secret' => true,
                 'required' => true,
-                'hint' => 'Any random string. Telegram returns it with every update, and it is the whole of what tells Telegram apart from a stranger who found the address.',
+                'hint' => __('chatbot::panel.channel_fields.telegram.secret.hint'),
             ],
             'proxy' => [
-                'label' => 'Proxy',
+                'label' => __('chatbot::panel.channel_fields.proxy.label'),
                 'secret' => true,
-                'hint' => 'Optional, e.g. socks5://127.0.0.1:1080. For networks that cannot reach the Bot API at all — the symptom is a ten-second silence rather than a refusal. Applies only to calls this application makes; the webhook arrives the other way.',
+                'hint' => __('chatbot::panel.channel_fields.telegram.proxy_hint'),
             ],
         ];
     }

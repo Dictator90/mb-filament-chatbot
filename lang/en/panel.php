@@ -14,6 +14,31 @@ declare(strict_types=1);
 return [
 
     /**
+     * Connection fields of each messenger, as the bot screen draws them.
+     */
+    'channel_fields' => [
+        'proxy' => [
+            'label' => 'Proxy',
+            'hint' => 'Optional, e.g. socks5://127.0.0.1:1080. Applies only to calls this application makes; incoming events arrive the other way.',
+        ],
+        'telegram' => [
+            'token' => ['label' => 'Bot token', 'hint' => 'From @BotFather, in the form 123456:ABC-DEF.'],
+            'secret' => ['label' => 'Webhook secret', 'hint' => 'Any random string. Telegram returns it with every update, and it is the whole of what tells Telegram apart from a stranger who found the address.'],
+            'proxy_hint' => 'Optional, e.g. socks5://127.0.0.1:1080. For networks that cannot reach the Bot API at all — the symptom is a ten-second silence rather than a refusal. Applies only to calls this application makes; the webhook arrives the other way.',
+        ],
+        'max' => [
+            'token' => ['label' => 'Bot token', 'hint' => 'From the MAX developer cabinet. Sent in the Authorization header; the API no longer accepts it in the query string.'],
+            'secret' => ['label' => 'Webhook secret', 'hint' => 'Five to 256 letters, digits or hyphens. MAX returns it in the X-Max-Bot-Api-Secret header with every update.'],
+        ],
+        'vk' => [
+            'token' => ['label' => 'Community access token', 'hint' => 'Community settings → API usage → Access tokens, with permission for community messages.'],
+            'secret' => ['label' => 'Secret key', 'hint' => 'The Callback API secret key. VK sends it inside every event, and it is what proves the event came from VK.'],
+            'confirmation' => ['label' => 'Confirmation string', 'hint' => 'Copied from the community: the string the server must return while the address is being confirmed.'],
+            'group_id' => ['label' => 'Community id', 'hint' => 'Optional. Digits only. When set, events claiming to come from another community are refused.'],
+        ],
+    ],
+
+    /**
      * The column names, in one map rather than beside each field.
      *
      * Filament names an unlabelled field after its column — "Is active",
@@ -496,7 +521,7 @@ return [
             'column' => 'Column',
             'relation' => 'Through a relation',
             'relation_none' => 'A column of this model',
-            'relation_help' => 'For a table with no owner column of its own — a booking belongs to a customer through its order. Readable but not writable: a write addresses one row by key and has nowhere to put a condition about another table.',
+            'relation_help' => 'For a table with no owner column of its own — an order line belongs to a customer through its order. Readable but not writable: a write addresses one row by key and has nowhere to put a condition about another table.',
             'source_help' => 'actor.*, tenant.* or conversation.*. An unresolvable source refuses the query.',
         ],
         'table' => [
@@ -547,7 +572,7 @@ return [
             'contact_type' => 'Who they are here',
             'contact_type_help' => 'The record\'s name in the application\'s morph map — "client", "customer", "patient". Empty means a stranger.',
             'contact_id' => 'Record number',
-            'contact_id_help' => 'A row the application keeps for checks: a demo customer, a fixture. Their orders, bookings and everything a data resource returns come with it.',
+            'contact_id_help' => 'A row the application keeps for checks: a demo customer, a fixture. Their orders and everything a data resource returns come with it.',
             'variables' => 'Known already',
             'variable_name' => 'Name',
             'variable_value' => 'Value',

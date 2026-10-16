@@ -26,6 +26,13 @@ return [
     /** What people put before their name; longest forms are tried first. */
     'name_lead_ins' => ['my name is', "i'm", 'i am', "it's", 'this is', 'call me'],
 
+    /** Days counted from today. */
+    'relative_days' => [
+        'today' => ['today'],
+        'tomorrow' => ['tomorrow'],
+        'day_after_tomorrow' => ['day after tomorrow'],
+    ],
+
     /** Words that join the two ends of a range: "10 to 20". */
     'range_words' => ['to', 'until'],
 

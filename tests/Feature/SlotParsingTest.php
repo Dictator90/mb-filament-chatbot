@@ -144,6 +144,41 @@ it('sends a date with no year forwards, never into the past', function (): void 
 });
 
 /**
+ * «Завтра» по-русски — тоже дата. Понимались только today и tomorrow, и на
+ * русский ответ «завтра» бот переспрашивал.
+ */
+it('понимает «сегодня» и «завтра» на русском', function (): void {
+    CarbonImmutable::setTestNow('2026-12-15 10:00:00');
+    Carbon::setTestNow('2026-12-15 10:00:00');
+
+    $parser = new SlotParser;
+    $slot = Slot::date('departure');
+
+    expect($parser->parse($slot, 'завтра')->value())->toBe('2026-12-16')
+        ->and($parser->parse($slot, 'послезавтра')->value())->toBe('2026-12-17')
+        ->and($parser->parse($slot, 'tomorrow')->value())->toBe('2026-12-16');
+});
+
+/**
+ * «01/08» — первое августа почти везде и восьмое января в США. Угадывать
+ * нельзя, поэтому порядок задаёт хост; точка — всегда день первым.
+ */
+it('читает дату через косую черту в порядке, заданном установкой', function (): void {
+    CarbonImmutable::setTestNow('2026-12-15 10:00:00');
+    Carbon::setTestNow('2026-12-15 10:00:00');
+
+    $parser = new SlotParser;
+    $slot = Slot::date('departure');
+
+    config()->set('chatbot.slots.date_order', 'dmy');
+    expect($parser->parse($slot, '01/08/2027')->value())->toBe('2027-08-01');
+
+    config()->set('chatbot.slots.date_order', 'mdy');
+    expect($parser->parse($slot, '01/08/2027')->value())->toBe('2027-01-08')
+        ->and($parser->parse($slot, '01.08.2027')->value())->toBe('2027-08-01');
+});
+
+/**
  * A range whose end precedes its start breaks every query written against it,
  * and the slip that produces one is a slip of the fingers, not a different
  * request. A single date stays unread: inventing the other end invents a stay.

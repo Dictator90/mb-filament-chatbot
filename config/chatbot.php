@@ -221,6 +221,13 @@ return [
          */
         'phone_trunk_prefixes' => [],
 
+        /*
+         * How a date written with slashes is read: `dmy` takes "01/08" as the
+         * first of August, `mdy` as January the eighth. Dots are day-first
+         * everywhere and are not affected.
+         */
+        'date_order' => 'dmy',
+
         'number_words' => [
             'zero' => 0,
             'one' => 1,
