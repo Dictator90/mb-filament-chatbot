@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use MB\FilamentChatbot\Bot\Steps\StepType;
+use MB\FilamentChatbot\Bot\Steps\Types\AiAgentStep;
 use MB\FilamentChatbot\Bot\Steps\Types\ApprovalStep;
 use MB\FilamentChatbot\Contracts\HasSideEffect;
 use MB\FilamentChatbot\Enums\SideEffect;
@@ -492,6 +493,20 @@ class ScenarioGraph
      */
     protected function writes(?StepType $type, Step $step): bool
     {
+        /*
+         * The agent asks for its own yes. An action needing approval is never
+         * run by the model: the node puts the model's summary to the visitor
+         * with buttons and runs the action only on the answer
+         * ({@see AiAgentStep}). An approval node in front of it would ask the
+         * visitor to agree to a conversation before it had begun — and the
+         * only other way past this check was to keep such actions away from
+         * the agent, which is what made a live agent hand every request to a
+         * second questionnaire.
+         */
+        if ($type instanceof AiAgentStep) {
+            return false;
+        }
+
         if ($type instanceof HasSideEffect) {
             return $type->sideEffect($step) === SideEffect::Write;
         }

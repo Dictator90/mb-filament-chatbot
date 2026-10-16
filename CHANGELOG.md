@@ -6,6 +6,12 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 this package intends to follow [Semantic Versioning](https://semver.org/) once
 it reaches 1.0.
 
+## [0.14.5] — 2026-10-16
+
+- **No approval node is demanded in front of an agent.** The agent asks for its
+  own yes since 0.14.0, and the graph check still marked an agent offered an
+  approval-needing action as a blocking defect.
+
 ## [0.14.4] — 2026-10-16
 
 - **Redaction labels say what happened**: «[телефон получен, скрыт системой]»

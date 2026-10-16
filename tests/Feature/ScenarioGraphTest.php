@@ -464,6 +464,50 @@ it('lets a host action waive the confirmation, and still forces one where it is 
 });
 
 /**
+ * Агент спрашивает «да» сам, и узел подтверждения перед ним не нужен.
+ *
+ * Действие с подтверждением модель не выполняет — пакет показывает её итог
+ * с кнопками и выполняет его по ответу. Требование узла подтверждения перед
+ * агентом заставляло держать такие действия от него подальше, и живой агент
+ * отправлял каждую заявку на вторую анкету. Тот же адрес у обычного узла
+ * действия по-прежнему изъян.
+ */
+it('не требует узла подтверждения перед агентом, который спрашивает сам', function (): void {
+    Chatbot::registerCapability(new CapabilityAction(
+        key: 'test.file_order',
+        version: '1',
+        label: 'Завести заявку',
+        description: 'Заводит заявку.',
+        effect: SideEffect::Write,
+        input: [],
+        requiresApproval: true,
+        handler: static fn (): array => [],
+    ));
+
+    $scenario = Scenario::factory()->create();
+
+    $this->graph->apply($scenario, graphOf(
+        nodes: [
+            ['key' => 'start', 'type' => 'start'],
+            ['key' => 'agent', 'type' => 'ai_agent', 'config' => ['instruction' => 'Веди разговор.', 'tools' => ['test.file_order']]],
+        ],
+        edges: [['from' => 'start', 'slot' => 0, 'to' => 'agent']],
+    ));
+
+    expect(issueKeys($this->graph->issues($scenario->refresh()), ScenarioGraph::BLOCKING))->toBe([]);
+
+    $this->graph->apply($scenario, graphOf(
+        nodes: [
+            ['key' => 'start', 'type' => 'start'],
+            ['key' => 'file', 'type' => 'action', 'config' => ['capability' => 'test.file_order']],
+        ],
+        edges: [['from' => 'start', 'slot' => 0, 'to' => 'file']],
+    ));
+
+    expect(issueKeys($this->graph->issues($scenario->refresh()), ScenarioGraph::BLOCKING))->toBe(['file']);
+});
+
+/**
  * Publishing is refused for any blocking defect, and refusing has to leave
  * nothing behind: a version row written before the check, or a live pointer
  * moved to it, would put the broken scenario in front of customers while the
