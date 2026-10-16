@@ -274,6 +274,33 @@ it('отказывает в передаче, пока не собрано об�
 });
 
 /**
+ * Чего ещё не записано — модель читает каждый ход, а не при попытке передать.
+ *
+ * Сбой увиден живьём: модель произносит значение вслух — «двое взрослых
+ * и дети 5 и 9 лет» — и не записывает его. Она ведь ответила человеку,
+ * значит вопрос для неё закрыт. Отказ в передаче сказал бы ей о пропуске,
+ * но только когда она попробует передать, а модель, продолжающая спрашивать
+ * про пожелания к пляжу, не пробует вовсе.
+ */
+it('называет модели незаписанное обязательное на каждом ходу', function (): void {
+    anthropicReplies([anthropicSays('Сколько человек поедет?')]);
+
+    $node = agentNode(['tools' => [], 'search' => false, 'slots' => ['name', 'adults'], 'requires' => ['name', 'adults']]);
+    $node->next_key = 'дальше';
+
+    $runtime = new RecordingRuntime;
+    $runtime->stored['name'] = 'Максим';
+
+    app(AiAgentStep::class)->run(agentContext($this->conversation, $node, $runtime, 'здравствуйте'));
+
+    Http::assertSent(function ($request): bool {
+        $system = (string) ($request->data()['system'] ?? '');
+
+        return str_contains($system, 'adults') && ! str_contains($system, 'name');
+    });
+});
+
+/**
  * А собранное обязательное передачу разрешает.
  */
 it('передаёт дальше, когда обязательное собрано', function (): void {

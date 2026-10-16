@@ -241,6 +241,7 @@ return [
             'exits' => ['passed on', 'needs a person'],
             'writes' => 'changes data',
             'summary_header' => 'What is already known from this conversation:',
+            'still_missing' => 'Not written down yet: :fields. Remember it with the remember tool — without asking again for what the person has already said.',
             'summary_instruction' => 'You keep a short memory of a conversation with a customer. From the previous summary and the new lines, write a single summary of three to five lines: who this person is, what they want, what they have already been told or promised, and any dates and names given. Facts from the conversation only — no guesses and no pleasantries. Answer in the language of the conversation.',
             'summary_known' => 'Previous summary:',
             'summary_new' => 'New lines:',

@@ -6,6 +6,16 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 this package intends to follow [Semantic Versioning](https://semver.org/) once
 it reaches 1.0.
 
+## [0.11.2] — 2026-10-16
+
+- **The model is told every turn what is still not written down.** Seen live: a
+  model says a value out loud — "двое взрослых и дети 5 и 9 лет" — and never
+  writes it. It has answered the person, so as far as it is concerned the
+  matter is closed. The `pass_on` gate would tell it, but only once it tries to
+  hand over, and a model still happily asking about beach preferences never
+  tries. The line is computed from the runtime each turn, so it is never stale
+  and never names something already written.
+
 ## [0.11.1] — 2026-10-15
 
 - **`requires`: what must be collected before `pass_on` is allowed.** The

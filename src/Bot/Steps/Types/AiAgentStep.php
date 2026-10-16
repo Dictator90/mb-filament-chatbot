@@ -388,17 +388,38 @@ final class AiAgentStep extends StepType
     }
 
     /**
-     * The node's instruction, with what is known from earlier under it.
+     * The node's instruction, with what is known from earlier under it — and
+     * what is still not written down.
      *
      * The summary goes in the instruction rather than into the exchange as a
      * message, because it is not something anybody said: inserted as a visitor
      * line it becomes something the model may quote back, and as a bot line it
      * becomes something the model thinks it already told them.
+     *
+     * **The list of what is still missing is here for a failure seen live.**
+     * A model says a value out loud — "двое взрослых и дети 5 и 9 лет" — and
+     * does not write it: it has answered the person, so as far as it is
+     * concerned the matter is closed. The gate on `pass_on` would tell it, but
+     * only once it tries to hand over, and a model still happily asking about
+     * beach preferences never tries. Computed from the runtime every turn, this
+     * line is never out of date and never a reminder of something already
+     * written — which is what makes it worth the tokens.
      */
     private function instruction(StepContext $context): string
     {
         $parts = [trim($context->filled('instruction'))];
         $summary = $this->memory->summary($context->conversation);
+        $missing = [];
+
+        foreach ($this->chosen($context, 'requires') as $field) {
+            if (trim((string) $context->runtime->value($field)) === '') {
+                $missing[] = $field;
+            }
+        }
+
+        if ($missing !== []) {
+            $parts[] = __('chatbot::nodes.steps.ai_agent.still_missing', ['fields' => implode(', ', $missing)]);
+        }
 
         if ($summary !== null) {
             $parts[] = __('chatbot::nodes.steps.ai_agent.summary_header')."\n".$summary;
