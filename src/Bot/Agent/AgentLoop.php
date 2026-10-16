@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace MB\FilamentChatbot\Bot\Agent;
 
 use MB\FilamentChatbot\Ai\AiConversationGateway;
+use MB\FilamentChatbot\Ai\AiFailure;
 use MB\FilamentChatbot\Ai\AiMessage;
 use MB\FilamentChatbot\Ai\AiToolCall;
 use MB\FilamentChatbot\Ai\AiTurn;
@@ -80,9 +81,38 @@ final class AgentLoop
         $did = [];
         $rounds = max(1, min($rounds, 8));
 
+        $interim = '';
+        $retriedEmpty = false;
+
         for ($round = 1; $round <= $rounds; $round++) {
             $reply = $gateway->converse($turn);
             $usage = $this->add($usage, $reply->usage());
+
+            /*
+             * Пустой ответ после инструментов — не отказ, а заминка модели.
+             *
+             * Живой разговор: модель записала «море», поискала в базе знаний
+             * и вернула пустое сообщение. Узел счёл это сбоем и отдал
+             * разговор менеджеру — человек попросил «подскажи варианты»
+             * и получил «передаю менеджеру». Поэтому: переспросить один раз,
+             * а если снова пусто, но по ходу хода модель уже что-то сказала,
+             * — произнести это. Менеджер — только когда сказать нечего вовсе.
+             */
+            $empty = $reply->ok()
+                ? (! $reply->wantsTools() && trim($reply->text()) === '')
+                : $reply->failure() === AiFailure::Unparseable;
+
+            if ($empty) {
+                if (! $retriedEmpty && $round < $rounds) {
+                    $retriedEmpty = true;
+
+                    continue;
+                }
+
+                return $interim !== ''
+                    ? AgentOutcome::spoke($interim, $usage, $did, $round)
+                    : AgentOutcome::failed('The model answered with nothing.', $usage, $did, $round);
+            }
 
             if (! $reply->ok()) {
                 return AgentOutcome::failed(
@@ -94,11 +124,11 @@ final class AgentLoop
             }
 
             if (! $reply->wantsTools()) {
-                $text = trim($reply->text());
+                return AgentOutcome::spoke(trim($reply->text()), $usage, $did, $round);
+            }
 
-                return $text === ''
-                    ? AgentOutcome::failed('The model answered with nothing.', $usage, $did, $round)
-                    : AgentOutcome::spoke($text, $usage, $did, $round);
+            if (trim($reply->text()) !== '') {
+                $interim = trim($reply->text());
             }
 
             $turn = $turn->with(AiMessage::asking($reply->calls(), $reply->text()));

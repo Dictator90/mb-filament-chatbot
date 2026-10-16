@@ -6,6 +6,15 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 this package intends to follow [Semantic Versioning](https://semver.org/) once
 it reaches 1.0.
 
+## [0.12.3] — 2026-10-16
+
+- **An empty reply after tools is a stumble, not a failure.** Seen live: the
+  model remembered "море", searched the knowledge base and came back with an
+  empty message; the node took its second exit, and a customer who asked
+  "подскажи варианты" was told a manager would answer. The model is now asked
+  once more; if it is empty again but said something earlier in the turn, that
+  is spoken; a person is fetched only when there is nothing to say at all.
+
 ## [0.12.2] — 2026-10-16
 
 - **What the model remembers is parsed the way a form parses it.** Seen live:

@@ -463,6 +463,61 @@ it('разбирает записанное моделью так же, как �
 });
 
 /**
+ * Пустой ответ после инструментов — переспросить, а не звать менеджера.
+ *
+ * Живой разговор: модель записала «море», поискала в базе знаний и вернула
+ * пустое сообщение. Узел счёл это сбоем — человек попросил «подскажи
+ * варианты» и получил «передаю менеджеру».
+ */
+it('переспрашивает модель, вернувшую пустой ответ после инструментов', function (): void {
+    anthropicReplies([
+        anthropicAsks('search_knowledge', ['query' => 'море']),
+        ['content' => [], 'stop_reason' => 'end_turn', 'usage' => ['input_tokens' => 5, 'output_tokens' => 0]],
+        anthropicSays('Могу предложить Турцию или Египет.'),
+    ]);
+
+    app()->instance(KnowledgeSource::class, new AgentKnowledge([
+        ['key' => 'sea', 'title' => 'Море', 'text' => 'Турция и Египет.'],
+    ]));
+
+    $result = app(AiAgentStep::class)->run(agentContext(
+        $this->conversation,
+        agentNode(['tools' => []]),
+        $this->runtime,
+        'подскажи варианты',
+    ));
+
+    expect($result->flow)->toBe(StepFlow::Wait)
+        ->and($this->runtime->said)->toBe(['Могу предложить Турцию или Египет.']);
+});
+
+/**
+ * А если и повтор пуст — сказать то, что модель уже произнесла по ходу хода,
+ * а не уводить человека к менеджеру.
+ */
+it('говорит сказанное по ходу, если модель дважды промолчала', function (): void {
+    anthropicReplies([
+        anthropicAsks('search_knowledge', ['query' => 'море'], text: 'Море — отличный выбор, подберём.'),
+        ['content' => [], 'stop_reason' => 'end_turn', 'usage' => ['input_tokens' => 5, 'output_tokens' => 0]],
+        ['content' => [], 'stop_reason' => 'end_turn', 'usage' => ['input_tokens' => 5, 'output_tokens' => 0]],
+    ]);
+
+    app()->instance(KnowledgeSource::class, new AgentKnowledge([
+        ['key' => 'sea', 'title' => 'Море', 'text' => 'Турция и Египет.'],
+    ]));
+
+    $result = app(AiAgentStep::class)->run(agentContext(
+        $this->conversation,
+        agentNode(['tools' => []]),
+        $this->runtime,
+        'море',
+    ));
+
+    expect($result->flow)->toBe(StepFlow::Wait)
+        ->and($this->runtime->said)->toBe(['Море — отличный выбор, подберём.']);
+});
+
+/**
  * «Нужен человек» — это успех узла и его второй выход, а не сбой.
  *
  * Модель без возможности позвать человека начинает выдумывать: так бот и
